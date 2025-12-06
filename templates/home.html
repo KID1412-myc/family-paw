@@ -429,7 +429,57 @@
 
     <!-- ================= Tab: 萌宠 ================= -->
     <div id="tab-pets" class="{% if current_tab != 'pets' %}d-none{% endif %}">
+        <!-- ================= 归家倒计时卡片 ================= -->
+        {% if my_families %}
+            {% for fam in my_families %}
+                <!-- 只有设置了日期，或者我是当前查看者时显示设置按钮 -->
+                <div class="card-box mb-3 bg-gradient text-white shadow-sm"
+                     style="background: {% if fam.days_left is not none and fam.days_left >= 0 %}linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%){% else %}linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%){% endif %}; border:none;">
 
+                    <div class="p-3 position-relative">
+                        <!-- 设置按钮 (右上角) -->
+                        <button class="btn btn-sm btn-light bg-white bg-opacity-25 border-0 text-white position-absolute top-0 end-0 m-2 rounded-circle"
+                                style="width:32px;height:32px;"
+                                onclick="openReunionModal('{{ fam.id }}', '{{ fam.reunion_name or '' }}', '{{ fam.reunion_date or '' }}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+
+                        <!-- 内容区 -->
+                        {% if fam.days_left is not none %}
+                            <div class="text-center py-2">
+                                {% if fam.days_left > 0 %}
+                                    <div class="small opacity-75 mb-1">{{ fam.reunion_name or '距离团圆还有' }}</div>
+                                    <div class="display-1 fw-bold" style="line-height: 1;">{{ fam.days_left }}</div>
+                                    <div class="small opacity-75 mt-1">天</div>
+                                    <div class="badge bg-white text-danger mt-3 px-3 rounded-pill shadow-sm"
+                                         style="font-weight:800;">
+                                        📅 {{ fam.reunion_date }}
+                                    </div>
+                                {% elif fam.days_left == 0 %}
+                                    <!-- 当天特效 -->
+                                    <div class="display-4 fw-bold mb-2">🎉 今天团圆！</div>
+                                    <div class="small">欢迎回家</div>
+                                {% else %}
+                                    <!-- 过期 -->
+                                    <div class="opacity-50">
+                                        <div class="fs-4 fw-bold">{{ fam.reunion_name }}</div>
+                                        <div class="small">已经过去 {{ fam.days_left|abs }} 天啦</div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <!-- 未设置状态 -->
+                            <div class="text-center py-3" onclick="openReunionModal('{{ fam.id }}', '', '')"
+                                 style="cursor: pointer;">
+                                <i class="far fa-clock fa-2x mb-2 opacity-50"></i>
+                                <div class="fw-bold">设置{{ fam.name }}的团圆倒计时</div>
+                                <small class="opacity-75">给盼头定个日子 📅</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
         <!-- 顶部操作栏 -->
         {% if my_families %}
             <div class="d-flex justify-content-between align-items-center mb-3 px-1">
@@ -691,7 +741,42 @@
             </div>
         </div>
     {% endif %}
+    <!-- 设置倒计时弹窗 -->
+    <div class="modal fade" id="reunionModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">📅 什么时候团圆？</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/set_reunion" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="family_id" id="reunion_fam_id">
 
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">标题</label>
+                            <input type="text" name="reunion_name" id="reunion_name" class="form-control"
+                                   placeholder="例如: 寒假回家 / 爸妈来南京">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small text-muted">目标日期</label>
+                            <input type="date" name="reunion_date" id="reunion_date"
+                                   class="form-control form-control-lg fw-bold text-center">
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary fw-bold">保存设置</button>
+                            <button type="button" class="btn btn-light text-danger" onclick="clearReunionDate()">
+                                清除/取消倒计时
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- ================= Tab: 动态 ================= -->
     <div id="tab-life" class="{% if current_tab != 'life' %}d-none{% endif %}">
 
@@ -1073,7 +1158,7 @@
         });
     }
     // 更新日志逻辑
-     document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         {% if latest_update %}
             const serverVersion = '{{ latest_update.version }}';
             // [核心修改] Key 加上当前用户ID，实现多账号隔离
@@ -1096,6 +1181,23 @@
         const modalEl = document.getElementById('updateModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         modal.hide();
+    }
+
+    // 打开倒计时设置
+    function openReunionModal(fid, name, date) {
+        document.getElementById('reunion_fam_id').value = fid;
+        document.getElementById('reunion_name').value = name;
+        document.getElementById('reunion_date').value = date;
+        new bootstrap.Modal(document.getElementById('reunionModal')).show();
+    }
+
+    // 清除日期 (通过把日期设为空提交)
+    function clearReunionDate() {
+        if (confirm('确定要移除这个倒计时吗？')) {
+            document.getElementById('reunion_date').value = '';
+            // 提交表单
+            document.querySelector('#reunionModal form').submit();
+        }
     }
 
 </script>

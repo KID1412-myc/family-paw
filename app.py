@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.2.1'
+CURRENT_APP_VERSION = '2.3.0'
 
 
 # ================= 配置区域 =================
@@ -352,6 +352,18 @@ def home():
                 if my_family_ids:
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
+                    # [新增] 计算倒计时天数
+                    now_date = datetime.now(timezone(timedelta(hours=8))).date()  # 北京时间
+                    for f in my_families:
+                        f['days_left'] = None  # 初始化
+                        if f.get('reunion_date'):
+                            try:
+                                # 字符串转日期对象
+                                target_date = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
+                                delta = (target_date - now_date).days
+                                f['days_left'] = delta
+                            except:
+                                f['days_left'] = None
     except Exception as e:
         print(f"Profile Fetch Error: {e}")
 
@@ -608,6 +620,31 @@ def delete_moment(mid):
 
 
 # ================= 家庭管理路由 (新增) =================
+@app.route('/set_reunion', methods=['POST'])
+@login_required
+def set_reunion():
+    """设置归家倒计时"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    reunion_name = request.form.get('reunion_name')
+    reunion_date = request.form.get('reunion_date')
+
+    # 如果没填日期，视为“取消/清除”倒计时
+    if not reunion_date:
+        update_data = {'reunion_date': None, 'reunion_name': None}
+        msg = "已取消倒计时"
+    else:
+        update_data = {'reunion_date': reunion_date, 'reunion_name': reunion_name or "团圆"}
+        msg = "倒计时设置成功！"
+
+    try:
+        # RLS 会保证只有成员能改
+        db.table('families').update(update_data).eq('id', family_id).execute()
+        flash(msg, "success")
+    except Exception as e:
+        flash(f"设置失败: {e}", "danger")
+
+    return redirect(url_for('home'))
 
 @app.route('/create_family', methods=['POST'])
 @login_required
