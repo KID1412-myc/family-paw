@@ -56,6 +56,18 @@
             transition: transform 0.2s;
         }
 
+        /* 暖色渐变 (即将回家) */
+        .bg-gradient-warm {
+            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%) !important;
+            color: white !important;
+        }
+
+        /* 冷色渐变 (平时/未设置) */
+        .bg-gradient-cool {
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%) !important;
+            color: white !important;
+        }
+
         /* ================= 萌宠页样式 (Pets Tab) ================= */
         .pet-photo-wrapper {
             position: relative;
@@ -433,9 +445,7 @@
         {% if my_families %}
             {% for fam in my_families %}
                 <!-- 只有设置了日期，或者我是当前查看者时显示设置按钮 -->
-                <div class="card-box mb-3 bg-gradient text-white shadow-sm"
-                     style="background: {% if fam.days_left is not none and fam.days_left >= 0 %}linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%){% else %}linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%){% endif %}; border:none;">
-
+                <div class="card-box mb-3 shadow-sm {% if fam.days_left is not none and fam.days_left >= 0 %}bg-gradient-warm{% else %}bg-gradient-cool{% endif %}">
                     <div class="p-3 position-relative">
                         <!-- 设置按钮 (右上角) -->
                         <button class="btn btn-sm btn-light bg-white bg-opacity-25 border-0 text-white position-absolute top-0 end-0 m-2 rounded-circle"

@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.3.0'
+CURRENT_APP_VERSION = '2.3.1'
 
 
 # ================= 配置区域 =================
