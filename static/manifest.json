@@ -1,0 +1,20 @@
+{
+  "name": "全家亲密圈",
+  "short_name": "萌宠圈",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "icons": [
+    {
+      "src": "/static/icon.png",
+      "sizes": "1127x1127",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

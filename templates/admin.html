@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 视口设置 -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>后台 - 全家亲密圈</title>
+
+    <!-- PWA 核心配置 (加了版本号) -->
+    <link rel="manifest" href="/static/manifest.json?v=2.0.2">
+    <link rel="apple-touch-icon" href="/static/icon.png">
+
+    <!-- iOS 适配 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2c3e50"> <!-- 后台通常用深色主题色 -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 50px;
+        }
+
+        /* 顶部导航 */
+        .navbar-admin {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 选项卡样式 */
+        .nav-pills .nav-link {
+            color: #666;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin-right: 5px;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #2c3e50;
+            color: white;
+        }
+
+        /* 卡片通用样式 */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* 统计数字 */
+        .stat-num {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        /* 原始数据黑框 */
+        .raw-data-box {
+            font-family: monospace;
+            font-size: 11px;
+            background: #222;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            margin-top: 10px;
+            word-break: break-all;
+        }
+
+        /* 表格样式 */
+        .table-custom th {
+            border-top: none;
+            color: #888;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .table-custom td {
+            vertical-align: middle;
+        }
+
+        /* 邀请码样式 */
+        .invite-code {
+            font-family: monospace;
+            font-size: 16px;
+            letter-spacing: 2px;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #495057;
+            border: 1px dashed #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar-admin d-flex justify-content-between align-items-center">
+    <h5 class="mb-0 fw-bold"><i class="fas fa-user-shield me-2"></i>控制台</h5>
+    <a href="/" class="btn btn-sm btn-light text-dark fw-bold rounded-pill px-3">
+        <i class="fas fa-home me-1"></i> 返回前台
+    </a>
+</div>
+
+<div class="container">
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100 justify-content-center">
+                <div class="stat-num text-primary">{{ stats.users }}</div>
+                <div class="small text-muted fw-bold">用户总数</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100 justify-content-center">
+                <div class="stat-num" style="color: #6f42c1;">{{ stats.families }}</div>
+                <div class="small text-muted fw-bold">家庭总数</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100 justify-content-center">
+                <div class="stat-num text-success">{{ stats.pets }}</div>
+                <div class="small text-muted fw-bold">宠物总数</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100 justify-content-center">
+                <div class="stat-num text-warning">{{ stats.storage_mb }} <small class="fs-6">MB</small></div>
+                <div class="small text-muted fw-bold">已用存储</div>
+            </div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <ul class="nav nav-pills mb-4 justify-content-center" id="adminTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button">
+                <i class="fas fa-users me-1"></i> 用户
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="families-tab" data-bs-toggle="tab" data-bs-target="#families" type="button">
+                <i class="fas fa-house-user me-1"></i> 家庭
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="pets-tab" data-bs-toggle="tab" data-bs-target="#pets" type="button">
+                <i class="fas fa-paw me-1"></i> 宠物
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="storage-tab" data-bs-toggle="tab" data-bs-target="#storage" type="button">
+                <i class="fas fa-hdd me-1"></i> 存储
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="updates-tab" data-bs-toggle="tab" data-bs-target="#updates" type="button">
+                <i class="fas fa-bullhorn me-1"></i> 公告
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <div class="tab-pane fade show active" id="users">
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>昵称 / ID</th>
+                            <th>所在家庭</th>
+                            <th>身份</th>
+                            <th class="text-end">管理操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">{{ user.display_name }}</div>
+                                    <small class="text-muted"
+                                           style="font-size:11px; font-family:monospace;">{{ user.id }}</small>
+                                </td>
+                                <td>
+                                    {% if user.family_name %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
+                                                <i class="fas fa-home me-1"></i>{{ user.family_name }}
+                                            </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-25 text-secondary">
+                                                <i class="fas fa-wind me-1"></i>流浪中
+                                            </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.role == 'admin' %}
+                                        <span class="badge bg-warning text-dark border border-warning">管理员</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark border">成员</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1">
+                                        {% if user.id != session['user'] %}
+                                            <a href="/admin/login_as/{{ user.id }}" class="btn btn-sm btn-outline-info"
+                                               title="以该身份登录" onclick="return confirm('确定要切换身份吗？')">
+                                                <i class="fas fa-user-secret"></i>
+                                            </a>
+                                        {% endif %}
+
+                                        {% if user.family_id %}
+                                            <form action="/admin/unbind_family/{{ user.id }}" method="POST"
+                                                  onsubmit="return confirm('确定要把他踢出家庭吗？')" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-warning"
+                                                        title="踢出家庭 (强制解绑)">
+                                                    <i class="fas fa-heart-broken"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+
+                                        <form action="/admin/reset_password/{{ user.id }}" method="POST"
+                                              onsubmit="return confirm('确定重置为 123456？')" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary"
+                                                    title="重置密码">
+                                                <i class="fas fa-key"></i>
+                                            </button>
+                                        </form>
+
+                                        <button class="btn btn-sm btn-outline-dark"
+                                                onclick="toggleRawData('{{ user.id }}')" title="原始数据"><i
+                                                class="fas fa-eye"></i></button>
+
+                                        {% if user.id != session['user'] %}
+                                            <form action="/admin/delete_user/{{ user.id }}" method="POST"
+                                                  onsubmit="return confirm('⚠️ 彻底删除该用户？')" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                        title="彻底删除"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                    <div id="raw-{{ user.id }}" class="raw-data-box text-start mt-2">加载中...</div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="families">
+            <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-2"><i class="fas fa-plus-circle text-primary"></i> 创建新家庭</h6>
+                <form action="/admin/add_family" method="POST" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="text" name="name" class="form-control" placeholder="家庭名称 (如: 幸福一家人)"
+                           required>
+                    <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #6f42c1;">
+                        生成邀请码
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <table class="table table-custom table-hover mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>家庭名称</th>
+                        <th>邀请码</th>
+                        <th>成员概况</th>
+                        <th>创建日期</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for f in families %}
+                        <tr>
+                            <td><strong>{{ f.name }}</strong></td>
+                            <td><span class="invite-code">{{ f.invite_code }}</span></td>
+                            <td>
+                                    <span class="badge bg-secondary" title="{{ f.members_str }}" style="cursor: help;">
+                                        <i class="fas fa-users me-1"></i> {{ f.member_count }} 人
+                                    </span>
+                                {% if f.member_count > 0 %}
+                                    <small class="text-muted ms-1 d-none d-md-inline" style="font-size: 11px;">
+                                        ({{ f.members_str[:10] }}{% if f.members_str|length > 10 %}...{% endif %})
+                                    </small>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ f.created_at[:10] }}</small></td>
+                            <td class="text-end">
+                                <form action="/admin/delete_family/{{ f.id }}" method="POST"
+                                      onsubmit="return confirm('确定解散这个家庭吗？')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash-alt me-1"></i> 解散
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="fas fa-folder-open fa-2x mb-2 d-block opacity-50"></i>
+                                还没有创建任何家庭
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pets">
+            <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-2"><i class="fas fa-plus-circle text-success"></i> 添加新宠物</h6>
+                <form action="/admin/add_pet" method="POST" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="text" name="name" class="form-control" placeholder="宠物名字 (如: 旺财)" required>
+                    <select name="type" class="form-select" style="width: 140px;">
+                        <option value="dog">🐶 狗</option>
+                        <option value="cat">🐱 猫</option>
+                    </select>
+                    <button type="submit" class="btn btn-success px-4 fw-bold">添加</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <table class="table table-custom table-hover mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>名字/类型</th>
+                        <th>所属家庭</th>
+                        <th>监护人 (主人)</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for pet in pets %}
+                        <tr>
+                            <td>
+                                <strong>{{ pet.name }}</strong>
+                                <span class="badge bg-light text-dark border ms-1">{{ pet.type }}</span>
+                            </td>
+                            <td>
+                                {% if '流浪' in pet.family_name %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger">{{ pet.family_name }}</span>
+                                {% else %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">{{ pet.family_name }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ pet.owners_str }}</small>
+                            </td>
+                            <td class="text-end">
+                                <form action="/admin/delete_pet/{{ pet.id }}" method="POST"
+                                      onsubmit="return confirm('确定删除吗？')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="storage">
+            <div class="alert alert-info small d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-hdd me-1"></i>
+                        已用空间: <strong>{{ stats.storage_mb }} MB</strong>
+                        <span class="ms-2 text-muted">(共 {{ stats.file_count }} 个文件)</span>
+                    </span>
+                <button class="btn btn-sm btn-outline-dark bg-white" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i> 刷新列表
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">预览</th>
+                            <th>文件名 / 时间</th>
+                            <th>上传者</th>
+                            <th>大小</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for f in files[:50] %}
+                            <tr>
+                                <td>
+                                    <a href="{{ f.url }}" target="_blank" title="点击看大图">
+                                        <img src="{{ f.url }}"
+                                             style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #eee;">
+                                    </a>
+                                </td>
+
+                                <td>
+                                    <div class="text-truncate" style="max-width: 200px; font-size: 13px;"
+                                         title="{{ f.name }}">
+                                        <a href="{{ f.url }}" target="_blank"
+                                           class="text-decoration-none text-dark">{{ f.name }}</a>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 11px;">
+                                        <i class="far fa-clock me-1"></i>{{ f.created_at_fmt }}
+                                    </small>
+                                </td>
+
+                                <td>
+                                    {% if '无记录' in f.uploader %}
+                                        <span class="badge bg-secondary text-white-50"
+                                              style="font-size: 10px;">未知</span>
+                                    {% else %}
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info"
+                                              style="font-size: 11px;">
+                                                {{ f.uploader.replace('✅ ', '') }}
+                                            </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="text-muted small">{{ f.size_kb }} KB</span>
+                                </td>
+
+                                <td class="text-end">
+                                    <form action="/admin/delete_file" method="POST"
+                                          onsubmit="return confirm('⚠️ 确定删除这张图？\n如果这是一张还在前台显示的图，删了之后会裂图！')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="file_name" value="{{ f.name }}">
+                                        <button class="btn btn-sm btn-outline-danger border-0" title="删除文件">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fas fa-box-open fa-2x mb-3 opacity-25"></i><br>
+                                    存储桶非常干净
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if files|length > 50 %}
+                    <div class="card-footer text-center text-muted small">
+                        仅展示最新的 50 个文件
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="updates">
+            <div class="card p-4 mb-3 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-3"><i class="fas fa-paper-plane text-success me-2"></i>发布新版本通知</h6>
+                <form action="/admin/publish_update" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" name="version" class="form-control" placeholder="版本号 (如 1.2)"
+                                   required>
+                        </div>
+                        <div class="col-md-7">
+                            <textarea name="content" class="form-control" rows="1" placeholder="更新内容 (支持换行)"
+                                      required></textarea>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-center">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_pushed" id="pushSwitch"
+                                       checked>
+                                <label class="form-check-label small" for="pushSwitch">首页弹窗</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 mt-3 fw-bold">发布公告</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                    <tr>
+                        <th>版本</th>
+                        <th>内容</th>
+                        <th>状态</th>
+                        <th>时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for up in updates %}
+                        <tr>
+                            <td><span class="badge bg-dark">{{ up.version }}</span></td>
+                            <td style="white-space: pre-wrap;">{{ up.content }}</td>
+                            <td>
+                                <!-- 状态显示 + 切换按钮 -->
+                                <form action="/admin/toggle_update_status/{{ up.id }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    {% if up.is_pushed %}
+                                        <button type="submit" class="btn badge bg-success border-0" title="点击关闭">推送中
+                                            <i class="fas fa-check-circle"></i></button>
+                                    {% else %}
+                                        <button type="submit" class="btn badge bg-secondary border-0 opacity-50"
+                                                title="点击开启">未推送
+                                        </button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                            <td><small class="text-muted">{{ up.created_at[:10] }}</small></td>
+                            <td>
+                                <form action="/admin/delete_update/{{ up.id }}" method="POST"
+                                      onsubmit="return confirm('确定删除该公告？')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-link text-danger p-0">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 使用 JSON.parse 安全解析后端传来的数据
+    // | tojson 过滤器由 Flask 提供，| safe 防止被 HTML 转义
+    const authData = JSON.parse('{{ auth_users | tojson | safe }}');
+
+    function toggleRawData(uid) {
+        const box = document.getElementById('raw-' + uid);
+
+        // 切换显示/隐藏
+        if (box.style.display === 'block') {
+            box.style.display = 'none';
+        } else {
+            // 查找对应数据
+            const userData = authData.find(u => u.id === uid);
+
+            if (userData) {
+                box.innerText = JSON.stringify(userData, null, 2); // 格式化 JSON
+            } else {
+                box.innerText = "未找到 Auth 元数据 (可能是脏数据或未加载)";
+            }
+            box.style.display = 'block';
+        }
+    }
+</script>
+</body>
+</html>

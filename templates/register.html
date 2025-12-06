@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>加入全家圈</title>
+    <link rel="manifest" href="/static/manifest.json?v=2.0.2">
+    <link rel="apple-touch-icon" href="/static/icon.png">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="萌宠圈">
+
+    <!-- 防止 iOS 识别数字为电话号码 -->
+    <meta name="format-detection" content="telephone=no">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card-custom { width: 100%; max-width: 400px; padding: 30px; border-radius: 20px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.05); background: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card-custom mx-auto">
+        <h3 class="text-center mb-4 fw-bold">🏠 新成员注册</h3>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="mb-3">
+                <label class="form-label">账号 (手机号或邮箱)</label>
+                <input type="text" name="account" class="form-control" placeholder="输入手机号或电子邮箱" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">我是谁 (昵称)</label>
+                <input type="text" name="display_name" class="form-control" placeholder="例如: 妈妈" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">密码</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">家庭暗号</label>
+                <input type="text" name="secret_code" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 btn-lg rounded-pill">注册</button>
+        </form>
+        <div class="text-center mt-3">
+            <a href="/login" class="text-decoration-none">已有账号？去登录</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

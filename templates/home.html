@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 视口设置：适配移动端，禁止缩放，覆盖刘海屏 -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+    <title>全家亲密圈</title>
+
+    <!-- PWA 配置 -->
+    <link rel="manifest" href="/static/manifest.json?v=2.0.2">
+    <link rel="apple-touch-icon" href="/static/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="萌宠圈">
+    <meta name="theme-color" content="#667eea">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- 引入 Bootstrap 5 和 FontAwesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- 引入图片压缩库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+
+    <style>
+        /* ================= 全局基础样式 ================= */
+        body {
+            background-color: #f2f4f7;
+            padding-bottom: 90px; /* 为底部导航栏留出空间 */
+            -webkit-tap-highlight-color: transparent; /* 去除移动端点击高亮 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* 顶部渐变导航栏 */
+        .navbar-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 4px 20px rgba(118, 75, 162, 0.25);
+            /* 适配 iPhone 刘海屏 */
+            padding-top: max(15px, env(safe-area-inset-top));
+        }
+
+        /* 通用白色卡片容器 */
+        .card-box {
+            background: white;
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        /* ================= 萌宠页样式 (Pets Tab) ================= */
+        .pet-photo-wrapper {
+            position: relative;
+            height: 260px;
+            background: #eee;
+            overflow: hidden;
+        }
+
+        .pet-photo-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+
+        /* 点击图片微动效 */
+        .pet-photo-wrapper img:active {
+            transform: scale(1.02);
+        }
+
+        /* 照片右下角上传者标签 */
+        .uploader-badge {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.65);
+            color: white;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            pointer-events: none;
+        }
+
+        /* 右上角删除按钮 */
+        .delete-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .delete-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* 状态徽章 (已喂食/待喂食) */
+        .status-badge {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        /* 虚线上传按钮 */
+        .btn-upload-dashed {
+            border: 2px dashed #dee2e6;
+            color: #6c757d;
+            background: transparent;
+            transition: all 0.2s;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .btn-upload-dashed:active {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+        }
+
+        /* ================= 动态页样式 (Life Tab) ================= */
+        .moment-item {
+            padding: 20px;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .moment-item:last-child {
+            border-bottom: none;
+        }
+
+        /* 动态头部: 头像+名字+时间 */
+        .moment-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .avatar-circle {
+            width: 42px;
+            height: 42px;
+            background: #f0f2f5;
+            color: #764ba2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .moment-user {
+            font-weight: bold;
+            color: #333;
+            font-size: 15px;
+            line-height: 1.2;
+        }
+
+        .moment-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 3px;
+        }
+
+        .moment-content {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .moment-img {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+
+        .moment-delete-btn {
+            color: #dc3545;
+            background: none;
+            border: none;
+            font-size: 14px;
+            margin-left: auto;
+            opacity: 0.6;
+            padding: 8px;
+        }
+
+        .moment-delete-btn:active {
+            opacity: 1;
+        }
+
+        /* ================= 个人中心样式 (Mine Tab) ================= */
+        .my-avatar-container {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 15px;
+        }
+
+        .my-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background: #eee;
+        }
+
+        .avatar-edit-icon {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: #764ba2;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 邀请码盒子 */
+        .invite-code-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            font-family: monospace;
+            letter-spacing: 4px;
+            font-weight: bold;
+            font-size: 24px;
+            border: 2px dashed #ccc;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #333;
+            user-select: all;
+        }
+
+        .invite-code-box:active {
+            background: #e9ecef;
+            border-color: #adb5bd;
+            transform: scale(0.98);
+        }
+
+        /* ================= 底部导航栏 ================= */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            height: 70px;
+            display: flex;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.03);
+            z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #adb5bd;
+            text-decoration: none;
+            font-size: 11px;
+            transition: 0.2s;
+            padding-top: 5px;
+        }
+
+        .nav-item i {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+
+        .nav-item.active {
+            color: #764ba2;
+            font-weight: 600;
+        }
+
+        .nav-item.active i {
+            transform: scale(1.1);
+        }
+
+        /* ================= 辅助组件 ================= */
+        .hidden-input {
+            display: none;
+        }
+
+        .d-none {
+            display: none !important;
+        }
+
+        .w-fit-content {
+            width: fit-content;
+        }
+
+        /* 全屏 Loading */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        /* 图片预览区 */
+        #preview-container {
+            margin-bottom: 10px;
+        }
+
+        .remove-preview {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #333;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 全屏加载动画 -->
+<div id="loading-overlay">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <div class="mt-3 fw-bold text-secondary" style="letter-spacing: 1px;">处理中，请稍候...</div>
+</div>
+
+<!-- 顶部导航栏 -->
+<div class="navbar-custom">
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-3">
+            <div>
+                <h5 class="mb-0 fw-bold">
+                    {% if current_tab == 'mine' %}个人中心{% else %}👋 嗨，{{ user_name }}{% endif %}
+                </h5>
+                {% if current_tab != 'mine' %}
+                    <small style="opacity: 0.8; font-size: 0.85rem;">📅 {{ today }}</small>
+                {% endif %}
+            </div>
+
+            {% if current_role == 'admin' or session.get('is_impersonator') %}
+                <a href="/admin"
+                   class="text-white bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                   style="width: 34px; height: 34px; text-decoration: none;" title="回到管理后台">
+                    <i class="fas fa-cogs"></i>
+                </a>
+            {% endif %}
+        </div>
+
+        {% if current_tab != 'mine' %}
+            <a href="/logout" class="text-white opacity-75 p-2"><i class="fas fa-sign-out-alt fa-lg"></i></a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="container mt-3">
+
+    <!-- Flash 消息提示区 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0 mb-3"
+                     role="alert">
+                    <i class="fas fa-info-circle me-1"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ================= Tab: 萌宠 ================= -->
+    <div id="tab-pets" class="{% if current_tab != 'pets' %}d-none{% endif %}">
+
+        <!-- 顶部操作栏 -->
+        {% if my_families %}
+            <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                <span class="text-muted small">共 {{ pets|length }} 只萌宠</span>
+                <button class="btn btn-sm btn-primary rounded-pill fw-bold shadow-sm" data-bs-toggle="modal"
+                        data-bs-target="#addPetModal">
+                    <i class="fas fa-plus me-1"></i>添新宠
+                </button>
+            </div>
+        {% endif %}
+
+        {% for pet in pets %}
+            <div class="card-box">
+                <!-- 宠物标题栏 -->
+                <div class="p-3 d-flex justify-content-between align-items-center border-bottom border-light">
+                    <h5 class="mb-0 fw-bold d-flex align-items-center">
+                        {% if pet.type == 'dog' %}
+                            <i class="fas fa-dog text-secondary me-2 fa-lg"></i>
+                        {% else %}
+                            <i class="fas fa-cat text-secondary me-2 fa-lg"></i>
+                        {% endif %}
+                        {{ pet.name }}
+                        {% if pet.family_name %}
+                            <span class="badge bg-light text-muted border ms-2 fw-normal"
+                                  style="font-size: 10px;">{{ pet.family_name }}</span>
+                        {% endif %}
+                    </h5>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border">{{ pet.type }}</span>
+                        <!-- 编辑按钮 (仅主人可见) -->
+                        {% if pet.is_owner %}
+                            <button class="btn btn-sm btn-link text-muted p-0"
+                                    onclick="openEditPetModal('{{ pet.id }}', '{{ pet.name }}', '{{ pet.family_id }}')">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- (中间的照片、喂食、遛狗代码保持不变，直接复制原来的即可) -->
+                {% if pet.latest_photo %}
+                    <div class="pet-photo-wrapper">
+                        <img src="{{ pet.latest_photo }}" onclick="window.open(this.src)">
+                        <div class="uploader-badge"><i class="fas fa-camera"></i> {{ pet.photo_uploader }}</div>
+                        {% if pet.latest_user_id == current_user_id %}
+                            <form action="/delete_log/{{ pet.latest_log_id }}" method="POST"
+                                  onsubmit="return confirm('删照片？')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <div class="p-3">
+                    <!-- 喂食区域 -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small fw-bold text-muted">🍚 吃饭了吗？</span>
+                            <span class="badge {% if pet.today_feed %}bg-success text-success bg-opacity-10{% else %}bg-danger text-danger bg-opacity-10{% endif %}">
+                                {% if pet.today_feed %}✅ 已喂食{% else %}⏳ 待喂食{% endif %}
+                            </span>
+                        </div>
+                        {% if not pet.today_feed %}
+                            <form action="/action" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                                <button type="submit" name="action" value="feed"
+                                        class="btn btn-success w-100 fw-bold py-2"><i
+                                        class="fas fa-bone me-1"></i> 喂饭打卡
+                                </button>
+                            </form>
+                        {% else %}
+                            <div class="alert alert-success py-2 px-3 mb-0 small border-0 bg-success bg-opacity-10 text-success">
+                                <i class="fas fa-check-circle me-1"></i> {{ pet.feed_info }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- 遛狗区域 -->
+                    {% if pet.type == 'dog' %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="small fw-bold text-muted">🦮 遛弯了吗？</span>
+                                <span class="badge {% if pet.today_walk %}bg-primary text-primary bg-opacity-10{% else %}bg-warning text-dark bg-opacity-10{% endif %}">
+                                {% if pet.today_walk %}✅ 已遛弯{% else %}⏳ 待遛弯{% endif %}
+                            </span>
+                            </div>
+                            {% if not pet.today_walk %}
+                                <form action="/action" method="POST">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                                    <button type="submit" name="action" value="walk"
+                                            class="btn btn-primary w-100 fw-bold py-2"><i
+                                            class="fas fa-running me-1"></i> 出发遛狗
+                                    </button>
+                                </form>
+                            {% else %}
+                                <div class="alert alert-primary py-2 px-3 mb-0 small border-0 bg-primary bg-opacity-10 text-primary">
+                                    <i class="fas fa-check-circle me-1"></i> {{ pet.walk_info }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- 拍照按钮 -->
+                    <form action="/upload_pet" method="POST" enctype="multipart/form-data" id="petForm-{{ pet.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                        <label class="btn btn-upload-dashed w-100 rounded-3">
+                            <i class="fas fa-camera text-muted me-2"></i> 拍张照
+                            <input type="file" name="photo" class="hidden-input" accept="image/*"
+                                   onchange="handleCompressAndSubmit(this, 'petForm-{{ pet.id }}')">
+                        </label>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-paw fa-3x mb-3 opacity-25"></i>
+                <p>还没有宠物</p>
+                {% if not my_families %}
+                    <small>请先加入家庭</small>
+                {% else %}
+                    <button class="btn btn-primary btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#addPetModal">
+                        添加第一只宠物
+                    </button>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div style="height: 40px;"></div>
+    </div>
+
+    <!-- ============ 放在 body 结束前的弹窗代码 ============ -->
+
+    <!-- 添加宠物弹窗 -->
+    <div class="modal fade" id="addPetModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">🐶 添加新成员</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/create_pet" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">名字</label>
+                            <input type="text" name="name" class="form-control" placeholder="如: 旺财" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">类型</label>
+                            <select name="type" class="form-select">
+                                <option value="dog">🐶 狗狗</option>
+                                <option value="cat">🐱 猫猫</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">归属家庭</label>
+                            <select name="family_id" class="form-select">
+                                {% for f in my_families %}
+                                    <option value="{{ f.id }}">{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 fw-bold rounded-3 py-2">确认添加</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑宠物弹窗 -->
+    <div class="modal fade" id="editPetModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">⚙️ 管理宠物</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <!-- 修改名字部分 -->
+                    <form action="/update_pet" method="POST" class="mb-4 border-bottom pb-4">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="pet_id" id="edit_pet_id">
+
+                        <label class="form-label small text-muted fw-bold">修改资料</label>
+                        <div class="input-group mb-2">
+                            <input type="text" name="name" id="edit_pet_name" class="form-control" required>
+                            <button type="submit" name="action" value="update" class="btn btn-success fw-bold">保存
+                            </button>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" name="action" value="delete"
+                                    class="btn btn-link text-danger text-decoration-none p-0 small"
+                                    onclick="return confirm('⚠️ 确定要删除吗？')">删除此宠物
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 添加共管人部分 -->
+                    <form action="/add_pet_owner" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="pet_id" id="add_owner_pet_id">
+
+                        <label class="form-label small text-muted fw-bold">添加共管主人 (对象/父母)</label>
+                        <div class="input-group">
+                            <select name="new_owner_id" class="form-select">
+                                <option value="" disabled selected>选择家庭成员...</option>
+                                <!-- 遍历所有可见的家庭成员 -->
+                                {% for uid, info in user_map.items() %}
+                                    <!-- 不显示我自己 -->
+                                    {% if uid != current_user_id %}
+                                        <option value="{{ uid }}">{{ info.name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-outline-primary fw-bold">添加</button>
+                        </div>
+                        <div class="form-text small">添加后，他/她也能修改宠物信息。</div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新公告弹窗 -->
+    {% if latest_update %}
+        <div class="modal fade" id="updateModal" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-4 border-0 shadow-lg">
+                    <div class="modal-header border-0 bg-success bg-opacity-10">
+                        <h5 class="modal-title fw-bold text-success">
+                            🚀 新版本 v{{ latest_update.version }}
+                        </h5>
+                        <!-- 这里的关闭按钮有特殊逻辑，见JS -->
+                        <button type="button" class="btn-close"
+                                onclick="closeUpdateModal('{{ latest_update.version }}')"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="fs-6" style="line-height: 1.8;">
+                            {{ latest_update.content | safe }}
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-success w-100 rounded-pill fw-bold"
+                                onclick="closeUpdateModal('{{ latest_update.version }}')">
+                            我知道了
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- ================= Tab: 动态 ================= -->
+    <div id="tab-life" class="{% if current_tab != 'life' %}d-none{% endif %}">
+
+        <!-- 发布框 (修改点：判断 my_families 是否存在) -->
+        {% if my_families %}
+            <div class="card-box p-3 shadow-sm">
+                <form action="/post_moment" method="POST" enctype="multipart/form-data" id="momentForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="mb-2">
+                    <textarea name="content" class="form-control border-0 bg-light rounded-3" rows="3"
+                              placeholder="分享此时此刻... (比如: 刚下课好饿)"
+                              style="resize:none; padding: 12px;"></textarea>
+                    </div>
+                    <!-- 预览区 -->
+                    <div id="preview-container" class="d-none mb-2 position-relative w-fit-content">
+                        <img id="preview-img" src="" style="max-height: 150px; border-radius: 8px;">
+                        <div onclick="clearPreview()"
+                             class="position-absolute top-0 end-0 bg-dark text-white rounded-circle"
+                             style="width:20px;height:20px;line-height:18px;text-align:center;cursor:pointer;margin:-5px;">
+                            ×
+                        </div>
+                    </div>
+                    <!-- 底部按钮 -->
+                    <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                        <label class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                            <i class="fas fa-image me-1"></i> 加图片
+                            <input type="file" name="photo" id="momentPhotoInput" class="hidden-input" accept="image/*"
+                                   onchange="handleCompressAndPreview(this)">
+                        </label>
+                        <button type="submit" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                            <i class="fas fa-paper-plane me-1"></i> 发布
+                        </button>
+                    </div>
+                </form>
+            </div>
+        {% else %}
+            <!-- 如果没加入家庭，显示提示 -->
+            <div class="alert alert-warning text-center small rounded-4 shadow-sm border-0 mb-3">
+                <i class="fas fa-exclamation-circle me-1"></i> 加入家庭后才能发布动态哦
+            </div>
+        {% endif %}
+
+        <!-- 动态列表 -->
+        <div class="card-box">
+            {% for moment in moments %}
+                <div class="moment-item">
+                    <div class="moment-header">
+                        <div class="avatar-circle">
+                            {% if moment.user_avatar %}
+                                <img src="{{ moment.user_avatar }}">
+                            {% else %}
+                                {{ moment.user_name[0] }}
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="moment-user">{{ moment.user_name }}</div>
+                            <div class="moment-time">{{ moment.time_str }}</div>
+                        </div>
+                        {% if moment.user_id == current_user_id %}
+                            <form action="/delete_moment/{{ moment.id }}" method="POST"
+                                  onsubmit="return confirm('确定删除这条动态吗？')" class="ms-auto">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="moment-delete-btn" title="删除"><i
+                                        class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% if moment.content %}
+                        <div class="moment-content">{{ moment.content }}</div>
+                    {% endif %}
+                    {% if moment.image_url %}<img src="{{ moment.image_url }}" class="moment-img shadow-sm"
+                                                  onclick="window.open(this.src)">{% endif %}
+                </div>
+            {% else %}
+                <div class="text-center p-5 text-muted">
+                    <div class="mb-3 opacity-50"><i class="fas fa-seedling fa-3x text-success"></i></div>
+                    <p>还没有动态哦</p>
+                    {% if not my_families %}
+                        <small>快加入家庭，和家人分享生活！</small>
+                    {% else %}
+                        <small>快来发第一条状态，让家人知道你在干嘛！</small>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <div style="height: 40px;"></div>
+    </div>
+
+    <!-- ================= Tab: 个人中心 ================= -->
+    <div id="tab-mine" class="{% if current_tab != 'mine' %}d-none{% endif %}">
+
+        <div class="card-box p-4 text-center">
+            <!-- 头像修改 -->
+            <form action="/update_profile" method="POST" enctype="multipart/form-data" id="avatarForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <label class="my-avatar-container" style="cursor: pointer;">
+                    {% if my_profile.full_avatar_url %}
+                        <img src="{{ my_profile.full_avatar_url }}" class="my-avatar">
+                    {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ user_name }}&background=random" class="my-avatar">
+                    {% endif %}
+                    <div class="avatar-edit-icon"><i class="fas fa-camera"></i></div>
+                    <input type="file" name="avatar" class="hidden-input" accept="image/*"
+                           onchange="handleCompressAndSubmit(this, 'avatarForm')">
+                </label>
+            </form>
+
+            <!-- 昵称修改 -->
+            <form action="/update_profile" method="POST"
+                  class="d-flex justify-content-center align-items-center gap-2 mb-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="text" name="display_name" value="{{ my_profile.display_name }}"
+                       class="form-control form-control-sm text-center fw-bold fs-5"
+                       style="width: 150px; border:none; border-bottom: 1px dashed #ccc; background:transparent; padding:0;"
+                       onblur="this.form.submit()">
+                <i class="fas fa-pen text-muted" style="font-size: 12px;"></i>
+            </form>
+
+            <div class="text-muted small mb-3 opacity-50 font-monospace">ID: {{ my_profile.id|truncate(8, True) }}</div>
+
+            <!-- 家庭状态逻辑 -->
+            <div class="mt-4 text-start">
+                <h6 class="fw-bold mb-3"><i class="fas fa-users me-2 text-primary"></i>我的家庭列表</h6>
+
+                {% if my_families %}
+                    <div class="d-grid gap-3">
+                        {% for fam in my_families %}
+                            <div class="bg-light p-3 rounded-3 border position-relative">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-dark">{{ fam.name }}</span>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">成员</span>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between bg-white p-2 rounded border border-light">
+                                    <div class="text-muted small font-monospace"
+                                         style="letter-spacing:1px;">{{ fam.invite_code }}
+                                    </div>
+                                    <button class="btn btn-sm btn-link text-decoration-none p-0"
+                                            onclick="copyCode(this.previousElementSibling)" style="font-size:12px;">
+                                        复制邀请码
+                                    </button>
+                                </div>
+
+                                <!-- 退出具体某个家庭 -->
+                                <form action="/leave_family" method="POST"
+                                      onsubmit="return confirm('确定要退出 [{{ fam.name }}] 吗？')"
+                                      class="mt-2 text-end">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="family_id" value="{{ fam.id }}">
+                                    <button class="btn btn-sm text-danger p-0" style="font-size: 11px; opacity: 0.7;">
+                                        <i class="fas fa-sign-out-alt me-1"></i>退出此家庭
+                                    </button>
+                                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary small text-center">
+                        你还没有加入任何家庭
+                    </div>
+                {% endif %}
+            </div>
+            <!-- 未加入家庭：显示创建/加入选项 -->
+            <div class="mt-4 text-start bg-white rounded-3 pt-3 border-top">
+                <ul class="nav nav-tabs nav-fill mb-3" id="famTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active fw-bold small" data-bs-toggle="tab" data-bs-target="#joinFam">
+                            加入新家
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold small" data-bs-toggle="tab" data-bs-target="#createFam">
+                            创建新家
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content p-2">
+                    <div class="tab-pane fade show active" id="joinFam">
+                        <form action="/join_family" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="text" name="invite_code" class="form-control text-uppercase"
+                                       placeholder="输入6位邀请码" required>
+                            </div>
+                            <button class="btn btn-primary w-100 fw-bold btn-sm">加入</button>
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="createFam">
+                        <form action="/create_family" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="fas fa-house-user"></i></span>
+                                <input type="text" name="family_name" class="form-control" placeholder="给家起个名字"
+                                       required>
+                            </div>
+                            <button class="btn btn-success w-100 fw-bold btn-sm">创建</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 安全设置卡片 -->
+        <div class="card-box p-3">
+            <h6 class="mb-3 fw-bold text-dark"><i class="fas fa-lock me-2 text-secondary"></i>安全设置</h6>
+            <form action="/change_password" method="POST" class="d-flex gap-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="password" name="new_password" class="form-control" placeholder="输入新密码 (至少6位)"
+                       required>
+                <button class="btn btn-outline-primary px-3">确认</button>
+            </form>
+        </div>
+
+        <!-- 退出登录按钮 -->
+        <div class="d-grid gap-2 mb-4">
+            <a href="/logout" class="btn btn-light text-danger fw-bold py-3 rounded-4 shadow-sm border">
+                <i class="fas fa-sign-out-alt me-2"></i> 退出登录
+            </a>
+        </div>
+
+        <div style="height: 20px;"></div>
+    </div>
+
+</div>
+
+<!-- 底部导航栏 -->
+<div class="bottom-nav">
+    <a href="/?tab=pets" class="nav-item {% if current_tab == 'pets' %}active{% endif %}">
+        <i class="fas fa-paw"></i>
+        <span>萌宠</span>
+    </a>
+    <a href="/?tab=life" class="nav-item {% if current_tab == 'life' %}active{% endif %}">
+        <i class="fas fa-camera-retro"></i>
+        <span>动态</span>
+    </a>
+    <a href="/?tab=mine" class="nav-item {% if current_tab == 'mine' %}active{% endif %}">
+        <i class="fas fa-user"></i>
+        <span>我的</span>
+    </a>
+</div>
+
+<!-- 引入 Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 1. 安全接收数据 (加了默认值 {})
+    const familyMembersMap = {{ family_members_dict | tojson | safe }} || {};
+    const userMap = {{ user_map | tojson | safe }} || {};
+    const currentUserId = '{{ current_user_id }}';
+
+    // 显示加载层
+    function showLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
+    // 打开编辑弹窗
+    function openEditPetModal(id, name, familyId) {
+        // 调试大法：看看传进来的是什么
+        console.log("点击编辑:", id, name, familyId);
+
+        // 1. 填充基础信息
+        document.getElementById('edit_pet_id').value = id;
+        document.getElementById('add_owner_pet_id').value = id;
+        document.getElementById('edit_pet_name').value = name;
+
+        // 2. 动态生成下拉框
+        const select = document.querySelector('select[name="new_owner_id"]');
+        select.innerHTML = '<option value="" disabled selected>选择家庭成员...</option>';
+
+        // [关键修复] 强制转为字符串去查，并处理 familyId 为空的情况
+        // 如果这只宠物没有 family_id (流浪宠)，或者 familyMembersMap 里没数据，给个空数组
+        const members = (familyId && familyMembersMap[String(familyId)]) ? familyMembersMap[String(familyId)] : [];
+
+        console.log("该家庭成员:", members); // 调试看有谁
+
+        if (members.length === 0) {
+            // 如果没人，或者没关联家庭
+            const opt = new Option("暂无其他成员 (或未关联家庭)", "");
+            select.add(opt);
+        } else {
+            members.forEach(uid => {
+                // 排除我自己，且确保该用户在 userMap 里有名字
+                if (uid !== currentUserId && userMap[uid]) {
+                    const opt = new Option(userMap[uid].name, uid);
+                    select.add(opt);
+                }
+            });
+        }
+
+        // 3. 显示弹窗
+        new bootstrap.Modal(document.getElementById('editPetModal')).show();
+    }
+
+
+    /**
+     * 场景1：压缩并自动提交 (用于：宠物拍照、头像上传)
+     * 选中图片 -> 压缩 -> 构造新文件 -> 替换 Input -> 提交 Form
+     */
+    function handleCompressAndSubmit(input, formId) {
+        const file = input.files[0];
+        if (!file) return;
+
+        showLoading(); // 开启 Loading
+
+        new Compressor(file, {
+            quality: 0.6, // 0.6 质量通常只有原图 10% 大小
+            maxWidth: 1200, // 限制宽度，防止超大图
+            success(result) {
+                const dt = new DataTransfer();
+                dt.items.add(new File([result], file.name, {type: file.type}));
+                input.files = dt.files;
+                document.getElementById(formId).submit();
+            },
+            error(err) {
+                console.error('压缩失败，尝试原图上传', err);
+                document.getElementById(formId).submit();
+            },
+        });
+    }
+
+    /**
+     * 场景2：压缩并预览 (用于：发布动态)
+     * 选中图片 -> 压缩 -> 替换 Input -> 显示预览图 -> (等待用户手动点发布)
+     */
+    function handleCompressAndPreview(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        new Compressor(file, {
+            quality: 0.6,
+            maxWidth: 1600,
+            success(result) {
+                // 替换 input 中的文件
+                const dt = new DataTransfer();
+                dt.items.add(new File([result], file.name, {type: file.type}));
+                input.files = dt.files;
+
+                // 读取并预览
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('preview-img').src = e.target.result;
+                    document.getElementById('preview-container').classList.remove('d-none');
+                }
+                reader.readAsDataURL(result);
+            },
+            error(err) {
+                console.error(err.message);
+            }
+        });
+    }
+
+    function clearPreview() {
+        document.getElementById('momentPhotoInput').value = "";
+        document.getElementById('preview-container').classList.add('d-none');
+    }
+
+    // 复制邀请码
+    function copyCode(el) {
+        const text = el.innerText;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('邀请码 [' + text + '] 已复制！');
+            }).catch(err => {
+                alert('复制失败，请手动长按复制');
+            });
+        } else {
+            alert('请长按邀请码手动复制');
+        }
+    }
+
+    // 动态表单手动提交时，也显示 loading
+    const momentForm = document.getElementById('momentForm');
+    if (momentForm) {
+        momentForm.addEventListener('submit', function () {
+            showLoading();
+        });
+    }
+    // 更新日志逻辑
+     document.addEventListener('DOMContentLoaded', function() {
+        {% if latest_update %}
+            const serverVersion = '{{ latest_update.version }}';
+            // [核心修改] Key 加上当前用户ID，实现多账号隔离
+            const storageKey = 'app_version_' + '{{ current_user_id }}';
+            const localVersion = localStorage.getItem(storageKey);
+
+            // 如果本地没存版本，或者版本不一致 -> 弹窗
+            if (localVersion !== serverVersion) {
+                const modal = new bootstrap.Modal(document.getElementById('updateModal'));
+                modal.show();
+            }
+        {% endif %}
+    });
+
+    function closeUpdateModal(version) {
+        // [核心修改] 存的时候也带上用户ID
+        const storageKey = 'app_version_' + '{{ current_user_id }}';
+        localStorage.setItem(storageKey, version);
+
+        const modalEl = document.getElementById('updateModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+    }
+
+</script>
+</body>
+</html>
