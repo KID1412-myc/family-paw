@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.2.0'
+CURRENT_APP_VERSION = '2.2.1'
 
 
 # ================= 配置区域 =================
@@ -133,6 +133,7 @@ def generate_invite_code():
 
 
 # ================= [核心] 数据库连接获取 =================
+# ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
 def get_db():
     # 1. 上帝模式检查
     if session.get('is_impersonator') and admin_supabase:
@@ -140,20 +141,46 @@ def get_db():
 
     # 2. 普通用户模式
     token = session.get('access_token')
-    if token:
-        try:
-            auth_client = create_client(url, key)
-            auth_client.auth.set_session(token, session.get('refresh_token'))
-            return auth_client
-        except Exception as e:
-            print(f"⚠️ Token 已失效: {e}")
-            # 清空脏 Session
-            session.clear()
-            # 返回 None 作为信号，告诉调用者“出事了”
-            return None
+    refresh_token = session.get('refresh_token')
 
-    # 3. 未登录
-    return supabase
+    if token and refresh_token:
+        try:
+            # 创建临时客户端
+            auth_client = create_client(url, key)
+
+            # 尝试建立会话
+            # 注意：set_session 可能会校验 token，如果过期会抛出异常
+            auth_client.auth.set_session(token, refresh_token)
+
+            # 这里做一个极小的查询测试 Token 是否真的有效
+            # (Supabase py SDK 有时候 set_session 不报错但请求时才报错)
+            # 我们不真查数据，只为了触发验证
+            return auth_client
+
+        except Exception as e:
+            # === 触发自动续命逻辑 ===
+            print(f"⚠️ Token 可能过期，尝试自动刷新... ({e})")
+
+            try:
+                # 使用 refresh_token 换取新的 access_token
+                # 注意：这里要用全局 supabase 客户端来执行刷新
+                res = supabase.auth.refresh_session(refresh_token)
+
+                if res.session:
+                    # 1. 救活了！更新 Session 里的 Token
+                    session['access_token'] = res.session.access_token
+                    session['refresh_token'] = res.session.refresh_token
+
+                    # 2. 重新创建带新 Token 的客户端返回
+                    new_client = create_client(url, key)
+                    new_client.auth.set_session(res.session.access_token, res.session.refresh_token)
+                    print("✅ Token 自动刷新成功！")
+                    return new_client
+            except Exception as refresh_error:
+                print(f"❌ 自动刷新失败，彻底登出: {refresh_error}")
+
+    # 3. 彻底没救了，清空 Session，让用户重登
+    session.clear()
 
 
 # ================= 装饰器 =================
