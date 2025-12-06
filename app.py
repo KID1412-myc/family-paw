@@ -22,6 +22,8 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
+CURRENT_APP_VERSION = '2.2.0'
+
 
 # ================= 配置区域 =================
 # 适配 Vercel/Render 等代理环境，防止 HTTPS 变 HTTP
@@ -190,6 +192,9 @@ def admin_required(f):
     return decorated_function
 
 
+@app.context_processor
+def inject_version():
+    return dict(app_version=CURRENT_APP_VERSION)
 # ================= 认证路由 =================
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -197,21 +202,48 @@ def register():
         account = request.form.get('account')
         password = request.form.get('password')
         name = request.form.get('display_name')
-        code = request.form.get('secret_code')
-        if code != "050204":
-            flash("家庭暗号错误！", "danger")
+        secret_code = request.form.get('secret_code')
+
+        # [修改] 使用 Service Key 检查暗号有效性
+        # 因为注册用户此时未登录，无法通过 RLS，必须用 admin_supabase
+        if not admin_supabase:
+            flash("系统配置错误：缺少 Service Key", "danger")
             return render_template('register.html')
+
         try:
+            # 1. 查询暗号是否存在且有剩余次数
+            code_res = admin_supabase.table('registration_codes') \
+                .select('*').eq('code', secret_code).single().execute()
+
+            if not code_res.data:
+                flash("注册暗号无效！", "danger")
+                return render_template('register.html')
+
+            code_data = code_res.data
+            if code_data['current_uses'] >= code_data['max_uses']:
+                flash("该暗号已被用完，请联系管理员获取新暗号。", "warning")
+                return render_template('register.html')
+
+            # 2. 执行注册
             res = supabase.auth.sign_up({
-                "email": resolve_account(account), "password": password,
+                "email": resolve_account(account),
+                "password": password,
                 "options": {"data": {"display_name": name}}
             })
+
             if res.user:
-                flash("注册成功！请登录。", "success")
+                # 3. [关键] 注册成功后，暗号使用次数 +1
+                new_count = code_data['current_uses'] + 1
+                admin_supabase.table('registration_codes') \
+                    .update({'current_uses': new_count}) \
+                    .eq('id', code_data['id']).execute()
+
+                flash("注册成功！请直接登录。", "success")
                 return redirect(url_for('login'))
+
         except Exception as e:
-            msg = str(e)
-            flash("账号已注册" if "already registered" in msg else f"注册失败: {msg}", "danger")
+            flash(f"注册失败: {str(e)}", "danger")
+
     return render_template('register.html')
 
 
@@ -729,6 +761,7 @@ def admin_dashboard():
         pet_owners_data = client.table('pet_owners').select('*').execute().data or []
         # 更新日志数据
         updates_list = client.table('app_updates').select('*').order('created_at', desc=True).execute().data or []
+        reg_codes = client.table('registration_codes').select('*').order('created_at', desc=True).execute().data or []
     except Exception as e:
         print(f"Admin Data Error: {e}")
         users = [];
@@ -736,7 +769,8 @@ def admin_dashboard():
         families = [];
         members = [];
         pet_owners_data = [];
-        updates_list = []
+        updates_list = [];
+        reg_codes = []
 
     # 2. 建立基础映射字典 (ID -> Name)
     fam_map = {f['id']: f['name'] for f in families}
@@ -856,9 +890,14 @@ def admin_dashboard():
     }
 
     return render_template('admin.html',
-                           users=users, pets=pets, families=families,
-                           files=storage_files, stats=stats, auth_users=auth_users,
-                           updates=updates_list,  # 传入更新日志
+                           users=users,  # 用户列表
+                           pets=pets,  # 宠物列表 (含主人信息)
+                           families=families,  # 家庭列表 (含人数)
+                           files=storage_files,  # 文件列表 (含上传者)
+                           stats=stats,  # 顶部统计数字
+                           auth_users=auth_users,  # 底层 Auth 用户
+                           updates=updates_list,  # 更新日志列表
+                           reg_codes=reg_codes,  # [新增] 注册暗号列表
                            user_name=session.get('display_name'))
 
 
@@ -1200,6 +1239,39 @@ def admin_toggle_update_status(uid):
     except Exception as e:
         flash(f"操作失败: {e}", "danger")
 
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/generate_reg_code', methods=['POST'])
+@admin_required
+def admin_generate_reg_code():
+    """生成新的注册暗号"""
+    if not admin_supabase: return redirect(url_for('admin_dashboard'))
+    try:
+        # 生成6位纯数字 (方便输入)
+        new_code = ''.join(random.choices(string.digits, k=6))
+        max_uses = int(request.form.get('max_uses', 3))
+
+        admin_supabase.table('registration_codes').insert({
+            'code': new_code,
+            'max_uses': max_uses,
+            'created_by': session['user']
+        }).execute()
+        flash(f"新暗号 {new_code} 生成成功 (可用 {max_uses} 次)", "success")
+    except Exception as e:
+        flash(f"生成失败: {e}", "danger")
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/delete_reg_code/<int:cid>', methods=['POST'])
+@admin_required
+def admin_delete_reg_code(cid):
+    """删除/作废暗号"""
+    try:
+        admin_supabase.table('registration_codes').delete().eq('id', cid).execute()
+        flash("暗号已作废", "success")
+    except:
+        flash("操作失败", "danger")
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':

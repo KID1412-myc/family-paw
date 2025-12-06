@@ -8,7 +8,7 @@
     <title>后台 - 全家亲密圈</title>
 
     <!-- PWA 核心配置 (加了版本号) -->
-    <link rel="manifest" href="/static/manifest.json?v=2.0.2">
+    <link rel="manifest" href="/static/manifest.json?v={{ app_version }}">
     <link rel="apple-touch-icon" href="/static/icon.png">
 
     <!-- iOS 适配 -->
@@ -176,6 +176,11 @@
         <li class="nav-item">
             <button class="nav-link" id="updates-tab" data-bs-toggle="tab" data-bs-target="#updates" type="button">
                 <i class="fas fa-bullhorn me-1"></i> 公告
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="codes-tab" data-bs-toggle="tab" data-bs-target="#codes" type="button">
+                <i class="fas fa-ticket-alt me-1"></i> 暗号
             </button>
         </li>
     </ul>
@@ -550,7 +555,68 @@
                 </table>
             </div>
         </div>
+        <div class="tab-pane fade" id="codes">
+            <div class="card p-4 mb-3 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-3"><i class="fas fa-plus-circle text-primary me-2"></i>生成注册暗号</h6>
+                <form action="/admin/generate_reg_code" method="POST" class="d-flex gap-2 align-items-center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <span class="text-muted small text-nowrap">可用次数:</span>
+                    <input type="number" name="max_uses" class="form-control" value="3" style="width: 80px;" min="1"
+                           max="100">
+                    <button type="submit" class="btn btn-primary fw-bold px-4">生成 6 位随机暗号</button>
+                </form>
+            </div>
 
+            <div class="card">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                    <tr>
+                        <th>暗号</th>
+                        <th>消耗进度</th>
+                        <th>状态</th>
+                        <th>生成时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in reg_codes %}
+                        <tr>
+                            <td><span class="fs-5 font-monospace fw-bold text-dark">{{ c.code }}</span></td>
+                            <td>
+                                <!-- 进度条可视化 -->
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress" style="width: 80px; height: 6px;">
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                             style="width: {{ (c.current_uses / c.max_uses) * 100 }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ c.current_uses }} / {{ c.max_uses }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if c.current_uses >= c.max_uses %}
+                                    <span class="badge bg-secondary">已用完</span>
+                                {% else %}
+                                    <span class="badge bg-success">有效</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ c.created_at[:10] }}</small></td>
+                            <td>
+                                <form action="/admin/delete_reg_code/{{ c.id }}" method="POST"
+                                      onsubmit="return confirm('确定作废此暗号？')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-link text-danger p-0">作废</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">暂无有效暗号</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
