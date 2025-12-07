@@ -68,6 +68,73 @@
             color: white !important;
         }
 
+        /* === 双城天气样式 === */
+        .weather-card {
+            border-radius: 16px;
+            overflow: hidden;
+            color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: flex;
+        }
+
+        .weather-col {
+            flex: 1;
+            padding: 15px 10px;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .weather-col:active {
+            opacity: 0.9;
+        }
+
+        /* 左侧：老家 (暖色调: 橙黄) */
+        .weather-home-bg {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            border-right: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* 右侧：远方 (冷色调: 蓝青) */
+        .weather-away-bg {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        }
+
+        /* 没设置时的灰色背景 */
+        .weather-empty {
+            background: #f0f2f5;
+            color: #adb5bd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-size: 12px;
+        }
+
+        .weather-icon {
+            width: 32px;
+            height: 32px;
+            vertical-align: middle;
+        }
+
+        .weather-temp {
+            font-size: 24px;
+            font-weight: bold;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .weather-tips {
+            font-size: 10px;
+            opacity: 0.9;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
         /* ================= 萌宠页样式 (Pets Tab) ================= */
         .pet-photo-wrapper {
             position: relative;
@@ -488,6 +555,60 @@
                         {% endif %}
                     </div>
                 </div>
+                <!-- ================= 双城天气卡片 ================= -->
+                <div class="weather-card">
+                    <!-- 左侧：老家 (Home) -->
+                    {% if fam.weather_home %}
+                        <div class="weather-col weather-home-bg"
+                             onclick="openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
+                            <div class="small fw-bold mb-1">
+                                <i class="fas fa-home me-1"></i>{{ fam.location_home_name }}
+                            </div>
+                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                <img src="https://a.hecdn.net/img/common/icon/202106d/{{ fam.weather_home.now.icon }}.png"
+                                     class="weather-icon">
+                                <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
+                            </div>
+                            <div class="small">{{ fam.weather_home.now.text }}</div>
+                            {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
+                                <div class="weather-tips mt-2">
+                                    {{ fam.weather_home.indices['3'].category }} <!-- 穿衣建议 -->
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
+                            <i class="fas fa-plus-circle fa-lg mb-1"></i>
+                            设置老家
+                        </div>
+                    {% endif %}
+
+                    <!-- 右侧：远方 (Away) -->
+                    {% if fam.weather_away %}
+                        <div class="weather-col weather-away-bg"
+                             onclick="openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
+                            <div class="small fw-bold mb-1">
+                                <i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}
+                            </div>
+                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                <img src="https://a.hecdn.net/img/common/icon/202106d/{{ fam.weather_away.now.icon }}.png"
+                                     class="weather-icon">
+                                <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
+                            </div>
+                            <div class="small">{{ fam.weather_away.now.text }}</div>
+                            {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
+                                <div class="weather-tips mt-2">
+                                    {{ fam.weather_away.indices['3'].category }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
+                            <i class="fas fa-plus-circle fa-lg mb-1"></i>
+                            设置我的城市
+                        </div>
+                    {% endif %}
+                </div>
             {% endfor %}
         {% endif %}
         <!-- 顶部操作栏 -->
@@ -785,6 +906,38 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+        <!-- 设置城市弹窗 -->
+        <div class="modal fade" id="weatherModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-4 border-0">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold">🌤️ 设置城市</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="/set_weather_city" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="family_id" id="weather_fam_id">
+                            <input type="hidden" name="type" id="weather_type"> <!-- home 或 away -->
+
+                            <div class="mb-3">
+                                <label class="form-label small text-muted" id="weather_label">输入城市名称</label>
+                                <input type="text" name="city_name" id="weather_city_name"
+                                       class="form-control form-control-lg text-center" placeholder="例如: 长沙">
+                                <div class="form-text small text-center">支持中文或拼音，精确到市</div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary fw-bold">保存并查询</button>
+                                <button type="submit" class="btn btn-light text-danger"
+                                        onclick="document.getElementById('weather_city_name').value=''">清除设置
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1219,6 +1372,18 @@
             // 提交表单
             document.querySelector('#reunionModal form').submit();
         }
+    }
+    // 打开天气设置
+    function openWeatherModal(fid, type, currentName) {
+        document.getElementById('weather_fam_id').value = fid;
+        document.getElementById('weather_type').value = type;
+        document.getElementById('weather_city_name').value = currentName;
+
+        // 动态改一下标题，体验更好
+        const label = type === 'home' ? '🏠 设置老家城市 (父母)' : '🎓 设置远方城市 (我)';
+        document.getElementById('weather_label').innerText = label;
+
+        new bootstrap.Modal(document.getElementById('weatherModal')).show();
     }
 
 </script>

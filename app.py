@@ -4,6 +4,7 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+import requests
 
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -22,8 +23,8 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.3.3'
-
+CURRENT_APP_VERSION = '2.4.0'
+qweather_key = os.environ.get("QWEATHER_KEY")
 
 # ================= 配置区域 =================
 # 适配 Vercel/Render 等代理环境，防止 HTTPS 变 HTTP
@@ -130,6 +131,65 @@ def resolve_account(input_str):
 def generate_invite_code():
     """生成6位大写字母+数字的随机邀请码"""
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+
+# ================= 天气服务核心逻辑 =================
+
+def search_city_qweather(keyword):
+    """[GeoAPI] 搜索城市 ID"""
+    if not keyword or not qweather_key: return None, None
+    try:
+        # 使用和风 GeoAPI 查找城市
+        url = f"https://geoapi.qweather.com/v2/city/lookup?location={keyword}&key={qweather_key}"
+        res = requests.get(url, timeout=3)
+        data = res.json()
+        if data.get('code') == '200' and data.get('location'):
+            # 取第一个匹配结果
+            top = data['location'][0]
+            return top['id'], top['name']
+    except Exception as e:
+        print(f"GeoAPI Error: {e}")
+    return None, None
+
+
+def get_weather_full(city_id):
+    """
+    [组合技] 获取实时天气 + 生活指数 (穿衣/感冒)
+    """
+    if not city_id or not qweather_key: return None
+
+    weather_data = {}
+
+    try:
+        # 1. 查实时天气 (Weather Now)
+        # 注意：免费订阅必须使用 devapi
+        url_now = f"https://devapi.qweather.com/v7/weather/now?location={city_id}&key={qweather_key}"
+        res_now = requests.get(url_now, timeout=3)
+        data_now = res_now.json()
+
+        if data_now.get('code') == '200':
+            weather_data['now'] = data_now['now']  # 包含 temp, icon, text
+        else:
+            return None  # 基础天气都查不到，就别展示了
+
+        # 2. 查生活指数 (Indices)
+        # type=3(穿衣), 9(感冒)
+        url_ind = f"https://devapi.qweather.com/v7/indices/1d?type=3,9&location={city_id}&key={qweather_key}"
+        res_ind = requests.get(url_ind, timeout=3)
+        data_ind = res_ind.json()
+
+        if data_ind.get('code') == '200':
+            # 把列表转成字典方便前端取：{'3': {...}, '9': {...}}
+            # 3=穿衣, 9=感冒
+            indices = {item['type']: item for item in data_ind['daily']}
+            weather_data['indices'] = indices
+
+    except Exception as e:
+        print(f"Weather Fetch Error: {e}")
+        # 如果出错，至少返回已有的(比如只有温度没有指数)
+        if not weather_data: return None
+
+    return weather_data
 
 
 # ================= [核心] 数据库连接获取 =================
@@ -318,12 +378,7 @@ def logout():
 @app.route('/')
 @login_required
 def home():
-    """
-    主页路由 (终极修复版)：
-    1. 包含：宠物主人权限 (is_owner + owner_ids)。
-    2. 包含：归家倒计时计算 (days_left)。
-    3. 包含：多家庭数据聚合。
-    """
+    """主页路由 (集成双城天气版)"""
     current_user_id = session.get('user')
     current_tab = request.args.get('tab', 'pets')
     today_str = get_beijing_time().strftime('%Y-%m-%d')
@@ -341,8 +396,7 @@ def home():
         if res.data:
             my_profile = res.data
             if my_profile.get('avatar_url'):
-                my_profile[
-                    'full_avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{my_profile['avatar_url']}"
+                my_profile['full_avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{my_profile['avatar_url']}"
 
             members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
             if members_res.data:
@@ -353,30 +407,43 @@ def home():
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
 
-                    # [🔴 关键修复] 这里补回了倒计时的计算逻辑！
+                    # [🔴 新增] 天气和倒计时处理
                     now_date = datetime.now(timezone(timedelta(hours=8))).date()
+
                     for f in my_families:
+                        # --- 1. 倒计时逻辑 ---
                         f['days_left'] = None
                         if f.get('reunion_date'):
                             try:
                                 target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
                                 f['days_left'] = (target - now_date).days
-                            except:
-                                pass
+                            except: pass
+
+                        # --- 2. 双城天气逻辑 ---
+                        f['weather_home'] = None
+                        f['weather_away'] = None
+
+                        # 只有当城市ID存在时才去查
+                        # (注意：如果家庭多，这里是串行请求，可能会增加几百毫秒延迟)
+                        if f.get('location_home_id'):
+                            f['weather_home'] = get_weather_full(f['location_home_id'])
+
+                        if f.get('location_away_id'):
+                            f['weather_away'] = get_weather_full(f['location_away_id'])
 
     except Exception as e:
-        print(f"Profile Fetch Error: {e}")
+        print(f"Profile/Weather Fetch Error: {e}")
 
     if my_profile.get('display_name'): session['display_name'] = my_profile['display_name']
     user_name = session.get('display_name', '家人')
+
 
     # ================= 2. 获取可见成员映射 =================
     user_map = {}
     family_members_dict = {}
     try:
         if my_family_ids:
-            co_members = db.table('family_members').select('family_id, user_id').in_('family_id',
-                                                                                     my_family_ids).execute()
+            co_members = db.table('family_members').select('family_id, user_id').in_('family_id', my_family_ids).execute()
             visible_user_ids = list(set([m['user_id'] for m in co_members.data]))
 
             for m in co_members.data:
@@ -386,8 +453,7 @@ def home():
                 family_members_dict[fid].append(uid)
 
             if visible_user_ids:
-                profiles_res = db.table('profiles').select("id, display_name, avatar_url").in_('id',
-                                                                                               visible_user_ids).execute()
+                profiles_res = db.table('profiles').select("id, display_name, avatar_url").in_('id', visible_user_ids).execute()
                 for p in profiles_res.data:
                     avatar_link = None
                     if p.get('avatar_url'):
@@ -396,8 +462,8 @@ def home():
         else:
             p = my_profile
             user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url')}
-    except:
-        pass
+    except: pass
+
 
     # ================= 3. 获取核心数据 =================
     pets = []
@@ -407,10 +473,10 @@ def home():
 
     try:
         if my_family_ids:
-            # 3.1 宠物
+            # 宠物
             pets = db.table('pets').select("*").in_('family_id', my_family_ids).order('id').execute().data or []
 
-            # 3.2 获取宠物主人
+            # 宠物主人
             all_pet_ids = [p['id'] for p in pets]
             if all_pet_ids:
                 all_owners_res = db.table('pet_owners').select('pet_id, user_id').in_('pet_id', all_pet_ids).execute()
@@ -420,35 +486,26 @@ def home():
                     if pid not in pet_owners_map: pet_owners_map[pid] = []
                     pet_owners_map[pid].append(uid)
 
-            # 3.3 日志
+            # 日志
             if all_pet_ids:
-                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order(
-                    'created_at', desc=True).execute().data or []
+                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order('created_at', desc=True).execute().data or []
 
-            # 3.4 动态
+            # 动态
             visible_uids = list(user_map.keys())
             if visible_uids:
-                moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at',
-                                                                                                  desc=True).limit(
-                    20).execute().data or []
+                moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at', desc=True).limit(20).execute().data or []
     except Exception as e:
         print(f"Data Fetch Error: {e}")
 
+
     # ================= 4. 数据组装 =================
     for pet in pets:
-        pet['today_feed'] = False;
-        pet['today_walk'] = False
-        pet['feed_info'] = "";
-        pet['walk_info'] = ""
-        pet['latest_photo'] = None;
-        pet['photo_uploader'] = ""
-        pet['latest_log_id'] = None;
-        pet['latest_user_id'] = None
+        pet['today_feed'] = False; pet['today_walk'] = False
+        pet['feed_info'] = ""; pet['walk_info'] = ""
+        pet['latest_photo'] = None; pet['photo_uploader'] = ""
+        pet['latest_log_id'] = None; pet['latest_user_id'] = None
 
-        # 注入 owner_ids
         pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
-
-        # 判断是否是主人
         pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
 
         fam_obj = next((f for f in my_families if f['id'] == pet['family_id']), None)
@@ -484,13 +541,11 @@ def home():
     # 6. 获取更新日志
     latest_update = None
     try:
-        up_res = db.table('app_updates').select('*').eq('is_pushed', True).order('created_at', desc=True).limit(
-            1).execute()
+        up_res = db.table('app_updates').select('*').eq('is_pushed', True).order('created_at', desc=True).limit(1).execute()
         if up_res.data:
             latest_update = up_res.data[0]
             latest_update['content'] = latest_update['content'].replace('\n', '<br>')
-    except:
-        pass
+    except: pass
 
     if session.get('is_impersonator'):
         flash(f"👁️ 上帝模式：{user_name}", "info")
@@ -652,6 +707,42 @@ def set_reunion():
         # RLS 会保证只有成员能改
         db.table('families').update(update_data).eq('id', family_id).execute()
         flash(msg, "success")
+    except Exception as e:
+        flash(f"设置失败: {e}", "danger")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/set_weather_city', methods=['POST'])
+@login_required
+def set_weather_city():
+    """设置家庭的双城位置"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    type_ = request.form.get('type')  # 'home' (老家) 或 'away' (远方)
+    city_name = request.form.get('city_name')
+
+    # 鉴权：检查是否是该家庭成员
+    # (这里省略了查 family_members 的步骤，依赖 RLS 抛出错误来拦截非成员)
+
+    if not city_name:
+        # 如果留空，表示清除城市设置
+        update_data = {f'location_{type_}_id': None, f'location_{type_}_name': None}
+        flash(f"已清除该城市设置", "info")
+    else:
+        # 1. 搜索城市 ID
+        cid, cname = search_city_qweather(city_name)
+        if not cid:
+            flash(f"找不到城市 '{city_name}'，请尝试输入市级名称 (如: 北京)", "warning")
+            return redirect(url_for('home'))
+
+        update_data = {f'location_{type_}_id': cid, f'location_{type_}_name': cname}
+        msg = f"已设置{type_}城市为：{cname}"
+
+    # 2. 更新数据库
+    try:
+        db.table('families').update(update_data).eq('id', family_id).execute()
+        if city_name: flash(msg, "success")
     except Exception as e:
         flash(f"设置失败: {e}", "danger")
 
