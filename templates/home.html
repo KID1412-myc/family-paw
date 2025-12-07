@@ -747,201 +747,6 @@
         <div style="height: 40px;"></div>
     </div>
 
-    <!-- ============ 放在 body 结束前的弹窗代码 ============ -->
-
-    <!-- 添加宠物弹窗 -->
-    <div class="modal fade" id="addPetModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0 shadow">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">🐶 添加新成员</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form action="/create_pet" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">名字</label>
-                            <input type="text" name="name" class="form-control" placeholder="如: 旺财" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">类型</label>
-                            <select name="type" class="form-select">
-                                <option value="dog">🐶 狗狗</option>
-                                <option value="cat">🐱 猫猫</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">归属家庭</label>
-                            <select name="family_id" class="form-select">
-                                {% for f in my_families %}
-                                    <option value="{{ f.id }}">{{ f.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 fw-bold rounded-3 py-2">确认添加</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 编辑宠物弹窗 -->
-    <div class="modal fade" id="editPetModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0 shadow">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">⚙️ 管理宠物</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-
-                    <!-- 修改名字部分 -->
-                    <form action="/update_pet" method="POST" class="mb-4 border-bottom pb-4">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="pet_id" id="edit_pet_id">
-
-                        <label class="form-label small text-muted fw-bold">修改资料</label>
-                        <div class="input-group mb-2">
-                            <input type="text" name="name" id="edit_pet_name" class="form-control" required>
-                            <button type="submit" name="action" value="update" class="btn btn-success fw-bold">保存
-                            </button>
-                        </div>
-                        <div class="text-end">
-                            <button type="submit" name="action" value="delete"
-                                    class="btn btn-link text-danger text-decoration-none p-0 small"
-                                    onclick="return confirm('⚠️ 确定要删除吗？')">删除此宠物
-                            </button>
-                        </div>
-                    </form>
-
-                    <!-- 添加共管人部分 -->
-                    <form action="/add_pet_owner" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="pet_id" id="add_owner_pet_id">
-
-                        <label class="form-label small text-muted fw-bold">添加共管主人 (对象/父母)</label>
-                        <div class="input-group">
-                            <select name="new_owner_id" class="form-select">
-                                <option value="" disabled selected>选择家庭成员...</option>
-                                <!-- 遍历所有可见的家庭成员 -->
-                                {% for uid, info in user_map.items() %}
-                                    <!-- 不显示我自己 -->
-                                    {% if uid != current_user_id %}
-                                        <option value="{{ uid }}">{{ info.name }}</option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                            <button class="btn btn-outline-primary fw-bold">添加</button>
-                        </div>
-                        <div class="form-text small">添加后，他/她也能修改宠物信息。</div>
-                    </form>
-
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 更新公告弹窗 -->
-    {% if latest_update %}
-        <div class="modal fade" id="updateModal" tabindex="-1" data-bs-backdrop="static">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content rounded-4 border-0 shadow-lg">
-                    <div class="modal-header border-0 bg-success bg-opacity-10">
-                        <h5 class="modal-title fw-bold text-success">
-                            🚀 新版本 v{{ latest_update.version }}
-                        </h5>
-                        <!-- 这里的关闭按钮有特殊逻辑，见JS -->
-                        <button type="button" class="btn-close"
-                                onclick="closeUpdateModal('{{ latest_update.version }}')"></button>
-                    </div>
-                    <div class="modal-body p-4">
-                        <div class="fs-6" style="line-height: 1.8;">
-                            {{ latest_update.content | safe }}
-                        </div>
-                    </div>
-                    <div class="modal-footer border-0 pt-0">
-                        <button type="button" class="btn btn-success w-100 rounded-pill fw-bold"
-                                onclick="closeUpdateModal('{{ latest_update.version }}')">
-                            我知道了
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-    <!-- 设置倒计时弹窗 -->
-    <div class="modal fade" id="reunionModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📅 什么时候团圆？</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form action="/set_reunion" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="family_id" id="reunion_fam_id">
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">标题</label>
-                            <input type="text" name="reunion_name" id="reunion_name" class="form-control"
-                                   placeholder="例如: 寒假回家 / 爸妈来南京">
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label small text-muted">目标日期</label>
-                            <input type="date" name="reunion_date" id="reunion_date"
-                                   class="form-control form-control-lg fw-bold text-center">
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary fw-bold">保存设置</button>
-                            <button type="button" class="btn btn-light text-danger" onclick="clearReunionDate()">
-                                清除/取消倒计时
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-        <!-- 设置城市弹窗 -->
-        <div class="modal fade" id="weatherModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content rounded-4 border-0">
-                    <div class="modal-header border-0 pb-0">
-                        <h5 class="modal-title fw-bold">🌤️ 设置城市</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form action="/set_weather_city" method="POST">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <input type="hidden" name="family_id" id="weather_fam_id">
-                            <input type="hidden" name="type" id="weather_type"> <!-- home 或 away -->
-
-                            <div class="mb-3">
-                                <label class="form-label small text-muted" id="weather_label">输入城市名称</label>
-                                <input type="text" name="city_name" id="weather_city_name"
-                                       class="form-control form-control-lg text-center" placeholder="例如: 长沙">
-                                <div class="form-text small text-center">支持中文或拼音，精确到市</div>
-                            </div>
-
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary fw-bold">保存并查询</button>
-                                <button type="submit" class="btn btn-light text-danger"
-                                        onclick="document.getElementById('weather_city_name').value=''">清除设置
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     <!-- ================= Tab: 动态 ================= -->
     <div id="tab-life" class="{% if current_tab != 'life' %}d-none{% endif %}">
 
@@ -1184,6 +989,202 @@
         <span>我的</span>
     </a>
 </div>
+<!-- ============ 放在 body 结束前的弹窗代码 ============ -->
+
+<!-- 添加宠物弹窗 -->
+<div class="modal fade" id="addPetModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🐶 添加新成员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/create_pet" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">名字</label>
+                        <input type="text" name="name" class="form-control" placeholder="如: 旺财" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">类型</label>
+                        <select name="type" class="form-select">
+                            <option value="dog">🐶 狗狗</option>
+                            <option value="cat">🐱 猫猫</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">归属家庭</label>
+                        <select name="family_id" class="form-select">
+                            {% for f in my_families %}
+                                <option value="{{ f.id }}">{{ f.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-bold rounded-3 py-2">确认添加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑宠物弹窗 -->
+<div class="modal fade" id="editPetModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">⚙️ 管理宠物</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- 修改名字部分 -->
+                <form action="/update_pet" method="POST" class="mb-4 border-bottom pb-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="pet_id" id="edit_pet_id">
+
+                    <label class="form-label small text-muted fw-bold">修改资料</label>
+                    <div class="input-group mb-2">
+                        <input type="text" name="name" id="edit_pet_name" class="form-control" required>
+                        <button type="submit" name="action" value="update" class="btn btn-success fw-bold">保存
+                        </button>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" name="action" value="delete"
+                                class="btn btn-link text-danger text-decoration-none p-0 small"
+                                onclick="return confirm('⚠️ 确定要删除吗？')">删除此宠物
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 添加共管人部分 -->
+                <form action="/add_pet_owner" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="pet_id" id="add_owner_pet_id">
+
+                    <label class="form-label small text-muted fw-bold">添加共管主人 (对象/父母)</label>
+                    <div class="input-group">
+                        <select name="new_owner_id" class="form-select">
+                            <option value="" disabled selected>选择家庭成员...</option>
+                            <!-- 遍历所有可见的家庭成员 -->
+                            {% for uid, info in user_map.items() %}
+                                <!-- 不显示我自己 -->
+                                {% if uid != current_user_id %}
+                                    <option value="{{ uid }}">{{ info.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-outline-primary fw-bold">添加</button>
+                    </div>
+                    <div class="form-text small">添加后，他/她也能修改宠物信息。</div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 更新公告弹窗 -->
+{% if latest_update %}
+    <div class="modal fade" id="updateModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 bg-success bg-opacity-10">
+                    <h5 class="modal-title fw-bold text-success">
+                        🚀 新版本 v{{ latest_update.version }}
+                    </h5>
+                    <!-- 这里的关闭按钮有特殊逻辑，见JS -->
+                    <button type="button" class="btn-close"
+                            onclick="closeUpdateModal('{{ latest_update.version }}')"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="fs-6" style="line-height: 1.8;">
+                        {{ latest_update.content | safe }}
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-success w-100 rounded-pill fw-bold"
+                            onclick="closeUpdateModal('{{ latest_update.version }}')">
+                        我知道了
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+<!-- 设置倒计时弹窗 -->
+<div class="modal fade" id="reunionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📅 什么时候团圆？</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/set_reunion" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="family_id" id="reunion_fam_id">
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">标题</label>
+                        <input type="text" name="reunion_name" id="reunion_name" class="form-control"
+                               placeholder="例如: 寒假回家 / 爸妈来南京">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small text-muted">目标日期</label>
+                        <input type="date" name="reunion_date" id="reunion_date"
+                               class="form-control form-control-lg fw-bold text-center">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary fw-bold">保存设置</button>
+                        <button type="button" class="btn btn-light text-danger" onclick="clearReunionDate()">
+                            清除/取消倒计时
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 设置城市弹窗 -->
+<div class="modal fade" id="weatherModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🌤️ 设置城市</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/set_weather_city" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="family_id" id="weather_fam_id">
+                    <input type="hidden" name="type" id="weather_type"> <!-- home 或 away -->
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted" id="weather_label">输入城市名称</label>
+                        <input type="text" name="city_name" id="weather_city_name"
+                               class="form-control form-control-lg text-center" placeholder="例如: 长沙">
+                        <div class="form-text small text-center">支持中文或拼音，精确到市</div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary fw-bold">保存并查询</button>
+                        <button type="submit" class="btn btn-light text-danger"
+                                onclick="document.getElementById('weather_city_name').value=''">清除设置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- 引入 Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1373,6 +1374,7 @@
             document.querySelector('#reunionModal form').submit();
         }
     }
+
     // 打开天气设置
     function openWeatherModal(fid, type, currentName) {
         document.getElementById('weather_fam_id').value = fid;
