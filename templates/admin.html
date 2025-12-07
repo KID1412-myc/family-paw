@@ -412,7 +412,8 @@
                     <table class="table table-custom table-hover align-middle mb-0">
                         <thead class="table-light">
                         <tr>
-                            <th style="width: 80px;">预览</th>
+                            <!-- [修改] 不再显示预览图，改显示类型图标 -->
+                            <th style="width: 50px;">类型</th>
                             <th>文件名 / 时间</th>
                             <th>上传者</th>
                             <th>大小</th>
@@ -422,18 +423,16 @@
                         <tbody>
                         {% for f in files[:50] %}
                             <tr>
-                                <td>
-                                    <a href="{{ f.url }}" target="_blank" title="点击看大图">
-                                        <img src="{{ f.url }}"
-                                             style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #eee;">
-                                    </a>
+                                <!-- [修改] 隐私模式：只显示一个通用的图片图标，不加载真实图片 -->
+                                <td class="text-center text-muted">
+                                    <i class="fas fa-file-image fa-lg"></i>
                                 </td>
 
                                 <td>
+                                    <!-- [修改] 文件名不再做成超链接，或者做一个很隐蔽的“下载”链接 -->
                                     <div class="text-truncate" style="max-width: 200px; font-size: 13px;"
                                          title="{{ f.name }}">
-                                        <a href="{{ f.url }}" target="_blank"
-                                           class="text-decoration-none text-dark">{{ f.name }}</a>
+                                        {{ f.name }}
                                     </div>
                                     <small class="text-muted" style="font-size: 11px;">
                                         <i class="far fa-clock me-1"></i>{{ f.created_at_fmt }}
@@ -447,8 +446,8 @@
                                     {% else %}
                                         <span class="badge bg-info bg-opacity-10 text-info border border-info"
                                               style="font-size: 11px;">
-                                                {{ f.uploader.replace('✅ ', '') }}
-                                            </span>
+                        {{ f.uploader.replace('✅ ', '') }}
+                    </span>
                                     {% endif %}
                                 </td>
 
@@ -458,7 +457,7 @@
 
                                 <td class="text-end">
                                     <form action="/admin/delete_file" method="POST"
-                                          onsubmit="return confirm('⚠️ 确定删除这张图？\n如果这是一张还在前台显示的图，删了之后会裂图！')">
+                                          onsubmit="return confirm('⚠️ 确定删除这个文件吗？\n(操作不可逆)')">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                         <input type="hidden" name="file_name" value="{{ f.name }}">
                                         <button class="btn btn-sm btn-outline-danger border-0" title="删除文件">
