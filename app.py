@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.3.1'
+CURRENT_APP_VERSION = '2.3.3'
 
 
 # ================= 配置区域 =================
@@ -318,57 +318,43 @@ def logout():
 @app.route('/')
 @login_required
 def home():
+    """
+    主页路由：
+    1. 支持多家庭数据显示。
+    2. 计算宠物主人权限 (is_owner) + [新增] 获取每只宠物的所有主人列表。
+    3. 聚合喂食、遛狗、照片墙和家庭动态。
+    """
     current_user_id = session.get('user')
     current_tab = request.args.get('tab', 'pets')
     today_str = get_beijing_time().strftime('%Y-%m-%d')
-
-    # 获取数据库连接
     db = get_db()
 
-    # [核心修复] 刹车机制：如果 Token 失效 get_db 返回 None，强制重登
-    if db is None:
-        return redirect(url_for('login'))
+    # 刹车机制
+    if db is None: return redirect(url_for('login'))
 
-    # ================= 1. 获取"我自己"的档案 =================
+    # ================= 1. 获取"我自己"的档案 & 家庭列表 =================
     my_profile = {}
     my_family_ids = []
     my_families = []
 
     try:
-        # [核心修复] 使用 maybe_single() 代替 single()
-        # maybe_single: 查不到返回 None，不会报错崩溃
         res = db.table('profiles').select("*").eq('id', current_user_id).maybe_single().execute()
-
         if res.data:
             my_profile = res.data
             if my_profile.get('avatar_url'):
                 my_profile[
                     'full_avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{my_profile['avatar_url']}"
 
-            # 获取家庭
             members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
             if members_res.data:
                 my_family_ids = [m['family_id'] for m in members_res.data]
                 if my_family_ids:
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
-                    # [新增] 计算倒计时天数
-                    now_date = datetime.now(timezone(timedelta(hours=8))).date()  # 北京时间
-                    for f in my_families:
-                        f['days_left'] = None  # 初始化
-                        if f.get('reunion_date'):
-                            try:
-                                # 字符串转日期对象
-                                target_date = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
-                                delta = (target_date - now_date).days
-                                f['days_left'] = delta
-                            except:
-                                f['days_left'] = None
     except Exception as e:
         print(f"Profile Fetch Error: {e}")
 
-    if my_profile.get('display_name'):
-        session['display_name'] = my_profile['display_name']
+    if my_profile.get('display_name'): session['display_name'] = my_profile['display_name']
     user_name = session.get('display_name', '家人')
 
     # ================= 2. 获取可见成员映射 =================
@@ -397,28 +383,36 @@ def home():
         else:
             p = my_profile
             user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url')}
-    except Exception as e:
-        print(f"Member Map Error: {e}")
+    except:
+        pass
 
-    # ================= 3. 获取数据 =================
+    # ================= 3. 获取核心数据 =================
     pets = []
     logs = []
     moments_data = []
-    my_owned_pet_ids = []
+    pet_owners_map = {}  # [新增] { pet_id: [user_id1, user_id2] }
 
     try:
         if my_family_ids:
+            # 3.1 宠物
             pets = db.table('pets').select("*").in_('family_id', my_family_ids).order('id').execute().data or []
 
-            owner_res = db.table('pet_owners').select('pet_id').eq('user_id', current_user_id).execute()
-            if owner_res.data:
-                my_owned_pet_ids = [o['pet_id'] for o in owner_res.data]
+            # 3.2 [核心修改] 获取这些宠物的所有主人
+            all_pet_ids = [p['id'] for p in pets]
+            if all_pet_ids:
+                all_owners_res = db.table('pet_owners').select('pet_id, user_id').in_('pet_id', all_pet_ids).execute()
+                for item in all_owners_res.data:
+                    pid = item['pet_id']
+                    uid = item['user_id']
+                    if pid not in pet_owners_map: pet_owners_map[pid] = []
+                    pet_owners_map[pid].append(uid)
 
-            pet_ids = [p['id'] for p in pets]
-            if pet_ids:
-                logs = db.table('logs').select("*").in_('pet_id', pet_ids).gte('created_at', today_str).order(
+            # 3.3 日志
+            if all_pet_ids:
+                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order(
                     'created_at', desc=True).execute().data or []
 
+            # 3.4 动态
             visible_uids = list(user_map.keys())
             if visible_uids:
                 moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at',
@@ -438,7 +432,11 @@ def home():
         pet['latest_log_id'] = None;
         pet['latest_user_id'] = None
 
-        pet['is_owner'] = (pet['id'] in my_owned_pet_ids) or session.get('is_impersonator')
+        # [新增] 把该宠物的所有主人ID列表塞进去，给前端JS用
+        pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
+
+        # 判断我是不是主人
+        pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
 
         fam_obj = next((f for f in my_families if f['id'] == pet['family_id']), None)
         pet['family_name'] = fam_obj['name'] if fam_obj else ""
@@ -470,7 +468,7 @@ def home():
             m['image_url'] = f"{url}/storage/v1/object/public/family_photos/{m['image_path']}"
         moments.append(m)
 
-    # ================= 6. 获取更新日志 =================
+    # 6. 获取更新日志
     latest_update = None
     try:
         up_res = db.table('app_updates').select('*').eq('is_pushed', True).order('created_at', desc=True).limit(
