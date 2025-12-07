@@ -6,14 +6,14 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 
-    <title>全家亲密圈</title>
+    <title>全家牵挂</title>
 
     <!-- PWA 配置 -->
     <link rel="manifest" href="/static/manifest.json?v={{ app_version }}">
     <link rel="apple-touch-icon" href="/static/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="萌宠圈">
+    <meta name="apple-mobile-web-app-title" content="全家牵挂">
     <meta name="theme-color" content="#667eea">
     <meta name="format-detection" content="telephone=no">
 
@@ -564,7 +564,7 @@
                                     </span>
                                     <!-- 显示大概时间 -->
                                     <span class="small" style="opacity: 0.5; font-size: 10px;">
-                                        {{ rem.created_at[11:16] }} <!-- 只显示 HH:MM -->
+                                        {{ rem.time_display }}
                                     </span>
                                 </div>
                                 <div class="fw-bold mt-1" style="font-size: 14px;">
@@ -1088,8 +1088,8 @@
 <!-- 底部导航栏 -->
 <div class="bottom-nav">
     <a href="/?tab=pets" class="nav-item {% if current_tab == 'pets' %}active{% endif %}">
-        <i class="fas fa-paw"></i>
-        <span>萌宠</span>
+        <i class="fas fa-heart"></i>
+        <span>牵挂</span>
     </a>
     <a href="/?tab=life" class="nav-item {% if current_tab == 'life' %}active{% endif %}">
         <i class="fas fa-camera-retro"></i>

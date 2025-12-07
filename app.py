@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.4.5'
+CURRENT_APP_VERSION = '2.4.6'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -210,6 +210,7 @@ def get_weather_full(city_id):
 
     return weather_data
 
+
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
 def get_db():
@@ -300,6 +301,8 @@ def admin_required(f):
 @app.context_processor
 def inject_version():
     return dict(app_version=CURRENT_APP_VERSION)
+
+
 # ================= 认证路由 =================
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -414,7 +417,8 @@ def home():
         if res.data:
             my_profile = res.data
             if my_profile.get('avatar_url'):
-                my_profile['full_avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{my_profile['avatar_url']}"
+                my_profile[
+                    'full_avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{my_profile['avatar_url']}"
 
             members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
             if members_res.data:
@@ -435,7 +439,8 @@ def home():
                             try:
                                 target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
                                 f['days_left'] = (target - now_date).days
-                            except: pass
+                            except:
+                                pass
 
                         # --- 2. 双城天气逻辑 ---
                         f['weather_home'] = None
@@ -451,10 +456,10 @@ def home():
 
                         f['reminders'] = []
                         try:
-                            # 计算24小时前的时间
+                            # 1. 计算24小时前的时间
                             yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
-                            # 查询该家庭、24小时内、最新的3条
+                            # 2. 查询数据
                             rem_res = db.table('family_reminders') \
                                 .select('*') \
                                 .eq('family_id', f['id']) \
@@ -463,9 +468,23 @@ def home():
                                 .limit(3) \
                                 .execute()
 
-                            f['reminders'] = rem_res.data or []
-                        except:
-                            pass
+                            reminders = rem_res.data or []
+
+                            # 3. [关键修复] 遍历处理时间：UTC -> 北京时间
+                            for r in reminders:
+                                try:
+                                    # 解析 UTC 时间字符串
+                                    dt_utc = datetime.fromisoformat(r['created_at'].replace('Z', '+00:00'))
+                                    # 转为北京时间
+                                    dt_bj = dt_utc.astimezone(timezone(timedelta(hours=8)))
+                                    # 格式化为 "18:30" 这种格式
+                                    r['time_display'] = dt_bj.strftime('%H:%M')
+                                except:
+                                    r['time_display'] = "刚刚"
+
+                            f['reminders'] = reminders
+                        except Exception as e:
+                            print(f"Reminder Error: {e}")
 
     except Exception as e:
         print(f"Profile/Weather Fetch Error: {e}")
@@ -473,13 +492,13 @@ def home():
     if my_profile.get('display_name'): session['display_name'] = my_profile['display_name']
     user_name = session.get('display_name', '家人')
 
-
     # ================= 2. 获取可见成员映射 =================
     user_map = {}
     family_members_dict = {}
     try:
         if my_family_ids:
-            co_members = db.table('family_members').select('family_id, user_id').in_('family_id', my_family_ids).execute()
+            co_members = db.table('family_members').select('family_id, user_id').in_('family_id',
+                                                                                     my_family_ids).execute()
             visible_user_ids = list(set([m['user_id'] for m in co_members.data]))
 
             for m in co_members.data:
@@ -489,7 +508,8 @@ def home():
                 family_members_dict[fid].append(uid)
 
             if visible_user_ids:
-                profiles_res = db.table('profiles').select("id, display_name, avatar_url").in_('id', visible_user_ids).execute()
+                profiles_res = db.table('profiles').select("id, display_name, avatar_url").in_('id',
+                                                                                               visible_user_ids).execute()
                 for p in profiles_res.data:
                     avatar_link = None
                     if p.get('avatar_url'):
@@ -498,8 +518,8 @@ def home():
         else:
             p = my_profile
             user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url')}
-    except: pass
-
+    except:
+        pass
 
     # ================= 3. 获取核心数据 =================
     pets = []
@@ -524,22 +544,28 @@ def home():
 
             # 日志
             if all_pet_ids:
-                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order('created_at', desc=True).execute().data or []
+                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order(
+                    'created_at', desc=True).execute().data or []
 
             # 动态
             visible_uids = list(user_map.keys())
             if visible_uids:
-                moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at', desc=True).limit(20).execute().data or []
+                moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at',
+                                                                                                  desc=True).limit(
+                    20).execute().data or []
     except Exception as e:
         print(f"Data Fetch Error: {e}")
 
-
     # ================= 4. 数据组装 =================
     for pet in pets:
-        pet['today_feed'] = False; pet['today_walk'] = False
-        pet['feed_info'] = ""; pet['walk_info'] = ""
-        pet['latest_photo'] = None; pet['photo_uploader'] = ""
-        pet['latest_log_id'] = None; pet['latest_user_id'] = None
+        pet['today_feed'] = False;
+        pet['today_walk'] = False
+        pet['feed_info'] = "";
+        pet['walk_info'] = ""
+        pet['latest_photo'] = None;
+        pet['photo_uploader'] = ""
+        pet['latest_log_id'] = None;
+        pet['latest_user_id'] = None
 
         pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
         pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
@@ -577,11 +603,13 @@ def home():
     # 6. 获取更新日志
     latest_update = None
     try:
-        up_res = db.table('app_updates').select('*').eq('is_pushed', True).order('created_at', desc=True).limit(1).execute()
+        up_res = db.table('app_updates').select('*').eq('is_pushed', True).order('created_at', desc=True).limit(
+            1).execute()
         if up_res.data:
             latest_update = up_res.data[0]
             latest_update['content'] = latest_update['content'].replace('\n', '<br>')
-    except: pass
+    except:
+        pass
 
     if session.get('is_impersonator'):
         flash(f"👁️ 上帝模式：{user_name}", "info")
@@ -676,6 +704,7 @@ def upload_pet_photo():
 
     return redirect(url_for('home', tab='pets'))
 
+
 @app.route('/post_moment', methods=['POST'])
 @login_required
 def post_moment():
@@ -689,8 +718,10 @@ def post_moment():
             data['image_path'] = path
         if data.get('content') or data.get('image_path'):
             db.table('moments').insert(data).execute()
-    except Exception as e: flash(f"发布失败: {e}", "danger")
+    except Exception as e:
+        flash(f"发布失败: {e}", "danger")
     return redirect(url_for('home', tab='life'))
+
 
 @app.route('/delete_log/<int:log_id>', methods=['POST'])
 @login_required
@@ -703,8 +734,10 @@ def delete_log(log_id):
             if rec['user_id'] == session['user']:
                 if rec.get('image_path'): db.storage.from_("family_photos").remove(rec['image_path'])
                 db.table('logs').delete().eq('id', log_id).execute()
-    except: pass
+    except:
+        pass
     return redirect(url_for('home', tab='pets'))
+
 
 @app.route('/delete_moment/<int:mid>', methods=['POST'])
 @login_required
@@ -717,7 +750,8 @@ def delete_moment(mid):
             if rec['user_id'] == session['user']:
                 if rec.get('image_path'): db.storage.from_("family_photos").remove(rec['image_path'])
                 db.table('moments').delete().eq('id', mid).execute()
-    except: pass
+    except:
+        pass
     return redirect(url_for('home', tab='life'))
 
 
@@ -809,6 +843,8 @@ def send_family_reminder():
         flash(f"发送失败: {e}", "danger")
 
     return redirect(url_for('home'))
+
+
 @app.route('/create_family', methods=['POST'])
 @login_required
 def create_family():
@@ -1513,6 +1549,7 @@ def admin_delete_reg_code(cid):
     except:
         flash("操作失败", "danger")
     return redirect(url_for('admin_dashboard'))
+
 
 if __name__ == '__main__':
     # 开发环境启动
