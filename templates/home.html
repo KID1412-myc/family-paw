@@ -68,71 +68,107 @@
             color: white !important;
         }
 
-        /* === 双城天气样式 === */
+        /* === 新版双城天气样式 === */
         .weather-card {
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
             color: white;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 24px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             display: flex;
+            background: white; /* 底色 */
         }
 
         .weather-col {
             flex: 1;
-            padding: 15px 10px;
-            text-align: center;
+            padding: 20px 15px;
             position: relative;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         .weather-col:active {
-            opacity: 0.9;
+            filter: brightness(0.95);
+            transform: scale(0.98);
         }
 
-        /* 左侧：老家 (暖色调: 橙黄) */
+        /* 左侧：老家 (暖阳橙) */
         .weather-home-bg {
-            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            background: linear-gradient(160deg, #fad0c4 0%, #ffd1ff 100%);
+            color: #555;
         }
 
-        /* 右侧：远方 (冷色调: 蓝青) */
+        /* 右侧：远方 (清爽蓝) */
         .weather-away-bg {
-            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            background: linear-gradient(160deg, #a1c4fd 0%, #c2e9fb 100%);
+            color: #555;
         }
 
-        /* 没设置时的灰色背景 */
-        .weather-empty {
-            background: #f0f2f5;
-            color: #adb5bd;
+        /* 布局微调 */
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .weather-city {
+            font-weight: bold;
+            font-size: 15px;
+            opacity: 0.8;
+        }
+
+        .weather-bell {
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        .weather-main {
             display: flex;
             align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            font-size: 12px;
-        }
-
-        .weather-icon {
-            width: 32px;
-            height: 32px;
-            vertical-align: middle;
+            justify-content: space-between;
         }
 
         .weather-temp {
-            font-size: 24px;
-            font-weight: bold;
-            line-height: 1.2;
-            margin: 5px 0;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
         }
 
-        .weather-tips {
-            font-size: 10px;
-            opacity: 0.9;
-            background: rgba(0, 0, 0, 0.1);
+        .weather-icon {
+            width: 48px;
+            height: 48px;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+        }
+
+        .weather-footer {
+            margin-top: 10px;
+            font-size: 11px;
+            opacity: 0.8;
+            display: flex;
+            gap: 5px;
+        }
+
+        .weather-tag {
+            background: rgba(255, 255, 255, 0.6);
             padding: 2px 6px;
-            border-radius: 10px;
-            display: inline-block;
+            border-radius: 4px;
+        }
+
+        /* 空状态 */
+        .weather-empty {
+            background: #f8f9fa;
+            color: #adb5bd;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            border: 2px dashed #e9ecef;
         }
 
         /* ================= 萌宠页样式 (Pets Tab) ================= */
@@ -555,57 +591,59 @@
                         {% endif %}
                     </div>
                 </div>
-                <!-- ================= 双城天气卡片 ================= -->
+                <!-- ================= 双城天气卡片 (新版) ================= -->
                 <div class="weather-card">
-                    <!-- 左侧：老家 (Home) -->
+                    <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
                         <div class="weather-col weather-home-bg"
-                             onclick="openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
-                            <div class="small fw-bold mb-1">
-                                <i class="fas fa-home me-1"></i>{{ fam.location_home_name }}
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}', '{{ fam.weather_home.now.text }}')">
+                            <div class="weather-header">
+                                <span class="weather-city"><i class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
+                                <span class="weather-bell"><i class="fas fa-bell"></i> 提醒</span>
                             </div>
-                            <div class="d-flex justify-content-center align-items-center gap-2">
-                                <img src="https://a.hecdn.net/img/common/icon/202106d/{{ fam.weather_home.now.icon }}.png"
-                                     class="weather-icon">
+                            <div class="weather-main">
                                 <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
+                                <img src="https://cdn.jsdelivr.net/npm/qweather-icons@1.3.0/icons/{{ fam.weather_home.now.icon }}.svg"
+                                     class="weather-icon">
                             </div>
-                            <div class="small">{{ fam.weather_home.now.text }}</div>
-                            {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
-                                <div class="weather-tips mt-2">
-                                    {{ fam.weather_home.indices['3'].category }} <!-- 穿衣建议 -->
-                                </div>
-                            {% endif %}
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
+                                {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
+                                {% endif %}
+                            </div>
                         </div>
                     {% else %}
                         <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
-                            <i class="fas fa-plus-circle fa-lg mb-1"></i>
-                            设置老家
+                            <i class="fas fa-plus-circle fa-2x mb-2"></i>
+                            <small>设置老家</small>
                         </div>
                     {% endif %}
 
-                    <!-- 右侧：远方 (Away) -->
+                    <!-- 右侧：远方 -->
                     {% if fam.weather_away %}
                         <div class="weather-col weather-away-bg"
-                             onclick="openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
-                            <div class="small fw-bold mb-1">
-                                <i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}', '{{ fam.weather_away.now.text }}')">
+                            <div class="weather-header">
+                                <span class="weather-city"><i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
+                                <span class="weather-bell"><i class="fas fa-bell"></i> 提醒</span>
                             </div>
-                            <div class="d-flex justify-content-center align-items-center gap-2">
-                                <img src="https://a.hecdn.net/img/common/icon/202106d/{{ fam.weather_away.now.icon }}.png"
-                                     class="weather-icon">
+                            <div class="weather-main">
                                 <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
+                                <img src="https://cdn.jsdelivr.net/npm/qweather-icons@1.3.0/icons/{{ fam.weather_away.now.icon }}.svg"
+                                     class="weather-icon">
                             </div>
-                            <div class="small">{{ fam.weather_away.now.text }}</div>
-                            {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
-                                <div class="weather-tips mt-2">
-                                    {{ fam.weather_away.indices['3'].category }}
-                                </div>
-                            {% endif %}
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
+                                {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
+                                {% endif %}
+                            </div>
                         </div>
                     {% else %}
                         <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
-                            <i class="fas fa-plus-circle fa-lg mb-1"></i>
-                            设置我的城市
+                            <i class="fas fa-plus-circle fa-2x mb-2"></i>
+                            <small>设置我的城市</small>
                         </div>
                     {% endif %}
                 </div>
