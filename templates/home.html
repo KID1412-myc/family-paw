@@ -523,8 +523,9 @@
                         <!-- 编辑按钮 (仅主人可见) -->
                         {% if pet.is_owner %}
                             <!-- [修改] 增加了第4个参数: pet.owner_ids | tojson -->
+                            <!-- 注意：onclick= 后面用的是单引号 ' -->
                             <button class="btn btn-sm btn-link text-muted p-0"
-                                    onclick="openEditPetModal('{{ pet.id }}', '{{ pet.name }}', '{{ pet.family_id }}', {{ pet.owner_ids | tojson }})">
+                                    onclick='openEditPetModal("{{ pet.id }}", "{{ pet.name }}", "{{ pet.family_id }}", {{ pet.owner_ids | tojson }})'>
                                 <i class="fas fa-cog"></i>
                             </button>
                         {% endif %}
@@ -1047,51 +1048,51 @@
     }
 
     // [修改] 增加了第4个参数 ownerIds (已有主人的ID列表)
-        function openEditPetModal(id, name, familyId, ownerIds) {
-            console.log("点击编辑:", id, name, familyId, ownerIds);
+    function openEditPetModal(id, name, familyId, ownerIds) {
+        console.log("点击编辑:", id, name, familyId, ownerIds);
 
-            // 1. 填充基础信息
-            document.getElementById('edit_pet_id').value = id;
-            document.getElementById('add_owner_pet_id').value = id;
-            document.getElementById('edit_pet_name').value = name;
+        // 1. 填充基础信息
+        document.getElementById('edit_pet_id').value = id;
+        document.getElementById('add_owner_pet_id').value = id;
+        document.getElementById('edit_pet_name').value = name;
 
-            // 2. 动态生成下拉框
-            const select = document.querySelector('select[name="new_owner_id"]');
-            select.innerHTML = '<option value="" disabled selected>选择家庭成员...</option>';
+        // 2. 动态生成下拉框
+        const select = document.querySelector('select[name="new_owner_id"]');
+        select.innerHTML = '<option value="" disabled selected>选择家庭成员...</option>';
 
-            // 确保 ownerIds 是个数组 (防错)
-            const currentOwners = ownerIds || [];
+        // 确保 ownerIds 是个数组 (防错)
+        const currentOwners = ownerIds || [];
 
-            const members = (familyId && familyMembersMap[String(familyId)]) ? familyMembersMap[String(familyId)] : [];
+        const members = (familyId && familyMembersMap[String(familyId)]) ? familyMembersMap[String(familyId)] : [];
 
-            if (members.length === 0) {
-                const opt = new Option("暂无其他成员", "");
-                select.add(opt);
-            } else {
-                members.forEach(uid => {
-                    // 排除我自己，且用户存在
-                    if (uid !== currentUserId && userMap[uid]) {
-                        let displayName = userMap[uid].name;
-                        let isDisabled = false;
+        if (members.length === 0) {
+            const opt = new Option("暂无其他成员", "");
+            select.add(opt);
+        } else {
+            members.forEach(uid => {
+                // 排除我自己，且用户存在
+                if (uid !== currentUserId && userMap[uid]) {
+                    let displayName = userMap[uid].name;
+                    let isDisabled = false;
 
-                        // [核心逻辑] 如果该用户已经在主人列表里
-                        if (currentOwners.includes(uid)) {
-                            displayName += " (已是主人)";
-                            isDisabled = true;
-                        }
-
-                        const opt = new Option(displayName, uid);
-                        if (isDisabled) {
-                            opt.disabled = true; // 禁用选择
-                        }
-                        select.add(opt);
+                    // [核心逻辑] 如果该用户已经在主人列表里
+                    if (currentOwners.includes(uid)) {
+                        displayName += " (已是主人)";
+                        isDisabled = true;
                     }
-                });
-            }
 
-            // 3. 显示弹窗
-            new bootstrap.Modal(document.getElementById('editPetModal')).show();
+                    const opt = new Option(displayName, uid);
+                    if (isDisabled) {
+                        opt.disabled = true; // 禁用选择
+                    }
+                    select.add(opt);
+                }
+            });
         }
+
+        // 3. 显示弹窗
+        new bootstrap.Modal(document.getElementById('editPetModal')).show();
+    }
 
 
     /**
