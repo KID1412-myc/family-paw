@@ -542,26 +542,40 @@
         {% endif %}
     {% endwith %}
 
-    <!-- ================= 家庭置顶叮嘱 (新功能) ================= -->
+    <!-- ================= 家庭留言板 (24小时自动过期) ================= -->
     {% if my_families %}
         {% for fam in my_families %}
-            <!-- 只有当提醒内容存在，且是最近24小时内的才显示 -->
-            {% if fam.reminder_content %}
-                <div class="alert alert-warning shadow-sm border-0 rounded-4 d-flex align-items-start mb-3" role="alert"
-                     style="background: #fff8e1; color: #856404;">
-                    <div class="me-2 fs-1">🔔</div>
-                    <div>
-                        <div class="fw-bold small text-uppercase" style="opacity: 0.7;">
-                            {{ fam.name }} · 来自 {{ fam.reminder_sender }}
+            {% if fam.reminders %}
+                <div class="mb-3">
+                    {% for rem in fam.reminders %}
+                        <div class="alert shadow-sm border-0 rounded-4 d-flex align-items-start mb-2 fade show"
+                             role="alert"
+                             style="background: #fff8e1; color: #856404;">
+
+                            <!-- 头像或铃铛 -->
+                            <div class="me-2 fs-5">🔔</div>
+
+                            <div class="w-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold small text-uppercase" style="opacity: 0.7;">
+                                        {{ rem.sender_name }}
+                                        <span class="fw-normal mx-1">·</span>
+                                        {{ fam.name }}
+                                    </span>
+                                    <!-- 显示大概时间 -->
+                                    <span class="small" style="opacity: 0.5; font-size: 10px;">
+                                        {{ rem.created_at[11:16] }} <!-- 只显示 HH:MM -->
+                                    </span>
+                                </div>
+                                <div class="fw-bold mt-1" style="font-size: 14px;">
+                                    {{ rem.content }}
+                                </div>
+                            </div>
+
+                            <!-- 关闭按钮 (前端假关闭，刷新还在，除非过了24小时) -->
+                            <button type="button" class="btn-close btn-sm ms-2" data-bs-dismiss="alert"></button>
                         </div>
-                        <div class="fw-bold mt-1" style="font-size: 15px;">
-                            {{ fam.reminder_content }}
-                        </div>
-                        <!-- 显示时间 (例如 10分钟前) -->
-                        <!-- 这里简单处理，如果不追求精确可以不显示具体时间，或者用JS处理 -->
-                    </div>
-                    <!--哪怕是提醒，也给个关闭按钮，防止看着烦-->
-                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                    {% endfor %}
                 </div>
             {% endif %}
         {% endfor %}
@@ -621,83 +635,89 @@
 
                     <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
-                    <div class="weather-col weather-home-bg" onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}', '{{ fam.weather_home.now.text }}')">
+                        <div class="weather-col weather-home-bg"
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}', '{{ fam.weather_home.now.text }}')">
 
-                        <!-- 1. 修改设置按钮 (右上角齿轮) -->
-                        <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                                style="width:28px;height:28px;z-index:10;"
-                                onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
-                            <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
-                        </button>
+                            <!-- 1. 修改设置按钮 (右上角齿轮) -->
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                    style="width:28px;height:28px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
 
-                        <div class="weather-header mb-2">
-                            <!-- 2. 城市名 + 提醒提示 -->
-                            <div class="d-flex align-items-center">
-                                <span class="weather-city me-2"><i class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
-                                <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal" style="font-size: 10px; transform: scale(0.9);">
+                            <div class="weather-header mb-2">
+                                <!-- 2. 城市名 + 提醒提示 -->
+                                <div class="d-flex align-items-center">
+                                    <span class="weather-city me-2"><i
+                                            class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
+                                    <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal"
+                                          style="font-size: 10px; transform: scale(0.9);">
                                     <i class="fas fa-bell text-danger"></i> 提醒TA
                                 </span>
+                                </div>
+                            </div>
+
+                            <div class="weather-main">
+                                <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
+                                <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
+                            </div>
+
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
+                                {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
+                                {% endif %}
                             </div>
                         </div>
-
-                        <div class="weather-main">
-                            <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
-                            <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
-                        </div>
-
-                        <div class="weather-footer">
-                            <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
-                            {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
-                            <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
                     {% else %}
-                    <!-- 空状态 -->
-                    <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
-                        <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
-                        <small>设置老家</small>
-                    </div>
+                        <!-- 空状态 -->
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
+                            <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
+                            <small>设置老家</small>
+                        </div>
                     {% endif %}
 
                     <!-- 右侧：远方 -->
                     {% if fam.weather_away %}
-                    <div class="weather-col weather-away-bg" onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}', '{{ fam.weather_away.now.text }}')">
+                        <div class="weather-col weather-away-bg"
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}', '{{ fam.weather_away.now.text }}')">
 
-                        <!-- 修改按钮 -->
-                        <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                                style="width:28px;height:28px;z-index:10;"
-                                onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
-                            <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
-                        </button>
+                            <!-- 修改按钮 -->
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                    style="width:28px;height:28px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
 
-                        <div class="weather-header mb-2">
-                            <div class="d-flex align-items-center">
-                                <span class="weather-city me-2"><i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
-                                <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal" style="font-size: 10px; transform: scale(0.9);">
+                            <div class="weather-header mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="weather-city me-2"><i
+                                            class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
+                                    <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal"
+                                          style="font-size: 10px; transform: scale(0.9);">
                                     <i class="fas fa-bell text-primary"></i> 提醒TA
                                 </span>
+                                </div>
+                            </div>
+
+                            <div class="weather-main">
+                                <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
+                                <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
+                            </div>
+
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
+                                {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
+                                {% endif %}
                             </div>
                         </div>
-
-                        <div class="weather-main">
-                            <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
-                            <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
-                        </div>
-
-                        <div class="weather-footer">
-                            <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
-                            {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
-                            <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
                     {% else %}
-                    <!-- 空状态 -->
-                    <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
-                        <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
-                        <small>设置我的城市</small>
-                    </div>
+                        <!-- 空状态 -->
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
+                            <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
+                            <small>设置我的城市</small>
+                        </div>
                     {% endif %}
                 </div>
             {% endfor %}

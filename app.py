@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.4.6'
+CURRENT_APP_VERSION = '2.4.5'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -449,6 +449,24 @@ def home():
                         if f.get('location_away_id'):
                             f['weather_away'] = get_weather_full(f['location_away_id'])
 
+                        f['reminders'] = []
+                        try:
+                            # 计算24小时前的时间
+                            yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+                            # 查询该家庭、24小时内、最新的3条
+                            rem_res = db.table('family_reminders') \
+                                .select('*') \
+                                .eq('family_id', f['id']) \
+                                .gte('created_at', yesterday) \
+                                .order('created_at', desc=True) \
+                                .limit(3) \
+                                .execute()
+
+                            f['reminders'] = rem_res.data or []
+                        except:
+                            pass
+
     except Exception as e:
         print(f"Profile/Weather Fetch Error: {e}")
 
@@ -770,7 +788,6 @@ def set_weather_city():
 @app.route('/send_family_reminder', methods=['POST'])
 @login_required
 def send_family_reminder():
-    """发送家庭置顶提醒"""
     db = get_db()
     family_id = request.form.get('family_id')
     content = request.form.get('content')
@@ -778,18 +795,16 @@ def send_family_reminder():
     if not content: return redirect(url_for('home'))
 
     try:
-        # 获取发送者昵称
         sender_name = session.get('display_name', '家人')
 
-        # 更新家庭表 (写入最新叮嘱)
-        db.table('families').update({
-            'reminder_content': content,
-            'reminder_sender': sender_name,
-            'reminder_time': datetime.now(timezone.utc).isoformat()
-        }).eq('id', family_id).execute()
+        # [修改] 插入新表
+        db.table('family_reminders').insert({
+            'family_id': family_id,
+            'content': content,
+            'sender_name': sender_name
+        }).execute()
 
-
-        flash("提醒已置顶发送！家人打开App就能看到。", "success")
+        flash("提醒已发送", "success")
     except Exception as e:
         flash(f"发送失败: {e}", "danger")
 
