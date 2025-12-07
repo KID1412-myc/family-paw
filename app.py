@@ -25,6 +25,7 @@ load_dotenv()
 app = Flask(__name__)
 CURRENT_APP_VERSION = '2.4.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
+qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 
 # ================= 配置区域 =================
 # 适配 Vercel/Render 等代理环境，防止 HTTPS 变 HTTP
@@ -136,61 +137,77 @@ def generate_invite_code():
 # ================= 天气服务核心逻辑 =================
 
 def search_city_qweather(keyword):
-    """[GeoAPI] 搜索城市 ID"""
+    """
+    [GeoAPI] 搜索城市 ID (新版)
+    URL 结构: https://你的Host/geo/v2/city/lookup
+    """
     if not keyword or not qweather_key: return None, None
+
+    # 使用配置里的 Host (比如 https://devapi.qweather.com 或你的专属域名)
+    host = qweather_host
+
     try:
-        # 使用和风 GeoAPI 查找城市
-        url = f"https://geoapi.qweather.com/v2/city/lookup?location={keyword}&key={qweather_key}"
-        res = requests.get(url, timeout=3)
+        # [核心修改]
+        # 1. 使用动态 Host
+        # 2. 路径变更为 /geo/v2/city/lookup (注意多了 /geo)
+        url = f"{host.rstrip('/')}/geo/v2/city/lookup"
+
+        # 参数保持不变
+        params = {"location": keyword, "key": qweather_key, "range": "cn"}
+
+        res = requests.get(url, params=params, timeout=5)
         data = res.json()
+
         if data.get('code') == '200' and data.get('location'):
-            # 取第一个匹配结果
             top = data['location'][0]
             return top['id'], top['name']
+
     except Exception as e:
         print(f"GeoAPI Error: {e}")
+
     return None, None
 
 
 def get_weather_full(city_id):
     """
-    [组合技] 获取实时天气 + 生活指数 (穿衣/感冒)
+    [组合技] 获取实时天气 + 生活指数
+    使用动态配置的 Host
     """
     if not city_id or not qweather_key: return None
 
     weather_data = {}
 
+    # [修改] 使用配置里的 Host，不再硬编码
+    host = qweather_host
+
     try:
-        # 1. 查实时天气 (Weather Now)
-        # 注意：免费订阅必须使用 devapi
-        url_now = f"https://devapi.qweather.com/v7/weather/now?location={city_id}&key={qweather_key}"
-        res_now = requests.get(url_now, timeout=3)
+        # 1. 查实时天气
+        # 注意：这里去掉了 host 字符串末尾可能多余的 /，防止拼接成 https://xxx//v7
+        url_now = f"{host.rstrip('/')}/v7/weather/now"
+
+        res_now = requests.get(url_now, params={"location": city_id, "key": qweather_key}, timeout=3)
         data_now = res_now.json()
 
         if data_now.get('code') == '200':
-            weather_data['now'] = data_now['now']  # 包含 temp, icon, text
+            weather_data['now'] = data_now['now']
         else:
-            return None  # 基础天气都查不到，就别展示了
+            print(f"Weather API Error: {data_now.get('code')} - URL: {url_now}")
+            return None
 
-        # 2. 查生活指数 (Indices)
-        # type=3(穿衣), 9(感冒)
-        url_ind = f"https://devapi.qweather.com/v7/indices/1d?type=3,9&location={city_id}&key={qweather_key}"
-        res_ind = requests.get(url_ind, timeout=3)
+            # 2. 查生活指数
+        url_ind = f"{host.rstrip('/')}/v7/indices/1d"
+        res_ind = requests.get(url_ind, params={"type": "3,9", "location": city_id, "key": qweather_key}, timeout=3)
         data_ind = res_ind.json()
 
         if data_ind.get('code') == '200':
-            # 把列表转成字典方便前端取：{'3': {...}, '9': {...}}
-            # 3=穿衣, 9=感冒
             indices = {item['type']: item for item in data_ind['daily']}
             weather_data['indices'] = indices
 
     except Exception as e:
-        print(f"Weather Fetch Error: {e}")
-        # 如果出错，至少返回已有的(比如只有温度没有指数)
+        print(f"Weather Fetch Exception: {e}")
         if not weather_data: return None
 
     return weather_data
-
 
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
