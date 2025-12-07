@@ -542,6 +542,31 @@
         {% endif %}
     {% endwith %}
 
+    <!-- ================= 家庭置顶叮嘱 (新功能) ================= -->
+    {% if my_families %}
+        {% for fam in my_families %}
+            <!-- 只有当提醒内容存在，且是最近24小时内的才显示 -->
+            {% if fam.reminder_content %}
+                <div class="alert alert-warning shadow-sm border-0 rounded-4 d-flex align-items-start mb-3" role="alert"
+                     style="background: #fff8e1; color: #856404;">
+                    <div class="me-2 fs-1">🔔</div>
+                    <div>
+                        <div class="fw-bold small text-uppercase" style="opacity: 0.7;">
+                            {{ fam.name }} · 来自 {{ fam.reminder_sender }}
+                        </div>
+                        <div class="fw-bold mt-1" style="font-size: 15px;">
+                            {{ fam.reminder_content }}
+                        </div>
+                        <!-- 显示时间 (例如 10分钟前) -->
+                        <!-- 这里简单处理，如果不追求精确可以不显示具体时间，或者用JS处理 -->
+                    </div>
+                    <!--哪怕是提醒，也给个关闭按钮，防止看着烦-->
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
     <!-- ================= Tab: 萌宠 ================= -->
     <div id="tab-pets" class="{% if current_tab != 'pets' %}d-none{% endif %}">
         <!-- ================= 归家倒计时卡片 ================= -->
@@ -591,15 +616,22 @@
                         {% endif %}
                     </div>
                 </div>
-                <!-- ================= 双城天气卡片 (新版) ================= -->
+                <!-- ================= 双城天气卡片 (修复版：带修改按钮) ================= -->
                 <div class="weather-card">
                     <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
                         <div class="weather-col weather-home-bg"
                              onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}', '{{ fam.weather_home.now.text }}')">
+
+                            <!-- [新增] 修改按钮 (绝对定位在右上角) -->
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:24px;height:24px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
+
                             <div class="weather-header">
                                 <span class="weather-city"><i class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
-                                <span class="weather-bell"><i class="fas fa-bell"></i> 提醒</span>
                             </div>
                             <div class="weather-main">
                                 <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
@@ -624,9 +656,16 @@
                     {% if fam.weather_away %}
                         <div class="weather-col weather-away-bg"
                              onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}', '{{ fam.weather_away.now.text }}')">
+
+                            <!-- [新增] 修改按钮 -->
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:24px;height:24px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
+
                             <div class="weather-header">
                                 <span class="weather-city"><i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
-                                <span class="weather-bell"><i class="fas fa-bell"></i> 提醒</span>
                             </div>
                             <div class="weather-main">
                                 <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
@@ -1424,6 +1463,59 @@
         document.getElementById('weather_label').innerText = label;
 
         new bootstrap.Modal(document.getElementById('weatherModal')).show();
+    }
+
+    // 智能天气提醒
+    function sendReminder(famId, city, weather) {
+        // 1. 定义智能话术库
+        let msg = "";
+
+        // 简单粗暴的关键词匹配
+        if (weather.includes("雨")) {
+            msg = `🌧️ ${city}下雨啦，出门记得带伞，别淋湿了！`;
+        } else if (weather.includes("雪")) {
+            msg = `❄️ ${city}下雪了，路滑注意安全，多穿点！`;
+        } else if (weather.includes("阴") || weather.includes("云")) {
+            msg = `☁️ ${city}云很多，虽然没有太阳，心情也要美美的！`;
+        } else if (weather.includes("晴")) {
+            msg = `☀️ ${city}天气真好，记得晒晒太阳补补钙！`;
+        } else if (weather.includes("雾") || weather.includes("霾")) {
+            msg = `😷 ${city}空气不好，出门记得戴口罩哦。`;
+        } else {
+            // 兜底话术
+            msg = `❤️ 贴心提醒：${city}现在${weather}，照顾好自己！`;
+        }
+
+        // 2. 确认发送
+        if (!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
+
+        // 3. 构造表单提交到新接口
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/send_family_reminder'; // [注意] 这里改成新接口了
+
+        const inputCsrf = document.createElement('input');
+        inputCsrf.type = 'hidden';
+        inputCsrf.name = 'csrf_token';
+        inputCsrf.value = '{{ csrf_token() }}';
+
+        const inputFamId = document.createElement('input');
+        inputFamId.type = 'hidden';
+        inputFamId.name = 'family_id';
+        inputFamId.value = famId;
+
+        const inputContent = document.createElement('input');
+        inputContent.type = 'hidden';
+        inputContent.name = 'content';
+        inputContent.value = msg;
+
+        form.appendChild(inputCsrf);
+        form.appendChild(inputFamId);
+        form.appendChild(inputContent);
+        document.body.appendChild(form);
+
+        showLoading();
+        form.submit();
     }
 
 </script>

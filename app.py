@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.4.1'
+CURRENT_APP_VERSION = '2.4.2'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 
@@ -765,6 +765,39 @@ def set_weather_city():
 
     return redirect(url_for('home'))
 
+
+@app.route('/send_family_reminder', methods=['POST'])
+@login_required
+def send_family_reminder():
+    """发送家庭置顶提醒"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    content = request.form.get('content')
+
+    if not content: return redirect(url_for('home'))
+
+    try:
+        # 获取发送者昵称
+        sender_name = session.get('display_name', '家人')
+
+        # 更新家庭表 (写入最新叮嘱)
+        db.table('families').update({
+            'reminder_content': content,
+            'reminder_sender': sender_name,
+            'reminder_time': datetime.now(timezone.utc).isoformat()
+        }).eq('id', family_id).execute()
+
+        # [可选] 同时发一条动态，留作历史记录
+        db.table('moments').insert({
+            'user_id': session['user'],
+            'content': content
+        }).execute()
+
+        flash("提醒已置顶发送！家人打开App就能看到。", "success")
+    except Exception as e:
+        flash(f"发送失败: {e}", "danger")
+
+    return redirect(url_for('home'))
 @app.route('/create_family', methods=['POST'])
 @login_required
 def create_family():
