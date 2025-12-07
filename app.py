@@ -787,11 +787,6 @@ def send_family_reminder():
             'reminder_time': datetime.now(timezone.utc).isoformat()
         }).eq('id', family_id).execute()
 
-        # [可选] 同时发一条动态，留作历史记录
-        db.table('moments').insert({
-            'user_id': session['user'],
-            'content': content
-        }).execute()
 
         flash("提醒已置顶发送！家人打开App就能看到。", "success")
     except Exception as e:
