@@ -208,14 +208,32 @@
                                            style="font-size:11px; font-family:monospace;">{{ user.id }}</small>
                                 </td>
                                 <td>
-                                    {% if user.family_name %}
-                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
-                                                <i class="fas fa-home me-1"></i>{{ user.family_name }}
-                                            </span>
+                                    {% if user.families_data %}
+                                        <!-- 遍历该用户加入的所有家庭 -->
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for fam in user.families_data %}
+                                                <div class="badge bg-primary bg-opacity-10 text-primary border border-primary d-flex align-items-center">
+                                                    <i class="fas fa-home me-1"></i> {{ fam.name }}
+
+                                                    <!-- 踢人小按钮 (嵌入在标签里) -->
+                                                    <form action="/admin/unbind_family" method="POST" class="ms-2"
+                                                          onsubmit="return confirm('确定要把他从 [{{ fam.name }}] 踢出去吗？')">
+                                                        <input type="hidden" name="csrf_token"
+                                                               value="{{ csrf_token() }}"/>
+                                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                        <input type="hidden" name="family_id" value="{{ fam.id }}">
+                                                        <button type="submit" class="btn btn-link p-0 text-danger"
+                                                                style="line-height: 1;" title="踢出">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
                                     {% else %}
                                         <span class="badge bg-secondary bg-opacity-25 text-secondary">
-                                                <i class="fas fa-wind me-1"></i>流浪中
-                                            </span>
+                    <i class="fas fa-wind me-1"></i>流浪中
+                </span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -227,23 +245,14 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1">
+                                        <!--
                                         {% if user.id != session['user'] %}
                                             <a href="/admin/login_as/{{ user.id }}" class="btn btn-sm btn-outline-info"
                                                title="以该身份登录" onclick="return confirm('确定要切换身份吗？')">
                                                 <i class="fas fa-user-secret"></i>
                                             </a>
                                         {% endif %}
-
-                                        {% if user.family_id %}
-                                            <form action="/admin/unbind_family/{{ user.id }}" method="POST"
-                                                  onsubmit="return confirm('确定要把他踢出家庭吗？')" class="d-inline">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                <button type="submit" class="btn btn-sm btn-outline-warning"
-                                                        title="踢出家庭 (强制解绑)">
-                                                    <i class="fas fa-heart-broken"></i>
-                                                </button>
-                                            </form>
-                                        {% endif %}
+                                        -->
 
                                         <form action="/admin/reset_password/{{ user.id }}" method="POST"
                                               onsubmit="return confirm('确定重置为 123456？')" class="d-inline">
@@ -305,7 +314,11 @@
                     {% for f in families %}
                         <tr>
                             <td><strong>{{ f.name }}</strong></td>
-                            <td><span class="invite-code">{{ f.invite_code }}</span></td>
+                            <td>
+    <span class="invite-code" title="{{ f.invite_code }}">
+        {{ f.invite_code[:2] }}****
+    </span>
+                            </td>
                             <td>
                                     <span class="badge bg-secondary" title="{{ f.members_str }}" style="cursor: help;">
                                         <i class="fas fa-users me-1"></i> {{ f.member_count }} 人

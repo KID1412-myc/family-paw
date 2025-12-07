@@ -23,9 +23,10 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.4.5'
+CURRENT_APP_VERSION = '2.4.6'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
+ENABLE_GOD_MODE = False
 
 # ================= 配置区域 =================
 # 适配 Vercel/Render 等代理环境，防止 HTTPS 变 HTTP
@@ -1011,11 +1012,12 @@ def admin_dashboard():
         fid = m['family_id']
         if fid in fam_map:
             if uid not in user_fam_map: user_fam_map[uid] = []
-            user_fam_map[uid].append(fam_map[fid])
+            # 这里存入字典，包含 ID 和 Name
+            user_fam_map[uid].append({'id': fid, 'name': fam_map[fid]})
 
     for u in users:
-        fams = user_fam_map.get(u['id'], [])
-        u['family_name'] = "、".join(fams) if fams else None  # 前端若为None显示流浪中
+        # 把列表直接赋给 user，如果为空则设为 []
+        u['families_data'] = user_fam_map.get(u['id'], [])
 
     # 5. 处理宠物信息 (显示家庭 + 显示所有主人)
     # 5.1 构建 { pet_id: ["主人A", "主人B"] }
@@ -1115,6 +1117,9 @@ def admin_dashboard():
 @app.route('/admin/login_as/<uid>')
 @admin_required
 def admin_login_as(uid):
+    if not ENABLE_GOD_MODE:
+        flash("为了隐私安全，上帝模式已禁用。", "warning")
+        return redirect(url_for('admin_dashboard'))
     """
     [关键功能] 上帝模式：管理员代登录
     """
@@ -1254,16 +1259,25 @@ def admin_delete_family(fid):
     return redirect(url_for('admin_dashboard'))
 
 
-@app.route('/admin/unbind_family/<uid>', methods=['POST'])
+@app.route('/admin/unbind_family', methods=['POST'])  # 注意：这里去掉了URL里的<uid>
 @admin_required
-def admin_unbind_family(uid):
-    """管理员强制踢人"""
+def admin_unbind_family():
+    """管理员踢人 (指定将某人从某家庭移除)"""
     if not admin_supabase: return redirect(url_for('admin_dashboard'))
+
+    user_id = request.form.get('user_id')
+    family_id = request.form.get('family_id')
+
     try:
-        admin_supabase.table('profiles').update({'family_id': None}).eq('id', uid).execute()
-        flash("已强制将该用户移出家庭", "warning")
+        # 从中间表删除记录
+        admin_supabase.table('family_members').delete() \
+            .eq('user_id', user_id) \
+            .eq('family_id', family_id) \
+            .execute()
+        flash("已将该用户移出指定家庭", "success")
     except Exception as e:
-        flash(f"解绑失败: {e}", "danger")
+        flash(f"解绑失败: {str(e)}", "danger")
+
     return redirect(url_for('admin_dashboard'))
 
 
