@@ -319,17 +319,16 @@ def logout():
 @login_required
 def home():
     """
-    主页路由：
-    1. 支持多家庭数据显示。
-    2. 计算宠物主人权限 (is_owner) + [新增] 获取每只宠物的所有主人列表。
-    3. 聚合喂食、遛狗、照片墙和家庭动态。
+    主页路由 (终极修复版)：
+    1. 包含：宠物主人权限 (is_owner + owner_ids)。
+    2. 包含：归家倒计时计算 (days_left)。
+    3. 包含：多家庭数据聚合。
     """
     current_user_id = session.get('user')
     current_tab = request.args.get('tab', 'pets')
     today_str = get_beijing_time().strftime('%Y-%m-%d')
     db = get_db()
 
-    # 刹车机制
     if db is None: return redirect(url_for('login'))
 
     # ================= 1. 获取"我自己"的档案 & 家庭列表 =================
@@ -348,9 +347,23 @@ def home():
             members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
             if members_res.data:
                 my_family_ids = [m['family_id'] for m in members_res.data]
+
+                # 查询家庭详情
                 if my_family_ids:
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
+
+                    # [🔴 关键修复] 这里补回了倒计时的计算逻辑！
+                    now_date = datetime.now(timezone(timedelta(hours=8))).date()
+                    for f in my_families:
+                        f['days_left'] = None
+                        if f.get('reunion_date'):
+                            try:
+                                target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
+                                f['days_left'] = (target - now_date).days
+                            except:
+                                pass
+
     except Exception as e:
         print(f"Profile Fetch Error: {e}")
 
@@ -390,14 +403,14 @@ def home():
     pets = []
     logs = []
     moments_data = []
-    pet_owners_map = {}  # [新增] { pet_id: [user_id1, user_id2] }
+    pet_owners_map = {}
 
     try:
         if my_family_ids:
             # 3.1 宠物
             pets = db.table('pets').select("*").in_('family_id', my_family_ids).order('id').execute().data or []
 
-            # 3.2 [核心修改] 获取这些宠物的所有主人
+            # 3.2 获取宠物主人
             all_pet_ids = [p['id'] for p in pets]
             if all_pet_ids:
                 all_owners_res = db.table('pet_owners').select('pet_id, user_id').in_('pet_id', all_pet_ids).execute()
@@ -432,10 +445,10 @@ def home():
         pet['latest_log_id'] = None;
         pet['latest_user_id'] = None
 
-        # [新增] 把该宠物的所有主人ID列表塞进去，给前端JS用
+        # 注入 owner_ids
         pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
 
-        # 判断我是不是主人
+        # 判断是否是主人
         pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
 
         fam_obj = next((f for f in my_families if f['id'] == pet['family_id']), None)
