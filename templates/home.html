@@ -610,19 +610,26 @@
 
         /* === 升级版：家庭小剧场 (带Q弹特效) === */
         /* === 升级版：温馨客厅风格 === */
+        /* === 升级版：暖暖的小屋 === */
         .family-stage-card {
-            /* 暖色渐变背景，像开了暖光灯 */
-            background: linear-gradient(180deg, #ffffff 0%, #fffcf5 100%);
-            border-radius: 24px;
-            padding: 15px 10px 15px 10px;
+            /* 暖米色背景，不再是惨白 */
+            background: #fffef9;
+            /* 加上微微的内发光 */
+            background-image: radial-gradient(circle at 50% 0%, #fffbf0 0%, #fffef9 100%);
+
+            border-radius: 20px;
+            padding: 15px 10px 12px 10px; /* 底部padding减小，贴近地板 */
             margin-bottom: 20px;
-            box-shadow: 0 8px 20px rgba(255, 165, 2, 0.1); /* 淡淡的橙色投影 */
+
+            /* 投影加深一点，更有立体感 */
+            box-shadow: 0 4px 15px rgba(139, 119, 101, 0.1);
+
             position: relative;
             overflow: hidden;
-            border: 1px solid #fff;
+            border: 1px solid #fcf4e6; /* 奶茶色边框 */
 
-            /* 底部加一条深一点的颜色，模拟地板 */
-            border-bottom: 4px solid #f7f1e3;
+            /* [核心] 地板效果：加粗底部边框，用深木色 */
+            border-bottom: 8px solid #ecdcb0;
         }
 
         /* 氛围光保持不变 */
@@ -870,7 +877,7 @@
                                 <div class="member-item {% if uid == current_user_id %}is-me{% endif %}"
                                      onclick="handleMemberClick('{{ uid }}', '{{ user_map[uid].name }}', '{{ fam.id }}')">
 
-                                    <div class="head-wrapper" id="head-{{ uid }}">
+                                    <div class="head-wrapper" id="head-{{ fam.id }}-{{ uid }}">
                                         <!-- 头像 -->
                                         {% if user_map[uid].avatar %}
                                             <img src="{{ user_map[uid].avatar }}" class="member-avatar">
@@ -2197,7 +2204,7 @@
     function handleMemberClick(uid, name, famId) {
 
         // 1. 获取头像元素
-        const head = document.getElementById('head-' + uid);
+        const head = document.getElementById('head-' + famId + '-' + uid);
 
         // 2. 播放 Q弹动画 (先不管是什么操作，点了就得跳)
         // 移除旧类以防万一，再添加新类触发动画
