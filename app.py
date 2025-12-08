@@ -589,13 +589,20 @@ def home():
                 family_members_dict[fid].append(uid)
 
             if visible_user_ids:
-                profiles_res = db.table('profiles').select("id, display_name, avatar_url").in_('id',
-                                                                                               visible_user_ids).execute()
+                # [修改] 多查一个 status 字段
+                profiles_res = db.table('profiles').select("id, display_name, avatar_url, status").in_('id',
+                                                                                                       visible_user_ids).execute()
                 for p in profiles_res.data:
                     avatar_link = None
                     if p.get('avatar_url'):
                         avatar_link = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
-                    user_map[p['id']] = {'name': p['display_name'], 'avatar': avatar_link}
+
+                    # [修改] 把 status 也存进去
+                    user_map[p['id']] = {
+                        'name': p['display_name'],
+                        'avatar': avatar_link,
+                        'status': p.get('status', 'online')  # 默认在线
+                    }
         else:
             p = my_profile
             user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url')}
@@ -1731,6 +1738,53 @@ def operate_wish():
             db.table('family_wishes').update({'status': new_status}).eq('id', wish_id).execute()
     except Exception as e:
         flash(f"操作失败: {e}", "danger")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/update_status', methods=['POST'])
+@login_required
+def update_status():
+    """切换我的状态"""
+    db = get_db()
+    new_status = request.form.get('status')
+
+    if new_status:
+        try:
+            db.table('profiles').update({'status': new_status}).eq('id', session['user']).execute()
+            # 不用 flash 提示，前端自动变就好，减少打扰
+        except Exception as e:
+            print(f"Status Update Error: {e}")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/nudge_member', methods=['POST'])
+@login_required
+def nudge_member():
+    """拍一拍家人"""
+    db = get_db()
+    target_uid = request.form.get('target_uid')
+    target_name = request.form.get('target_name')
+    family_id = request.form.get('family_id')
+
+    if not target_uid or not family_id: return redirect(url_for('home'))
+
+    try:
+        my_name = session.get('display_name', '我')
+        # 构造拍一拍文案
+        msg = f"👋 {my_name} 拍了拍 {target_name}"
+
+        # 写入家庭提醒表 (复用现有的提醒功能)
+        db.table('family_reminders').insert({
+            'family_id': family_id,
+            'content': msg,
+            'sender_name': '系统'
+        }).execute()
+
+        flash(f"你拍了拍 {target_name}", "success")
+    except Exception as e:
+        print(f"Nudge Error: {e}")
 
     return redirect(url_for('home'))
 

@@ -607,6 +607,117 @@
         .wish-delete:active {
             color: #ff7675;
         }
+
+        /* === 家庭客厅 (头像栏) === */
+        .living-room {
+            display: flex;
+            align-items: flex-start; /* 顶部对齐 */
+            gap: 15px;
+            overflow-x: auto; /* 支持横向滑动 */
+            padding: 5px 2px 15px 2px; /* 底部留空给阴影 */
+            margin-bottom: 10px;
+            /* 隐藏滚动条但允许滚动 */
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .living-room::-webkit-scrollbar {
+            display: none;
+        }
+
+        .member-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px; /* 保证点击区域 */
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* 头像容器 */
+        .head-wrapper {
+            position: relative;
+            margin-bottom: 5px;
+            transition: transform 0.2s;
+        }
+
+        .head-wrapper:active {
+            transform: scale(0.9);
+        }
+
+        /* 拍一拍动画 */
+        .shake-animation {
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(-10deg);
+            }
+            75% {
+                transform: rotate(10deg);
+            }
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        .member-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 状态挂件 (右下角小圆标) */
+        .status-badge {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .member-name {
+            font-size: 11px;
+            color: #555;
+            font-weight: bold;
+            max-width: 70px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 状态颜色定义 */
+        .st-online {
+            background: #2ecc71;
+        }
+
+        /* 绿点: 在线 */
+        .st-busy {
+            background: #f1c40f;
+        }
+
+        /* 黄点: 忙碌 */
+        .st-sleep {
+            background: #95a5a6;
+        }
+
+        /* 灰点: 睡觉 */
     </style>
 </head>
 <body>
@@ -659,7 +770,61 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+    <!-- ================= 家庭客厅 (头像栏) ================= -->
+    {% if my_families %}
+        <!-- 遍历每个家庭 -->
+        {% for fam in my_families %}
+            <div class="mb-2">
+                <!-- 家庭标题 (小字) -->
+                <div class="px-2 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold text-muted"><i class="fas fa-home me-1"></i>{{ fam.name }}</span>
+                    <!-- 右侧放一个邀请按钮 -->
+                    <span class="badge bg-light text-secondary border fw-normal" onclick="copyCode(this)"
+                          style="cursor: pointer;">
+                        码: {{ fam.invite_code }}
+                    </span>
+                </div>
 
+                <!-- 头像横排列表 -->
+                <div class="living-room">
+
+                    <!-- 1. 遍历家庭成员 -->
+                    {% if family_members_dict[fam.id] %}
+                        {% for uid in family_members_dict[fam.id] %}
+                            {% if user_map[uid] %}
+                                <div class="member-item"
+                                     onclick="handleMemberClick('{{ uid }}', '{{ user_map[uid].name }}', '{{ fam.id }}')">
+                                    <div class="head-wrapper" id="head-{{ uid }}">
+                                        {% if user_map[uid].avatar %}
+                                            <img src="{{ user_map[uid].avatar }}" class="member-avatar">
+                                        {% else %}
+                                            <!-- 没头像显示首字 -->
+                                            <div class="member-avatar d-flex align-items-center justify-content-center bg-light text-primary fw-bold fs-4">
+                                                {{ user_map[uid].name[0] }}
+                                            </div>
+                                        {% endif %}
+
+                                        <!-- 状态小挂件 -->
+                                        <div class="status-badge">
+                                            {% if user_map[uid].status == 'busy' %}🟡
+                                            {% elif user_map[uid].status == 'sleep' %}💤
+                                            {% elif user_map[uid].status == 'food' %}🍚
+                                            {% elif user_map[uid].status == 'game' %}🎮
+                                            {% else %}🟢{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="member-name">
+                                        {{ '我' if uid == current_user_id else user_map[uid].name }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
     <!-- ================= 家庭留言板 (24小时自动过期) ================= -->
     {% if my_families %}
         {% for fam in my_families %}
@@ -1567,6 +1732,43 @@
         </div>
     </div>
 </div>
+<!-- 切换状态弹窗 -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm"> <!-- 小弹窗 -->
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-center w-100">我现在...</h5>
+            </div>
+            <div class="modal-body">
+                <form action="/update_status" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="d-grid gap-2">
+                        <button name="status" value="online"
+                                class="btn btn-outline-success border-2 fw-bold py-2 text-start px-4">
+                            🟢 有空 / 在线 <span class="float-end">😊</span>
+                        </button>
+                        <button name="status" value="busy"
+                                class="btn btn-outline-warning border-2 fw-bold py-2 text-start px-4 text-dark">
+                            🟡 学习 / 工作 <span class="float-end">📚</span>
+                        </button>
+                        <button name="status" value="food"
+                                class="btn btn-outline-danger border-2 fw-bold py-2 text-start px-4">
+                            🔴 干饭中 <span class="float-end">🍚</span>
+                        </button>
+                        <button name="status" value="game"
+                                class="btn btn-outline-info border-2 fw-bold py-2 text-start px-4">
+                            🔵 拯救世界 <span class="float-end">🎮</span>
+                        </button>
+                        <button name="status" value="sleep"
+                                class="btn btn-outline-secondary border-2 fw-bold py-2 text-start px-4">
+                            ⚪ 睡了 / 勿扰 <span class="float-end">💤</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- 引入 Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1899,6 +2101,55 @@
         form.appendChild(i4);
         document.body.appendChild(form);
         form.submit();
+    }
+
+    // 点击头像处理
+    function handleMemberClick(uid, name, famId) {
+        // 如果点的是我自己 -> 换状态
+        if (uid === currentUserId) {
+            new bootstrap.Modal(document.getElementById('statusModal')).show();
+        }
+        // 如果点的是别人 -> 拍一拍
+        else {
+            // 1. 头像抖动特效
+            const head = document.getElementById('head-' + uid);
+            head.classList.add('shake-animation');
+            setTimeout(() => head.classList.remove('shake-animation'), 500);
+
+            // 2. 震动反馈 (如果手机支持)
+            if (navigator.vibrate) navigator.vibrate(50);
+
+            // 3. 提交拍一拍请求
+            if (confirm(`要拍一拍 ${name} 吗？`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/nudge_member';
+
+                const i1 = document.createElement('input');
+                i1.type = 'hidden';
+                i1.name = 'csrf_token';
+                i1.value = '{{ csrf_token() }}';
+                const i2 = document.createElement('input');
+                i2.type = 'hidden';
+                i2.name = 'target_uid';
+                i2.value = uid;
+                const i3 = document.createElement('input');
+                i3.type = 'hidden';
+                i3.name = 'target_name';
+                i3.value = name;
+                const i4 = document.createElement('input');
+                i4.type = 'hidden';
+                i4.name = 'family_id';
+                i4.value = famId;
+
+                form.appendChild(i1);
+                form.appendChild(i2);
+                form.appendChild(i3);
+                form.appendChild(i4);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
     }
 
 </script>
