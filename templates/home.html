@@ -489,6 +489,124 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
             border: 2px solid white;
         }
+
+        /* === 许愿菜单 (多彩票据风) === */
+        .wish-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .wish-card {
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        /* 状态一：想吃 (红色系 - 饥饿感) */
+        .wish-wanted {
+            background: linear-gradient(145deg, #fff0f0 0%, #ffffff 100%);
+            border-left: 6px solid #ff6b6b;
+        }
+
+        .wish-wanted .wish-status-btn {
+            background: #ff6b6b;
+            color: white;
+            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+        }
+
+        /* 状态二：已买/做饭中 (橙黄色系 - 期待感) */
+        .wish-bought {
+            background: linear-gradient(145deg, #fffcf0 0%, #ffffff 100%);
+            border-left: 6px solid #feca57;
+        }
+
+        .wish-bought .wish-status-btn {
+            background: #feca57;
+            color: white;
+            box-shadow: 0 4px 10px rgba(254, 202, 87, 0.3);
+        }
+
+        /* 状态三：吃到了 (绿色/灰色系 - 满足感) */
+        .wish-eaten {
+            background: #f8f9fa;
+            border-left: 6px solid #b2bec3;
+            opacity: 0.8;
+        }
+
+        .wish-eaten .wish-title {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .wish-eaten .wish-stamp {
+            position: absolute;
+            right: 50px;
+            top: 5px;
+            border: 3px solid #1dd1a1;
+            color: #1dd1a1;
+            font-weight: 900;
+            padding: 5px 10px;
+            transform: rotate(-15deg);
+            font-size: 14px;
+            border-radius: 8px;
+            opacity: 0.8;
+            pointer-events: none; /* 防止挡住点击 */
+        }
+
+        /* 布局微调 */
+        .wish-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .wish-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 4px;
+        }
+
+        .wish-meta {
+            font-size: 11px;
+            color: #b2bec3;
+        }
+
+        /* 那个大按钮 */
+        .wish-status-btn {
+            border: none;
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+
+        .wish-status-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 垃圾桶 (做小一点，藏在右上角) */
+        .wish-delete {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #dfe6e9;
+            background: none;
+            border: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .wish-delete:active {
+            color: #ff7675;
+        }
     </style>
 </head>
 <body>
@@ -742,45 +860,73 @@
                         </div>
                     {% endif %}
                 </div>
-                <!-- ================= 许愿菜单 (点菜) ================= -->
-                <div class="card-box mb-4">
-                    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-25">
-                        <h6 class="mb-0 fw-bold"><i class="fas fa-utensils text-warning me-2"></i>许愿菜单</h6>
+                <!-- ================= 许愿菜单 (升级版) ================= -->
+                <div class="card-box mb-4 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 fw-bold d-flex align-items-center">
+                            <span style="font-size: 20px; margin-right: 8px;">🍱</span> 许愿菜单
+                        </h6>
                         <button class="btn btn-sm btn-warning rounded-pill px-3 text-white fw-bold shadow-sm"
                                 onclick="openWishModal('{{ fam.id }}')">
-                            + 我想吃
+                            <i class="fas fa-plus"></i> 我想吃
                         </button>
                     </div>
 
                     {% if fam.wishes %}
-                        <div class="wish-list">
+                        <div class="wish-container">
                             {% for dish in fam.wishes %}
-                                <div class="wish-item status-{{ dish.status }}">
-                                    <div class="d-flex align-items-center gap-2"
-                                         onclick="changeWishStatus('{{ dish.id }}', '{{ dish.status }}')">
-                                        {% if dish.status == 'wanted' %} <span class="fs-5">✨</span>
-                                        {% elif dish.status == 'bought' %} <span class="fs-5">🛒</span>
-                                        {% else %} <span class="fs-5">😋</span>
-                                        {% endif %}
+                                <div class="wish-card status-{{ dish.status }} {% if dish.status == 'wanted' %}wish-wanted{% elif dish.status == 'bought' %}wish-bought{% else %}wish-eaten{% endif %}">
 
-                                        <div class="fw-bold text-dark">{{ dish.content }}</div>
-                                    </div>
-
-                                    <!-- 删除按钮 -->
-                                    <form action="/operate_wish" method="POST" onsubmit="return confirm('删掉这道菜？')">
+                                    <!-- 右上角删除按钮 (防误触) -->
+                                    <form action="/operate_wish" method="POST" class="d-inline"
+                                          onsubmit="return confirm('要把这道菜从菜单上划掉吗？')">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                         <input type="hidden" name="wish_id" value="{{ dish.id }}">
                                         <input type="hidden" name="action" value="delete">
-                                        <button class="wish-btn shadow-sm"><i class="fas fa-trash-alt fa-xs"></i>
-                                        </button>
+                                        <button class="wish-delete"><i class="fas fa-times"></i></button>
                                     </form>
+
+                                    <!-- 印章 (仅吃完显示) -->
+                                    {% if dish.status == 'eaten' %}
+                                        <div class="wish-stamp">好吃!</div>
+                                    {% endif %}
+
+                                    <div class="wish-content">
+                                        <div>
+                                            <div class="wish-title">{{ dish.content }}</div>
+                                            <div class="wish-meta">
+                                                <!-- 根据状态显示不同的文案 -->
+                                                {% if dish.status == 'wanted' %}
+                                                    🤤 谁来接单？
+                                                {% elif dish.status == 'bought' %}
+                                                    🍳 备菜中...
+                                                {% else %}
+                                                    😋 肚子圆圆
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- 核心交互按钮 -->
+                                        <button class="wish-status-btn"
+                                                onclick="changeWishStatus('{{ dish.id }}', '{{ dish.status }}')">
+                                            {% if dish.status == 'wanted' %}
+                                                👨‍🍳 爸妈接单
+                                            {% elif dish.status == 'bought' %}
+                                                🥢 开饭啦
+                                            {% else %}
+                                                🔄 再来一顿
+                                            {% endif %}
+                                        </button>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4 text-muted small" onclick="openWishModal('{{ fam.id }}')">
-                            <i class="fas fa-bowl-rice fa-2x mb-2 opacity-25"></i>
-                            <div>还没有点菜，快去许愿吧~</div>
+                        <div class="text-center py-5" onclick="openWishModal('{{ fam.id }}')"
+                             style="cursor: pointer; background: #f9f9f9; border-radius: 12px; border: 2px dashed #eee;">
+                            <div style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;">🍽️</div>
+                            <div class="text-muted fw-bold">空空如也</div>
+                            <small class="text-muted opacity-75">快点一个想吃的菜吧！</small>
                         </div>
                     {% endif %}
                 </div>
