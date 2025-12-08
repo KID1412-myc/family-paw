@@ -165,16 +165,18 @@ def search_city_qweather(keyword):
 
 def get_weather_full(city_id, lat=None, lon=None):
     """
-    [全能天气查询 - 2026以后可用版]
-    参数: 城市ID, 纬度, 经度
+    [调试版] 获取天气 + 生活指数 + 空气质量
+    会自动打印请求日志，方便排查故障
     """
-    if not city_id or not qweather_key: return None
+    if not city_id or not qweather_key:
+        print("DEBUG: 缺少 CityID 或 Key")
+        return None
 
     weather_data = {}
     host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com").rstrip('/')
 
     try:
-        # 1. 实时天气 (依然用 ID 查，最稳)
+        # ================= 1. 实时天气 (v7) =================
         url_now = f"{host}/v7/weather/now"
         res_now = requests.get(url_now, params={"location": city_id, "key": qweather_key}, timeout=3)
         data_now = res_now.json()
@@ -182,28 +184,57 @@ def get_weather_full(city_id, lat=None, lon=None):
         if data_now.get('code') == '200':
             weather_data['now'] = data_now['now']
         else:
-            return None
+            print(f"❌ 天气查询失败: {data_now}")
+            return None  # 基础天气都没有，直接退出
 
-            # 2. 生活指数 (依然用 ID 查)
+        # ================= 2. 生活指数 (v7) =================
         url_ind = f"{host}/v7/indices/1d"
         res_ind = requests.get(url_ind, params={"type": "3,9", "location": city_id, "key": qweather_key}, timeout=3)
         data_ind = res_ind.json()
+
         if data_ind.get('code') == '200':
             weather_data['indices'] = {item['type']: item for item in data_ind['daily']}
 
-        # 3. [最新版] 实时空气质量 (必须用经纬度)
-        # 接口: /airquality/v1/current/{lat}/{lon}
+        # ================= 3. 空气质量 (核心调试区) =================
         if lat and lon:
-            url_air = f"{host}/airquality/v1/current/{lat}/{lon}"
-            res_air = requests.get(url_air, params={"key": qweather_key}, timeout=3)
+            # 确保经纬度是纯净的字符串（去掉可能的空格）
+            lat = str(lat).strip()
+            lon = str(lon).strip()
+
+            # --- 方案 A: 尝试你指定的 V1 新版接口 ---
+            url_v1 = f"{host}/airquality/v1/current/{lat}/{lon}"
+            print(f"🔍 正在尝试新版空气 API: {url_v1}")
+
+            res_air = requests.get(url_v1, params={"key": qweather_key}, timeout=3)
             data_air = res_air.json()
 
+            # 打印返回结果，看看究竟是啥
+            print(f"📄 新版 API 返回: {data_air}")
+
             if data_air.get('code') == '200':
-                # 注意：新版返回结构可能略有不同，通常在 'now' 里
-                weather_data['air'] = data_air['now']
+                weather_data['air'] = data_air['now']  # 如果成功，直接用
+                print("✅ 新版 API 获取成功")
+            else:
+                print(f"⚠️ 新版 API 失败 (Code: {data_air.get('code')})，尝试降级方案...")
+
+                # --- 方案 B: 降级使用 v7 (但使用经纬度查询) ---
+                # 即使是旧接口，也支持用经纬度查，格式是 location=经度,纬度
+                url_v7 = f"{host}/v7/air/now"
+                params_v7 = {"location": f"{lon},{lat}", "key": qweather_key}
+                res_v7 = requests.get(url_v7, params=params_v7, timeout=3)
+                data_v7 = res_v7.json()
+
+                print(f"📄 v7 降级 API 返回: {data_v7}")
+
+                if data_v7.get('code') == '200':
+                    weather_data['air'] = data_v7['now']
+                    print("✅ v7 降级 API 获取成功")
+        else:
+            print("❌ 数据库中没有经纬度数据，跳过空气质量查询")
 
     except Exception as e:
-        print(f"Weather Fetch Exception: {e}")
+        print(f"🔥 发生严重错误: {e}")
+        # 即使报错，也要返回已经查到的天气数据
         if not weather_data.get('now'): return None
 
     return weather_data

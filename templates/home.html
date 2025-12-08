@@ -633,7 +633,6 @@
                         {% endif %}
                     </div>
                 </div>
-                <!-- ================= 双城天气卡片 (完美交互版) ================= -->
                 <!-- ================= 双城天气卡片 (空气质量修复版) ================= -->
                 <div class="weather-card">
 
@@ -664,14 +663,14 @@
 
                         <div class="weather-main">
                             <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
-                            <img src="https://npm.elemecdn.com/qweather-icons@1.3.0/icons/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
+                            <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
                         </div>
 
                         <div class="weather-footer">
                             <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
                             <!-- 穿衣指数 -->
                             {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
-                            <span class="weather-tag">衣:{{ fam.weather_home.indices['3'].category }}</span>
+                            <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
                             {% endif %}
                             <!-- [新增] 空气质量 -->
                             {% if fam.weather_home.air %}
@@ -715,13 +714,13 @@
 
                         <div class="weather-main">
                             <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
-                            <img src="https://npm.elemecdn.com/qweather-icons@1.3.0/icons/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
+                            <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
                         </div>
 
                         <div class="weather-footer">
                             <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
                             {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
-                            <span class="weather-tag">衣:{{ fam.weather_away.indices['3'].category }}</span>
+                            <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
                             {% endif %}
                             <!-- [新增] 空气质量 -->
                             {% if fam.weather_away.air %}
