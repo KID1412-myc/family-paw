@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.5.4'
+CURRENT_APP_VERSION = '2.6.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -519,6 +519,22 @@ def home():
                                 except Exception as e:
                                     print(f"Cache Write Error: {e}")
 
+                        # [新增] 获取许愿菜单 (按状态排序: 想吃 -> 已买 -> 吃过)
+                        f['wishes'] = []
+                        try:
+                            wishes_res = db.table('family_wishes') \
+                                .select('*') \
+                                .eq('family_id', f['id']) \
+                                .order('created_at', desc=True) \
+                                .execute()
+
+                            # 简单的本地排序优化：把"吃到了"沉底
+                            raw_wishes = wishes_res.data or []
+                            # 排序优先级: wanted(0) > bought(1) > eaten(2)
+                            status_order = {'wanted': 0, 'bought': 1, 'eaten': 2}
+                            f['wishes'] = sorted(raw_wishes, key=lambda x: status_order.get(x['status'], 0))
+                        except:
+                            pass
                         f['reminders'] = []
                         try:
                             # 1. 计算24小时前的时间
@@ -1667,6 +1683,56 @@ def admin_delete_reg_code(cid):
         flash("操作失败", "danger")
     return redirect(url_for('admin_dashboard'))
 
+
+@app.route('/add_wish', methods=['POST'])
+@login_required
+def add_wish():
+    """许愿点菜"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    content = request.form.get('content')
+
+    if content:
+        try:
+            db.table('family_wishes').insert({
+                'family_id': family_id,
+                'content': content,
+                'created_by': session['user']
+            }).execute()
+            flash("许愿成功！坐等开饭~", "success")
+        except Exception as e:
+            flash(f"许愿失败: {e}", "danger")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/operate_wish', methods=['POST'])
+@login_required
+def operate_wish():
+    """操作菜单: 变状态 / 删除"""
+    db = get_db()
+    wish_id = request.form.get('wish_id')
+    action = request.form.get('action')  # 'next_status' 或 'delete'
+    current_status = request.form.get('current_status')
+
+    try:
+        if action == 'delete':
+            db.table('family_wishes').delete().eq('id', wish_id).execute()
+            flash("已删除该菜品", "info")
+
+        elif action == 'next_status':
+            # 状态流转: wanted -> bought -> eaten -> wanted (循环)
+            new_status = 'bought'
+            if current_status == 'bought':
+                new_status = 'eaten'
+            elif current_status == 'eaten':
+                new_status = 'wanted'
+
+            db.table('family_wishes').update({'status': new_status}).eq('id', wish_id).execute()
+    except Exception as e:
+        flash(f"操作失败: {e}", "danger")
+
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
     # 开发环境启动

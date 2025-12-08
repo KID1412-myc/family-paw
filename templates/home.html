@@ -638,102 +638,150 @@
 
                     <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
-                    <div class="weather-col weather-home-bg"
-                         onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}',
-                                               '{{ fam.weather_home.now.text }}',
-                                               '{{ fam.weather_home.now.temp }}',
-                                               '{{ fam.weather_home.indices['3'].text if fam.weather_home.indices else '' }}',
-                                               '{{ fam.weather_home.air.category if fam.weather_home.air else '' }}')">
+                        <div class="weather-col weather-home-bg"
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}',
+                                     '{{ fam.weather_home.now.text }}',
+                                     '{{ fam.weather_home.now.temp }}',
+                                     '{{ fam.weather_home.indices['3'].text if fam.weather_home.indices else '' }}',
+                                     '{{ fam.weather_home.air.category if fam.weather_home.air else '' }}')">
 
-                        <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                                style="width:28px;height:28px;z-index:10;"
-                                onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
-                            <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
-                        </button>
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                    style="width:28px;height:28px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
 
-                        <div class="weather-header mb-2">
-                            <div class="d-flex align-items-center">
-                                <span class="weather-city me-2"><i class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
-                                <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal" style="font-size: 10px; transform: scale(0.9);">
+                            <div class="weather-header mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="weather-city me-2"><i
+                                            class="fas fa-home me-1"></i>{{ fam.location_home_name }}</span>
+                                    <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal"
+                                          style="font-size: 10px; transform: scale(0.9);">
                                     <i class="fas fa-bell text-danger"></i> 提醒
                                 </span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="weather-main">
-                            <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
-                            <!-- [修改] 使用本地 static/weather 图标 -->
-                            <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
-                        </div>
+                            <div class="weather-main">
+                                <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
+                                <!-- [修改] 使用本地 static/weather 图标 -->
+                                <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
+                            </div>
 
-                        <div class="weather-footer">
-                            <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
-                            <!-- [修改] 去掉了 '衣:' 前缀，直接显示 '较冷' -->
-                            {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
-                            <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
-                            {% endif %}
-                            <!-- 空气质量 -->
-                            {% if fam.weather_home.air %}
-                            <span class="weather-tag" style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_home.air.category else '' }}">
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
+                                <!-- [修改] 去掉了 '衣:' 前缀，直接显示 '较冷' -->
+                                {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
+                                {% endif %}
+                                <!-- 空气质量 -->
+                                {% if fam.weather_home.air %}
+                                    <span class="weather-tag"
+                                          style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_home.air.category else '' }}">
                                 空气{{ fam.weather_home.air.category }}
                             </span>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
                     {% else %}
-                    <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
-                        <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
-                        <small>设置老家</small>
-                    </div>
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
+                            <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
+                            <small>设置老家</small>
+                        </div>
                     {% endif %}
 
                     <!-- 右侧：远方 -->
                     {% if fam.weather_away %}
-                    <div class="weather-col weather-away-bg"
-                         onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}',
-                                               '{{ fam.weather_away.now.text }}',
-                                               '{{ fam.weather_away.now.temp }}',
-                                               '{{ fam.weather_away.indices['3'].text if fam.weather_away.indices else '' }}',
-                                               '{{ fam.weather_away.air.category if fam.weather_away.air else '' }}')">
+                        <div class="weather-col weather-away-bg"
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}',
+                                     '{{ fam.weather_away.now.text }}',
+                                     '{{ fam.weather_away.now.temp }}',
+                                     '{{ fam.weather_away.indices['3'].text if fam.weather_away.indices else '' }}',
+                                     '{{ fam.weather_away.air.category if fam.weather_away.air else '' }}')">
 
-                        <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                                style="width:28px;height:28px;z-index:10;"
-                                onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
-                            <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
-                        </button>
+                            <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                    style="width:28px;height:28px;z-index:10;"
+                                    onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'away', '{{ fam.location_away_name }}')">
+                                <i class="fas fa-cog text-secondary" style="font-size: 12px;"></i>
+                            </button>
 
-                        <div class="weather-header mb-2">
-                            <div class="d-flex align-items-center">
-                                <span class="weather-city me-2"><i class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
-                                <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal" style="font-size: 10px; transform: scale(0.9);">
+                            <div class="weather-header mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="weather-city me-2"><i
+                                            class="fas fa-plane me-1"></i>{{ fam.location_away_name }}</span>
+                                    <span class="badge bg-white bg-opacity-50 text-dark border-0 rounded-pill fw-normal"
+                                          style="font-size: 10px; transform: scale(0.9);">
                                     <i class="fas fa-bell text-primary"></i> 提醒
                                 </span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="weather-main">
-                            <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
-                            <!-- [修改] 使用本地 static/weather 图标 -->
-                            <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
-                        </div>
+                            <div class="weather-main">
+                                <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
+                                <!-- [修改] 使用本地 static/weather 图标 -->
+                                <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
+                            </div>
 
-                        <div class="weather-footer">
-                            <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
-                            {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
-                            <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
-                            {% endif %}
-                            {% if fam.weather_away.air %}
-                            <span class="weather-tag" style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_away.air.category else '' }}">
+                            <div class="weather-footer">
+                                <span class="weather-tag">{{ fam.weather_away.now.text }}</span>
+                                {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
+                                    <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
+                                {% endif %}
+                                {% if fam.weather_away.air %}
+                                    <span class="weather-tag"
+                                          style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_away.air.category else '' }}">
                                 空气{{ fam.weather_away.air.category }}
                             </span>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
                     {% else %}
-                    <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
-                        <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
-                        <small>设置我的城市</small>
+                        <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
+                            <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
+                            <small>设置我的城市</small>
+                        </div>
+                    {% endif %}
+                </div>
+                <!-- ================= 许愿菜单 (点菜) ================= -->
+                <div class="card-box mb-4">
+                    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-25">
+                        <h6 class="mb-0 fw-bold"><i class="fas fa-utensils text-warning me-2"></i>许愿菜单</h6>
+                        <button class="btn btn-sm btn-warning rounded-pill px-3 text-white fw-bold shadow-sm"
+                                onclick="openWishModal('{{ fam.id }}')">
+                            + 我想吃
+                        </button>
                     </div>
+
+                    {% if fam.wishes %}
+                        <div class="wish-list">
+                            {% for dish in fam.wishes %}
+                                <div class="wish-item status-{{ dish.status }}">
+                                    <div class="d-flex align-items-center gap-2"
+                                         onclick="changeWishStatus('{{ dish.id }}', '{{ dish.status }}')">
+                                        {% if dish.status == 'wanted' %} <span class="fs-5">✨</span>
+                                        {% elif dish.status == 'bought' %} <span class="fs-5">🛒</span>
+                                        {% else %} <span class="fs-5">😋</span>
+                                        {% endif %}
+
+                                        <div class="fw-bold text-dark">{{ dish.content }}</div>
+                                    </div>
+
+                                    <!-- 删除按钮 -->
+                                    <form action="/operate_wish" method="POST" onsubmit="return confirm('删掉这道菜？')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="wish_id" value="{{ dish.id }}">
+                                        <input type="hidden" name="action" value="delete">
+                                        <button class="wish-btn shadow-sm"><i class="fas fa-trash-alt fa-xs"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted small" onclick="openWishModal('{{ fam.id }}')">
+                            <i class="fas fa-bowl-rice fa-2x mb-2 opacity-25"></i>
+                            <div>还没有点菜，快去许愿吧~</div>
+                        </div>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -1350,6 +1398,29 @@
         </div>
     </div>
 </div>
+<!-- 许愿弹窗 -->
+<div class="modal fade" id="wishModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">😋 今天想吃点啥？</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/add_wish" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="family_id" id="wish_fam_id">
+
+                    <div class="mb-3">
+                        <input type="text" name="content" class="form-control form-control-lg"
+                               placeholder="烧饵块 / 炸洋芋..." required autofocus>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100 fw-bold text-white">上墙许愿 ✨</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- 引入 Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1519,6 +1590,7 @@
             }
         });
     });
+
     function dismissReminder(id) {
         localStorage.setItem('dismissed_reminder_' + id, 'true');
     }
@@ -1573,15 +1645,13 @@
         // --- 1. 恶劣天气 (雨/雪/冰雹/雷) ---
         if (weather.includes("雨")) {
             msg = `🌧️ ${city}下雨啦，出门记得带伞，别淋湿了！`;
-        }
-        else if (weather.includes("雪")) {
+        } else if (weather.includes("雪")) {
             msg = `❄️ ${city}下雪了，路滑注意安全，多穿点！`;
-        }
-        else if (weather.includes("冰雹") || weather.includes("雷")) {
+        } else if (weather.includes("冰雹") || weather.includes("雷")) {
             msg = `⛈️ ${city}天气恶劣 (${weather})，注意安全，尽量待在室内！`;
         }
 
-        // --- 2. 空气质量 (污染) ---
+            // --- 2. 空气质量 (污染) ---
         // 只要不是 "优" 或 "良"，都算不太好
         else if (airCategory && airCategory !== "优" && airCategory !== "良") {
             msg = `😷 ${city}今天空气不太好（${airCategory}），出门记得戴口罩哦！`;
@@ -1596,30 +1666,28 @@
         else if (tempNum <= 10) {
             // 如果有官方建议就用官方的，没有就兜底
             msg = `🥶 ${city}很冷 (${temp}℃)，${dressTips || '记得穿厚点保暖'}。`;
-        }
-        else if (tempNum >= 30) {
+        } else if (tempNum >= 30) {
             msg = `🥵 ${city}高温 ${temp}℃，${dressTips || '别中暑了，多喝水'}。`;
         }
 
         // --- 5. 阴天/多云 ---
         else if (weather.includes("阴")) {
             msg = `☁️ ${city}今天是阴天，虽然没有大太阳，但心情也要美美的哦！`;
-        }
-        else if (weather.includes("云")) {
+        } else if (weather.includes("云")) {
             msg = `⛅ ${city}多云天气，气温${temp}℃，出去走走透透气吧~`;
         }
 
         // --- 6. 晴天/舒适 (兜底) ---
         else {
             const airText = airCategory ? `空气${airCategory}` : '';
-            if(dressTips) {
+            if (dressTips) {
                 msg = `🌤️ ${city}天气不错 (${weather} ${temp}℃ ${airText})，${dressTips}。`;
             } else {
                 msg = `✨ ${city}天气不错 (${weather} ${temp}℃ ${airText})，祝你今天好心情！`;
             }
         }
 
-        if(!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
+        if (!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
 
         // --- 提交表单 ---
         const form = document.createElement('form');
@@ -1627,17 +1695,63 @@
         form.action = '/send_family_reminder';
 
         const inputCsrf = document.createElement('input');
-        inputCsrf.type = 'hidden'; inputCsrf.name = 'csrf_token'; inputCsrf.value = '{{ csrf_token() }}';
+        inputCsrf.type = 'hidden';
+        inputCsrf.name = 'csrf_token';
+        inputCsrf.value = '{{ csrf_token() }}';
 
         const inputFamId = document.createElement('input');
-        inputFamId.type = 'hidden'; inputFamId.name = 'family_id'; inputFamId.value = famId;
+        inputFamId.type = 'hidden';
+        inputFamId.name = 'family_id';
+        inputFamId.value = famId;
 
         const inputContent = document.createElement('input');
-        inputContent.type = 'hidden'; inputContent.name = 'content'; inputContent.value = msg;
+        inputContent.type = 'hidden';
+        inputContent.name = 'content';
+        inputContent.value = msg;
 
-        form.appendChild(inputCsrf); form.appendChild(inputFamId); form.appendChild(inputContent);
+        form.appendChild(inputCsrf);
+        form.appendChild(inputFamId);
+        form.appendChild(inputContent);
         document.body.appendChild(form);
         showLoading();
+        form.submit();
+    }
+
+    // 打开许愿
+    function openWishModal(fid) {
+        document.getElementById('wish_fam_id').value = fid;
+        new bootstrap.Modal(document.getElementById('wishModal')).show();
+    }
+
+    // 切换许愿状态 (点击菜名触发)
+    function changeWishStatus(wishId, currentStatus) {
+        // 创建隐藏表单提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/operate_wish';
+
+        const i1 = document.createElement('input');
+        i1.type = 'hidden';
+        i1.name = 'csrf_token';
+        i1.value = '{{ csrf_token() }}';
+        const i2 = document.createElement('input');
+        i2.type = 'hidden';
+        i2.name = 'wish_id';
+        i2.value = wishId;
+        const i3 = document.createElement('input');
+        i3.type = 'hidden';
+        i3.name = 'action';
+        i3.value = 'next_status';
+        const i4 = document.createElement('input');
+        i4.type = 'hidden';
+        i4.name = 'current_status';
+        i4.value = currentStatus;
+
+        form.appendChild(i1);
+        form.appendChild(i2);
+        form.appendChild(i3);
+        form.appendChild(i4);
+        document.body.appendChild(form);
         form.submit();
     }
 
