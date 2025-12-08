@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.5.3'
+CURRENT_APP_VERSION = '2.5.4'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -448,38 +448,76 @@ def home():
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
 
-                    # [🔴 新增] 天气和倒计时处理
-                    now_date = datetime.now(timezone(timedelta(hours=8))).date()
+                    # 定义基准时间 (北京时间用于倒计时，UTC时间用于缓存判断)
+                    bj_now_date = datetime.now(timezone(timedelta(hours=8))).date()
+                    utc_now = datetime.now(timezone.utc)
 
                     for f in my_families:
-                        # --- 1. 倒计时逻辑 ---
+                        # === 1. 倒计时逻辑 (保持不变) ===
                         f['days_left'] = None
                         if f.get('reunion_date'):
                             try:
                                 target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
-                                f['days_left'] = (target - now_date).days
+                                f['days_left'] = (target - bj_now_date).days
                             except:
                                 pass
 
-                        # --- 2. 双城天气逻辑 ---
-                        f['weather_home'] = None
-                        f['weather_away'] = None
+                        # === 2. 天气缓存逻辑 (核心升级) ===
+                        # 默认先读数据库里的旧缓存 (秒开的核心)
+                        f['weather_home'] = f.get('weather_data_home')
+                        f['weather_away'] = f.get('weather_data_away')
 
-                        # 只有当城市ID存在时才去查
-                        # (注意：如果家庭多，这里是串行请求，可能会增加几百毫秒延迟)
-                        if f.get('location_home_id'):
-                            f['weather_home'] = get_weather_full(
-                                f['location_home_id'],
-                                f.get('location_home_lat'),
-                                f.get('location_home_lon')
-                            )
+                        # 判断是否需要更新 (缓存策略: 30分钟)
+                        need_update = False
+                        last_update_str = f.get('last_weather_update')
 
-                        if f.get('location_away_id'):
-                            f['weather_away'] = get_weather_full(
-                                f['location_away_id'],
-                                f.get('location_away_lat'),
-                                f.get('location_away_lon')
-                            )
+                        if not last_update_str:
+                            need_update = True  # 没存过，必须更新
+                        else:
+                            try:
+                                # 解析数据库时间 (处理 ISO 格式)
+                                last_time = datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
+                                # 如果过去超过 30 分钟 -> 更新
+                                if (utc_now - last_time) > timedelta(minutes=30):
+                                    need_update = True
+                            except:
+                                need_update = True  # 时间格式错了，重来
+
+                        # === 3. 执行更新 (只有过期了才跑这一步) ===
+                        if need_update:
+                            print(f"🔄 缓存过期，正在更新家庭 [{f['name']}] 的天气...")
+                            new_home = None
+                            new_away = None
+
+                            # 查老家
+                            if f.get('location_home_id'):
+                                new_home = get_weather_full(
+                                    f['location_home_id'],
+                                    f.get('location_home_lat'),
+                                    f.get('location_home_lon')
+                                )
+                                if new_home: f['weather_home'] = new_home  # 实时覆盖内存数据
+
+                            # 查远方
+                            if f.get('location_away_id'):
+                                new_away = get_weather_full(
+                                    f['location_away_id'],
+                                    f.get('location_away_lat'),
+                                    f.get('location_away_lon')
+                                )
+                                if new_away: f['weather_away'] = new_away  # 实时覆盖内存数据
+
+                            # 写回数据库 (只在有新数据时写入)
+                            if new_home or new_away:
+                                try:
+                                    update_payload = {'last_weather_update': utc_now.isoformat()}
+                                    if new_home: update_payload['weather_data_home'] = new_home
+                                    if new_away: update_payload['weather_data_away'] = new_away
+
+                                    # 异步写入数据库
+                                    db.table('families').update(update_payload).eq('id', f['id']).execute()
+                                except Exception as e:
+                                    print(f"Cache Write Error: {e}")
 
                         f['reminders'] = []
                         try:
