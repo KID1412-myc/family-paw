@@ -866,12 +866,15 @@
             <div class="card-box p-3 shadow-sm">
                 <form action="/post_moment" method="POST" enctype="multipart/form-data" id="momentForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                    <!-- 文本框 -->
                     <div class="mb-2">
-                    <textarea name="content" class="form-control border-0 bg-light rounded-3" rows="3"
-                              placeholder="分享此时此刻... (比如: 刚下课好饿)"
-                              style="resize:none; padding: 12px;"></textarea>
+                        <textarea name="content" class="form-control border-0 bg-light rounded-3" rows="3"
+                                  placeholder="分享此时此刻... (比如: 刚下课好饿)"
+                                  style="resize:none; padding: 12px;"></textarea>
                     </div>
-                    <!-- 预览区 -->
+
+                    <!-- 图片预览区 (保持不变) -->
                     <div id="preview-container" class="d-none mb-2 position-relative w-fit-content">
                         <img id="preview-img" src="" style="max-height: 150px; border-radius: 8px;">
                         <div onclick="clearPreview()"
@@ -880,16 +883,31 @@
                             ×
                         </div>
                     </div>
-                    <!-- 底部按钮 -->
+
+                    <!-- [核心修改] 底部工具栏 -->
                     <div class="d-flex justify-content-between align-items-center border-top pt-2">
-                        <label class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                            <i class="fas fa-image me-1"></i> 加图片
+                        <!-- 左侧：加图片 -->
+                        <label class="btn btn-sm btn-outline-primary rounded-pill px-3 border-0">
+                            <i class="fas fa-image fa-lg"></i>
                             <input type="file" name="photo" id="momentPhotoInput" class="hidden-input" accept="image/*"
                                    onchange="handleCompressAndPreview(this)">
                         </label>
-                        <button type="submit" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm">
-                            <i class="fas fa-paper-plane me-1"></i> 发布
-                        </button>
+
+                        <div class="d-flex gap-2">
+                            <!-- [新增] 可见范围选择器 -->
+                            <select name="visibility" class="form-select form-select-sm rounded-pill"
+                                    style="width: auto; font-size: 12px; border-color: #dee2e6;">
+                                <option value="public">🌍 所有家人</option>
+                                {% for f in my_families %}
+                                    <option value="{{ f.id }}">🔒 仅 {{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <!-- 发布按钮 -->
+                            <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm">
+                                发布
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -914,7 +932,17 @@
                         </div>
                         <div class="flex-grow-1">
                             <div class="moment-user">{{ moment.user_name }}</div>
-                            <div class="moment-time">{{ moment.time_str }}</div>
+                            <div class="moment-time">
+                                {{ moment.time_str }}
+
+                                <!-- [新增] 如果有 target_family_id，显示一个小锁标签 -->
+                                {% if moment.target_family_id %}
+                                    <span class="badge bg-light text-secondary border ms-1"
+                                          style="font-weight: normal; transform: scale(0.9);">
+            <i class="fas fa-lock me-1"></i>私密
+        </span>
+                                {% endif %}
+                            </div>
                         </div>
                         {% if moment.user_id == current_user_id %}
                             <form action="/delete_moment/{{ moment.id }}" method="POST"

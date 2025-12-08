@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.5.0'
+CURRENT_APP_VERSION = '2.5.1'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -708,18 +708,45 @@ def upload_pet_photo():
 @app.route('/post_moment', methods=['POST'])
 @login_required
 def post_moment():
+    """发布动态 (支持分组可见)"""
     try:
         db = get_db()
+        content = request.form.get('content')
         f = request.files.get('photo')
-        data = {"user_id": session['user'], "content": request.form.get('content')}
+        # 获取可见性设置：'public' 或具体的 family_id
+        visibility = request.form.get('visibility')
+
+        # 构造插入数据
+        data = {
+            "user_id": session['user'],
+            "content": content
+        }
+
+        # 处理可见性逻辑
+        if visibility and visibility != 'public':
+            data['target_family_id'] = visibility
+        else:
+            data['target_family_id'] = None  # 公开
+
+        # 处理图片上传
         if f and f.filename:
-            path = f"moment_{int(datetime.now().timestamp())}_{secure_filename(f.filename)}"
-            db.storage.from_("family_photos").upload(path, f.read(), {"content-type": f.content_type})
-            data['image_path'] = path
-        if data.get('content') or data.get('image_path'):
+            filename = secure_filename(f.filename)
+            file_path = f"moment_{int(datetime.now().timestamp())}_{filename}"
+
+            db.storage.from_("family_photos").upload(
+                file_path,
+                f.read(),
+                {"content-type": f.content_type}
+            )
+            data['image_path'] = file_path
+
+        # 写入数据库
+        if content or f:
             db.table('moments').insert(data).execute()
+
     except Exception as e:
         flash(f"发布失败: {e}", "danger")
+
     return redirect(url_for('home', tab='life'))
 
 
