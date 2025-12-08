@@ -549,6 +549,7 @@
                 <div class="mb-3">
                     {% for rem in fam.reminders %}
                         <div class="alert shadow-sm border-0 rounded-4 d-flex align-items-start mb-2 fade show"
+                             id="reminder-box-{{ rem.id }}"
                              role="alert"
                              style="background: #fff8e1; color: #856404;">
 
@@ -573,7 +574,9 @@
                             </div>
 
                             <!-- 关闭按钮 (前端假关闭，刷新还在，除非过了24小时) -->
-                            <button type="button" class="btn-close btn-sm ms-2" data-bs-dismiss="alert"></button>
+                            <button type="button" class="btn-close btn-sm ms-2"
+                                    onclick="dismissReminder('{{ rem.id }}')"
+                                    data-bs-dismiss="alert"></button>
                         </div>
                     {% endfor %}
                 </div>
@@ -636,7 +639,11 @@
                     <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
                         <div class="weather-col weather-home-bg"
-                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}', '{{ fam.weather_home.now.text }}')">
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}',
+                           '{{ fam.weather_home.now.text }}',
+                           '{{ fam.weather_home.now.temp }}',
+                           '{{ fam.weather_home.indices['3'].category if fam.weather_home.indices else '' }}',
+                           '{{ fam.weather_home.air.category if fam.weather_home.air else '' }}')">
 
                             <!-- 1. 修改设置按钮 (右上角齿轮) -->
                             <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
@@ -680,7 +687,11 @@
                     <!-- 右侧：远方 -->
                     {% if fam.weather_away %}
                         <div class="weather-col weather-away-bg"
-                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}', '{{ fam.weather_away.now.text }}')">
+                             onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}',
+                           '{{ fam.weather_away.now.text }}',
+                           '{{ fam.weather_away.now.temp }}',
+                           '{{ fam.weather_away.indices['3'].category if fam.weather_away.indices else '' }}',
+                           '{{ fam.weather_away.air.category if fam.weather_away.air else '' }}')">
 
                             <!-- 修改按钮 -->
                             <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
@@ -935,11 +946,21 @@
                             <div class="moment-time">
                                 {{ moment.time_str }}
 
-                                <!-- [新增] 如果有 target_family_id，显示一个小锁标签 -->
+                                <!-- [修改] 不显示"私密"，而是显示具体的家庭名称 -->
                                 {% if moment.target_family_id %}
-                                    <span class="badge bg-light text-secondary border ms-1"
-                                          style="font-weight: normal; transform: scale(0.9);">
-            <i class="fas fa-lock me-1"></i>私密
+                                    {% for f in my_families %}
+                                        {% if f.id == moment.target_family_id %}
+                                            <span class="badge bg-white text-secondary border ms-1 fw-normal"
+                                                  style="font-size: 10px; transform: scale(0.95);">
+                    <i class="fas fa-home me-1 text-muted"></i>{{ f.name }}
+                </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- 公开动态可选显示地球图标，或者不显示 -->
+                                    <span class="badge bg-transparent text-muted ms-1 fw-normal"
+                                          style="font-size: 10px; transform: scale(0.95); opacity: 0.5;">
+            <i class="fas fa-globe"></i> 公开
         </span>
                                 {% endif %}
                             </div>
@@ -1485,7 +1506,17 @@
                 modal.show();
             }
         {% endif %}
+        const reminders = document.querySelectorAll('[id^="reminder-box-"]');
+        reminders.forEach(box => {
+            const id = box.id.replace('reminder-box-', '');
+            if (localStorage.getItem('dismissed_reminder_' + id)) {
+                box.classList.add('d-none'); // 既然看过了，就隐藏
+            }
+        });
     });
+    function dismissReminder(id) {
+        localStorage.setItem('dismissed_reminder_' + id, 'true');
+    }
 
     function closeUpdateModal(version) {
         // [核心修改] 存的时候也带上用户ID
@@ -1527,34 +1558,68 @@
         new bootstrap.Modal(document.getElementById('weatherModal')).show();
     }
 
-    // 智能天气提醒
-    function sendReminder(famId, city, weather) {
-        // 1. 定义智能话术库
+    // [终极版 v2] 智能天气提醒生成器
+    // 修复了阴天/多云/雾霾的文案逻辑
+    function sendReminder(famId, city, weather, temp, dressTips, airCategory) {
         let msg = "";
+        const tempNum = parseInt(temp);
 
-        // 简单粗暴的关键词匹配
+        // --- 1. 恶劣天气 (雨/雪/冰雹) ---
         if (weather.includes("雨")) {
             msg = `🌧️ ${city}下雨啦，出门记得带伞，别淋湿了！`;
-        } else if (weather.includes("雪")) {
+        }
+        else if (weather.includes("雪")) {
             msg = `❄️ ${city}下雪了，路滑注意安全，多穿点！`;
-        } else if (weather.includes("阴") || weather.includes("云")) {
-            msg = `☁️ ${city}云很多，虽然没有太阳，心情也要美美的！`;
-        } else if (weather.includes("晴")) {
-            msg = `☀️ ${city}天气真好，记得晒晒太阳补补钙！`;
-        } else if (weather.includes("雾") || weather.includes("霾")) {
-            msg = `😷 ${city}空气不好，出门记得戴口罩哦。`;
-        } else {
-            // 兜底话术
-            msg = `❤️ 贴心提醒：${city}现在${weather}，照顾好自己！`;
+        }
+        else if (weather.includes("冰雹")) {
+            msg = `🌨️ ${city}有冰雹，注意安全，尽量待在室内！`;
         }
 
-        // 2. 确认发送
-        if (!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
+        // --- 2. 空气质量 (污染) ---
+        else if (airCategory && (airCategory.includes("污染") || airCategory.includes("差"))) {
+            msg = `😷 ${city}今天空气不太好（${airCategory}），出门记得戴口罩哦！`;
+        }
 
-        // 3. 构造表单提交到新接口
+        // --- 3. 能见度 (雾/霾/沙尘) ---
+        else if (weather.includes("雾") || weather.includes("霾") || weather.includes("沙") || weather.includes("尘")) {
+            msg = `🌫️ ${city}有${weather}，能见度不高，出门注意安全，戴好口罩。`;
+        }
+
+        // --- 4. 极端气温 (太冷/太热) ---
+        else if (tempNum <= 5) {
+            const tip = dressTips ? `建议${dressTips}` : '记得穿厚点保暖';
+            msg = `🥶 ${city}现在只有 ${temp}℃，太冷了！${tip}。`;
+        }
+        else if (tempNum >= 35) {
+            msg = `🥵 ${city}高温 ${temp}℃，别中暑了，尽量呆在室内喝凉茶~`;
+        }
+
+        // --- 5. 阴天/多云 (新增逻辑) ---
+        else if (weather.includes("阴")) {
+            msg = `☁️ ${city}今天是阴天，虽然没有大太阳，但心情也要美美的哦！`;
+        }
+        else if (weather.includes("云")) {
+            msg = `⛅ ${city}多云天气，气温${temp}℃，出去走走透透气吧~`;
+        }
+
+        // --- 6. 晴天/默认好天气 ---
+        else {
+            const airText = airCategory ? `空气${airCategory}` : '';
+            // 如果是晴天，强调晒太阳
+            if (weather.includes("晴")) {
+                msg = `☀️ ${city}天气真好 (${weather} ${temp}℃)，记得晒晒太阳补补钙！`;
+            } else {
+                msg = `✨ ${city}天气不错 (${weather} ${temp}℃ ${airText})，${dressTips ? dressTips : '祝你今天好心情'}！`;
+            }
+        }
+
+        // --- 确认发送 ---
+        if(!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
+
+        // --- 提交表单 ---
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/send_family_reminder'; // [注意] 这里改成新接口了
+        form.action = '/send_family_reminder';
 
         const inputCsrf = document.createElement('input');
         inputCsrf.type = 'hidden';

@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.5.1'
+CURRENT_APP_VERSION = '2.5.2'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -142,71 +142,69 @@ def search_city_qweather(keyword):
     [GeoAPI] 搜索城市 ID (新版)
     URL 结构: https://你的Host/geo/v2/city/lookup
     """
-    if not keyword or not qweather_key: return None, None
+    if not keyword or not qweather_key: return None, None, None, None
 
     # 使用配置里的 Host (比如 https://devapi.qweather.com 或你的专属域名)
     host = qweather_host
-
+    url = f"{host.rstrip('/')}/geo/v2/city/lookup"
     try:
-        # [核心修改]
-        # 1. 使用动态 Host
-        # 2. 路径变更为 /geo/v2/city/lookup (注意多了 /geo)
-        url = f"{host.rstrip('/')}/geo/v2/city/lookup"
-
-        # 参数保持不变
         params = {"location": keyword, "key": qweather_key, "range": "cn"}
-
         res = requests.get(url, params=params, timeout=5)
         data = res.json()
 
         if data.get('code') == '200' and data.get('location'):
             top = data['location'][0]
-            return top['id'], top['name']
+            # [关键修改] 同时返回 ID, Name, Lat, Lon
+            return top['id'], top['name'], top['lat'], top['lon']
 
     except Exception as e:
         print(f"GeoAPI Error: {e}")
 
-    return None, None
+    return None, None, None, None
 
 
-def get_weather_full(city_id):
+def get_weather_full(city_id, lat=None, lon=None):
     """
-    [组合技] 获取实时天气 + 生活指数
-    使用动态配置的 Host
+    [全能天气查询 - 2026以后可用版]
+    参数: 城市ID, 纬度, 经度
     """
     if not city_id or not qweather_key: return None
 
     weather_data = {}
-
-    # [修改] 使用配置里的 Host，不再硬编码
-    host = qweather_host
+    host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com").rstrip('/')
 
     try:
-        # 1. 查实时天气
-        # 注意：这里去掉了 host 字符串末尾可能多余的 /，防止拼接成 https://xxx//v7
-        url_now = f"{host.rstrip('/')}/v7/weather/now"
-
+        # 1. 实时天气 (依然用 ID 查，最稳)
+        url_now = f"{host}/v7/weather/now"
         res_now = requests.get(url_now, params={"location": city_id, "key": qweather_key}, timeout=3)
         data_now = res_now.json()
 
         if data_now.get('code') == '200':
             weather_data['now'] = data_now['now']
         else:
-            print(f"Weather API Error: {data_now.get('code')} - URL: {url_now}")
             return None
 
-            # 2. 查生活指数
-        url_ind = f"{host.rstrip('/')}/v7/indices/1d"
+            # 2. 生活指数 (依然用 ID 查)
+        url_ind = f"{host}/v7/indices/1d"
         res_ind = requests.get(url_ind, params={"type": "3,9", "location": city_id, "key": qweather_key}, timeout=3)
         data_ind = res_ind.json()
-
         if data_ind.get('code') == '200':
-            indices = {item['type']: item for item in data_ind['daily']}
-            weather_data['indices'] = indices
+            weather_data['indices'] = {item['type']: item for item in data_ind['daily']}
+
+        # 3. [最新版] 实时空气质量 (必须用经纬度)
+        # 接口: /airquality/v1/current/{lat}/{lon}
+        if lat and lon:
+            url_air = f"{host}/airquality/v1/current/{lat}/{lon}"
+            res_air = requests.get(url_air, params={"key": qweather_key}, timeout=3)
+            data_air = res_air.json()
+
+            if data_air.get('code') == '200':
+                # 注意：新版返回结构可能略有不同，通常在 'now' 里
+                weather_data['air'] = data_air['now']
 
     except Exception as e:
         print(f"Weather Fetch Exception: {e}")
-        if not weather_data: return None
+        if not weather_data.get('now'): return None
 
     return weather_data
 
@@ -449,10 +447,18 @@ def home():
                         # 只有当城市ID存在时才去查
                         # (注意：如果家庭多，这里是串行请求，可能会增加几百毫秒延迟)
                         if f.get('location_home_id'):
-                            f['weather_home'] = get_weather_full(f['location_home_id'])
+                            f['weather_home'] = get_weather_full(
+                                f['location_home_id'],
+                                f.get('location_home_lat'),
+                                f.get('location_home_lon')
+                            )
 
                         if f.get('location_away_id'):
-                            f['weather_away'] = get_weather_full(f['location_away_id'])
+                            f['weather_away'] = get_weather_full(
+                                f['location_away_id'],
+                                f.get('location_away_lat'),
+                                f.get('location_away_lon')
+                            )
 
                         f['reminders'] = []
                         try:
@@ -813,30 +819,37 @@ def set_reunion():
 @app.route('/set_weather_city', methods=['POST'])
 @login_required
 def set_weather_city():
-    """设置家庭的双城位置"""
     db = get_db()
     family_id = request.form.get('family_id')
-    type_ = request.form.get('type')  # 'home' (老家) 或 'away' (远方)
+    type_ = request.form.get('type')
     city_name = request.form.get('city_name')
 
-    # 鉴权：检查是否是该家庭成员
-    # (这里省略了查 family_members 的步骤，依赖 RLS 抛出错误来拦截非成员)
-
     if not city_name:
-        # 如果留空，表示清除城市设置
-        update_data = {f'location_{type_}_id': None, f'location_{type_}_name': None}
+        # 清除逻辑
+        update_data = {
+            f'location_{type_}_id': None,
+            f'location_{type_}_name': None,
+            f'location_{type_}_lat': None,  # 清除经纬度
+            f'location_{type_}_lon': None
+        }
         flash(f"已清除该城市设置", "info")
     else:
-        # 1. 搜索城市 ID
-        cid, cname = search_city_qweather(city_name)
+        # [关键修改] 接收 4 个返回值
+        cid, cname, lat, lon = search_city_qweather(city_name)
+
         if not cid:
-            flash(f"找不到城市 '{city_name}'，请尝试输入市级名称 (如: 北京)", "warning")
+            flash(f"找不到城市 '{city_name}'", "warning")
             return redirect(url_for('home'))
 
-        update_data = {f'location_{type_}_id': cid, f'location_{type_}_name': cname}
+        # 保存 ID (给天气/指数用) 和 Lat/Lon (给空气用)
+        update_data = {
+            f'location_{type_}_id': cid,
+            f'location_{type_}_name': cname,
+            f'location_{type_}_lat': lat,
+            f'location_{type_}_lon': lon
+        }
         msg = f"已设置{type_}城市为：{cname}"
 
-    # 2. 更新数据库
     try:
         db.table('families').update(update_data).eq('id', family_id).execute()
         if city_name: flash(msg, "success")
@@ -852,13 +865,31 @@ def send_family_reminder():
     db = get_db()
     family_id = request.form.get('family_id')
     content = request.form.get('content')
-
     if not content: return redirect(url_for('home'))
 
     try:
-        sender_name = session.get('display_name', '家人')
+        # [新增] 频率限制逻辑
+        # 1. 查该家庭最新的一条提醒
+        last_rem = db.table('family_reminders') \
+            .select('created_at') \
+            .eq('family_id', family_id) \
+            .order('created_at', desc=True) \
+            .limit(1) \
+            .execute()
 
-        # [修改] 插入新表
+        if last_rem.data:
+            # 2. 转换时间并比对日期
+            last_time = datetime.fromisoformat(last_rem.data[0]['created_at'].replace('Z', '+00:00'))
+            last_date = last_time.astimezone(timezone(timedelta(hours=8))).date()
+            today_date = datetime.now(timezone(timedelta(hours=8))).date()
+
+            # 3. 如果今天是同一天，拦截
+            if last_date == today_date:
+                flash("今天已经提醒过啦，不用太唠叨哦~ (每天限1条)", "info")
+                return redirect(url_for('home'))
+
+        # ... (后续的插入逻辑保持不变) ...
+        sender_name = session.get('display_name', '家人')
         db.table('family_reminders').insert({
             'family_id': family_id,
             'content': content,
