@@ -609,25 +609,28 @@
         }
 
         /* === 升级版：家庭小剧场 (带Q弹特效) === */
+        /* === 升级版：温馨客厅风格 === */
         .family-stage-card {
-            background: white;
+            /* 暖色渐变背景，像开了暖光灯 */
+            background: linear-gradient(180deg, #ffffff 0%, #fffcf5 100%);
             border-radius: 24px;
-            padding: 15px 10px 20px 10px;
+            padding: 15px 10px 15px 10px;
             margin-bottom: 20px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 8px 20px rgba(255, 165, 2, 0.1); /* 淡淡的橙色投影 */
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.02);
+            border: 1px solid #fff;
+
+            /* 底部加一条深一点的颜色，模拟地板 */
+            border-bottom: 4px solid #f7f1e3;
         }
 
-        /* 氛围背景光 */
+        /* 氛围光保持不变 */
         .family-stage-card::before {
             content: '';
             position: absolute;
-            top: -50px;
-            right: -50px;
-            width: 150px;
-            height: 150px;
+            top: -50px; right: -50px;
+            width: 150px; height: 150px;
             background: radial-gradient(circle, #ffeaa7 0%, transparent 70%);
             opacity: 0.6;
             pointer-events: none;
@@ -2190,51 +2193,57 @@
         form.submit();
     }
 
-    // 点击头像处理
+    // 点击头像处理 (修复动画瞬闪问题)
     function handleMemberClick(uid, name, famId) {
-        // 如果点的是我自己 -> 换状态
+
+        // 1. 获取头像元素
+        const head = document.getElementById('head-' + uid);
+
+        // 2. 播放 Q弹动画 (先不管是什么操作，点了就得跳)
+        // 移除旧类以防万一，再添加新类触发动画
+        head.classList.remove('shake-animation');
+        void head.offsetWidth; // 强制浏览器重绘，保证动画重置
+        head.classList.add('shake-animation');
+
+        // 3. 震动反馈 (如果手机支持)
+        if(navigator.vibrate) navigator.vibrate(50);
+
+        // === 逻辑分流 ===
+
+        // 情况 A: 点的是我自己 -> 立即弹窗切换状态
         if (uid === currentUserId) {
-            new bootstrap.Modal(document.getElementById('statusModal')).show();
+            // 延迟一点点出弹窗，体验更顺滑
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('statusModal')).show();
+            }, 200);
         }
-        // 如果点的是别人 -> 拍一拍
+
+        // 情况 B: 点的是别人 -> 拍一拍
         else {
-            // 1. 头像抖动特效
-            const head = document.getElementById('head-' + uid);
-            head.classList.add('shake-animation');
-            setTimeout(() => head.classList.remove('shake-animation'), 500);
+            // 这里的 confirm 会打断动画，所以我们把它放在动画之后，或者接受打断
+            if(confirm(`要拍一拍 ${name} 吗？`)) {
 
-            // 2. 震动反馈 (如果手机支持)
-            if (navigator.vibrate) navigator.vibrate(50);
-
-            // 3. 提交拍一拍请求
-            if (confirm(`要拍一拍 ${name} 吗？`)) {
+                // [关键修复] 创建表单，但不立即提交
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/nudge_member';
 
-                const i1 = document.createElement('input');
-                i1.type = 'hidden';
-                i1.name = 'csrf_token';
-                i1.value = '{{ csrf_token() }}';
-                const i2 = document.createElement('input');
-                i2.type = 'hidden';
-                i2.name = 'target_uid';
-                i2.value = uid;
-                const i3 = document.createElement('input');
-                i3.type = 'hidden';
-                i3.name = 'target_name';
-                i3.value = name;
-                const i4 = document.createElement('input');
-                i4.type = 'hidden';
-                i4.name = 'family_id';
-                i4.value = famId;
+                const i1 = document.createElement('input'); i1.type='hidden'; i1.name='csrf_token'; i1.value='{{ csrf_token() }}';
+                const i2 = document.createElement('input'); i2.type='hidden'; i2.name='target_uid'; i2.value=uid;
+                const i3 = document.createElement('input'); i3.type='hidden'; i3.name='target_name'; i3.value=name;
+                const i4 = document.createElement('input'); i4.type='hidden'; i4.name='family_id'; i4.value=famId;
 
-                form.appendChild(i1);
-                form.appendChild(i2);
-                form.appendChild(i3);
-                form.appendChild(i4);
+                form.appendChild(i1); form.appendChild(i2); form.appendChild(i3); form.appendChild(i4);
                 document.body.appendChild(form);
-                form.submit();
+
+                // [核心] 让动画飞一会儿 (700ms) 再提交刷新
+                setTimeout(() => {
+                    showLoading(); // 显示加载圈
+                    form.submit(); // 提交刷新
+                }, 700);
+            } else {
+                // 如果取消了，移除动画类
+                head.classList.remove('shake-animation');
             }
         }
     }
