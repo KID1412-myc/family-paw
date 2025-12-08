@@ -608,17 +608,47 @@
             color: #ff7675;
         }
 
-        /* === 家庭客厅 (头像栏) === */
+        /* === 升级版：家庭小剧场 (带Q弹特效) === */
+        .family-stage-card {
+            background: white;
+            border-radius: 24px;
+            padding: 15px 10px 20px 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        /* 氛围背景光 */
+        .family-stage-card::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, #ffeaa7 0%, transparent 70%);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px 10px 10px;
+            border-bottom: 1px dashed #f0f0f0;
+            margin-bottom: 15px;
+        }
+
         .living-room {
             display: flex;
-            align-items: flex-start; /* 顶部对齐 */
+            align-items: flex-end; /* 像坐在沙发上 */
             gap: 15px;
-            overflow-x: auto; /* 支持横向滑动 */
-            padding: 5px 2px 15px 2px; /* 底部留空给阴影 */
-            margin-bottom: 10px;
-            /* 隐藏滚动条但允许滚动 */
+            overflow-x: auto;
+            padding: 10px 5px;
             scrollbar-width: none;
-            -ms-overflow-style: none;
         }
 
         .living-room::-webkit-scrollbar {
@@ -629,95 +659,138 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-width: 60px; /* 保证点击区域 */
+            min-width: 68px;
             position: relative;
             cursor: pointer;
+            transition: transform 0.2s;
+            /* 防止长按选中文字影响体验 */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .member-item:active {
+            transform: scale(0.95);
+            filter: brightness(0.95);
         }
 
         /* 头像容器 */
         .head-wrapper {
             position: relative;
-            margin-bottom: 5px;
-            transition: transform 0.2s;
+            margin-bottom: 8px;
+            /* 关键：确保动画不会被遮挡 */
+            transform-origin: bottom center;
         }
 
-        .head-wrapper:active {
-            transform: scale(0.9);
-        }
-
-        /* 拍一拍动画 */
+        /* 🟢 [超级特效] Q弹跳跃动画 */
         .shake-animation {
-            animation: shake 0.5s;
+            animation: jelly-jump 0.6s;
         }
 
-        @keyframes shake {
+        @keyframes jelly-jump {
             0% {
-                transform: rotate(0deg);
+                transform: scale(1, 1);
             }
-            25% {
-                transform: rotate(-10deg);
+            30% {
+                transform: scale(1.25, 0.75);
             }
+            /* 蓄力压扁 */
+            40% {
+                transform: scale(0.75, 1.25) translateY(-15px);
+            }
+            /* 弹起拉长 */
+            50% {
+                transform: scale(1.15, 0.85) translateY(-5px);
+            }
+            /* 回落 */
+            65% {
+                transform: scale(0.95, 1.05);
+            }
+            /* 落地缓冲 */
             75% {
-                transform: rotate(10deg);
+                transform: scale(1.05, 0.95);
             }
             100% {
-                transform: rotate(0deg);
+                transform: scale(1, 1);
             }
         }
 
         .member-avatar {
-            width: 56px;
-            height: 56px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid white;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border: 3px solid #fff;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            background: #f8f9fa;
         }
 
-        /* 状态挂件 (右下角小圆标) */
-        .status-badge {
+        /* “我”的金色光环 */
+        .is-me .member-avatar {
+            border-color: #fff8dc;
+            box-shadow: 0 0 0 2px #ffeaa7, 0 6px 15px rgba(253, 203, 110, 0.3);
+        }
+
+        /* 状态气泡 (呼吸动画) */
+        .status-bubble {
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
+            top: -6px;
+            right: -6px;
+            width: 26px;
+            height: 26px;
             background: white;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 16px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
             border: 2px solid white;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            animation: floatBubble 3s ease-in-out infinite;
         }
 
+        /* 名字胶囊 */
         .member-name {
             font-size: 11px;
-            color: #555;
+            color: #666;
+            background: #f1f3f5;
+            padding: 3px 10px;
+            border-radius: 12px;
             font-weight: bold;
-            max-width: 70px;
-            text-align: center;
+            max-width: 80px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        /* 状态颜色定义 */
-        .st-online {
-            background: #2ecc71;
+        .is-me .member-name {
+            background: #fff3cd;
+            color: #d35400;
         }
 
-        /* 绿点: 在线 */
-        .st-busy {
-            background: #f1c40f;
+        /* 邀请按钮 */
+        .invite-btn {
+            font-size: 12px;
+            color: #999;
+            border: 1px dashed #ddd;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            background: #fcfcfc;
         }
 
-        /* 黄点: 忙碌 */
-        .st-sleep {
-            background: #95a5a6;
+        .invite-btn:active {
+            background: #eee;
         }
 
-        /* 灰点: 睡觉 */
+        @keyframes floatBubble {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-4px);
+            }
+        }
     </style>
 </head>
 <body>
@@ -770,49 +843,51 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <!-- ================= 家庭客厅 (头像栏) ================= -->
+    <!-- ================= 家庭客厅 (升级版) ================= -->
     {% if my_families %}
-        <!-- 遍历每个家庭 -->
         {% for fam in my_families %}
-            <div class="mb-2">
-                <!-- 家庭标题 (小字) -->
-                <div class="px-2 mb-2 d-flex justify-content-between align-items-center">
-                    <span class="small fw-bold text-muted"><i class="fas fa-home me-1"></i>{{ fam.name }}</span>
-                    <!-- 右侧放一个邀请按钮 -->
-                    <span class="badge bg-light text-secondary border fw-normal" onclick="copyCode(this)"
-                          style="cursor: pointer;">
-                        码: {{ fam.invite_code }}
-                    </span>
+            <div class="family-stage-card">
+
+                <!-- 顶部：家庭名 + 邀请码 -->
+                <div class="stage-header">
+                    <div class="fw-bold text-dark">
+                        <i class="fas fa-home text-warning me-2"></i>{{ fam.name }}
+                    </div>
+                    <div class="invite-btn" onclick="copyCode(this)">
+                        <i class="fas fa-key me-1"></i>码: {{ fam.invite_code }}
+                    </div>
                 </div>
 
-                <!-- 头像横排列表 -->
+                <!-- 成员座位席 -->
                 <div class="living-room">
 
-                    <!-- 1. 遍历家庭成员 -->
                     {% if family_members_dict[fam.id] %}
                         {% for uid in family_members_dict[fam.id] %}
                             {% if user_map[uid] %}
-                                <div class="member-item"
+                                <div class="member-item {% if uid == current_user_id %}is-me{% endif %}"
                                      onclick="handleMemberClick('{{ uid }}', '{{ user_map[uid].name }}', '{{ fam.id }}')">
+
                                     <div class="head-wrapper" id="head-{{ uid }}">
+                                        <!-- 头像 -->
                                         {% if user_map[uid].avatar %}
                                             <img src="{{ user_map[uid].avatar }}" class="member-avatar">
                                         {% else %}
-                                            <!-- 没头像显示首字 -->
-                                            <div class="member-avatar d-flex align-items-center justify-content-center bg-light text-primary fw-bold fs-4">
+                                            <div class="member-avatar d-flex align-items-center justify-content-center bg-light text-secondary fw-bold fs-4">
                                                 {{ user_map[uid].name[0] }}
                                             </div>
                                         {% endif %}
 
-                                        <!-- 状态小挂件 -->
-                                        <div class="status-badge">
-                                            {% if user_map[uid].status == 'busy' %}🟡
-                                            {% elif user_map[uid].status == 'sleep' %}💤
-                                            {% elif user_map[uid].status == 'food' %}🍚
+                                        <!-- 状态气泡 (根据 status 显示不同 Emoji) -->
+                                        <div class="status-bubble">
+                                            {% if user_map[uid].status == 'busy' %}📚
+                                            {% elif user_map[uid].status == 'sleep' %}😴
+                                            {% elif user_map[uid].status == 'food' %}😋
                                             {% elif user_map[uid].status == 'game' %}🎮
-                                            {% else %}🟢{% endif %}
+                                            {% else %}🌞{% endif %}
                                         </div>
                                     </div>
+
+                                    <!-- 名字 -->
                                     <div class="member-name">
                                         {{ '我' if uid == current_user_id else user_map[uid].name }}
                                     </div>
@@ -820,6 +895,18 @@
                             {% endif %}
                         {% endfor %}
                     {% endif %}
+
+                    <!-- [新增] 最后一个虚线圈圈，方便直接加人 -->
+                    <div class="member-item"
+                         onclick="copyCode(this.parentNode.previousElementSibling.querySelector('.invite-btn'))">
+                        <div class="head-wrapper">
+                            <div class="member-avatar d-flex align-items-center justify-content-center"
+                                 style="border: 2px dashed #ddd; box-shadow: none;">
+                                <i class="fas fa-plus text-muted"></i>
+                            </div>
+                        </div>
+                        <div class="member-name" style="background:transparent; color:#aaa;">邀请</div>
+                    </div>
 
                 </div>
             </div>
