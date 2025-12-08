@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '2.5.2'
+CURRENT_APP_VERSION = '2.5.3'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -165,18 +165,20 @@ def search_city_qweather(keyword):
 
 def get_weather_full(city_id, lat=None, lon=None):
     """
-    [调试版] 获取天气 + 生活指数 + 空气质量
-    会自动打印请求日志，方便排查故障
+    [全能天气查询 - 最终修正版]
+    1. 实时天气 (v7/weather/now)
+    2. 生活指数 (v7/indices/1d) -> type=3 是穿衣指数，不是3天
+    3. 空气质量 (新版 v1) -> 适配无 code 返回结构
     """
-    if not city_id or not qweather_key:
-        print("DEBUG: 缺少 CityID 或 Key")
-        return None
+    if not city_id or not qweather_key: return None
 
     weather_data = {}
+    # 获取配置的 Host，去除末尾斜杠
     host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com").rstrip('/')
 
     try:
         # ================= 1. 实时天气 (v7) =================
+        # 依然用 ID 查，最准
         url_now = f"{host}/v7/weather/now"
         res_now = requests.get(url_now, params={"location": city_id, "key": qweather_key}, timeout=3)
         data_now = res_now.json()
@@ -184,57 +186,45 @@ def get_weather_full(city_id, lat=None, lon=None):
         if data_now.get('code') == '200':
             weather_data['now'] = data_now['now']
         else:
-            print(f"❌ 天气查询失败: {data_now}")
             return None  # 基础天气都没有，直接退出
 
         # ================= 2. 生活指数 (v7) =================
+        # type=3: 穿衣指数, type=9: 感冒指数. endpoint是 1d (1天预报)
         url_ind = f"{host}/v7/indices/1d"
         res_ind = requests.get(url_ind, params={"type": "3,9", "location": city_id, "key": qweather_key}, timeout=3)
         data_ind = res_ind.json()
 
         if data_ind.get('code') == '200':
+            # daily 是一个列表，转字典方便前端取
             weather_data['indices'] = {item['type']: item for item in data_ind['daily']}
 
-        # ================= 3. 空气质量 (核心调试区) =================
+        # ================= 3. 空气质量 (新版 v1) =================
         if lat and lon:
-            # 确保经纬度是纯净的字符串（去掉可能的空格）
-            lat = str(lat).strip()
-            lon = str(lon).strip()
+            # [修正] 强制保留2位小数
+            lat_fmt = "{:.2f}".format(float(lat))
+            lon_fmt = "{:.2f}".format(float(lon))
 
-            # --- 方案 A: 尝试你指定的 V1 新版接口 ---
-            url_v1 = f"{host}/airquality/v1/current/{lat}/{lon}"
-            print(f"🔍 正在尝试新版空气 API: {url_v1}")
+            # 拼接 URL
+            url_air = f"{host}/airquality/v1/current/{lat_fmt}/{lon_fmt}"
 
-            res_air = requests.get(url_v1, params={"key": qweather_key}, timeout=3)
+            # 发送请求
+            res_air = requests.get(url_air, params={"key": qweather_key}, timeout=3)
             data_air = res_air.json()
 
-            # 打印返回结果，看看究竟是啥
-            print(f"📄 新版 API 返回: {data_air}")
-
-            if data_air.get('code') == '200':
-                weather_data['air'] = data_air['now']  # 如果成功，直接用
-                print("✅ 新版 API 获取成功")
+            # [核心修复] 新版 API 不返回 code:200，而是直接返回 indexes 列表
+            # 只要 indexes 存在且不为空，就算成功
+            if 'indexes' in data_air and len(data_air['indexes']) > 0:
+                # 提取 AQI 类别 (优/良)
+                # 构造一个和旧版结构类似的字典，方便前端兼容
+                weather_data['air'] = {
+                    'category': data_air['indexes'][0]['category'],
+                    'aqi': data_air['indexes'][0]['aqi']
+                }
             else:
-                print(f"⚠️ 新版 API 失败 (Code: {data_air.get('code')})，尝试降级方案...")
-
-                # --- 方案 B: 降级使用 v7 (但使用经纬度查询) ---
-                # 即使是旧接口，也支持用经纬度查，格式是 location=经度,纬度
-                url_v7 = f"{host}/v7/air/now"
-                params_v7 = {"location": f"{lon},{lat}", "key": qweather_key}
-                res_v7 = requests.get(url_v7, params=params_v7, timeout=3)
-                data_v7 = res_v7.json()
-
-                print(f"📄 v7 降级 API 返回: {data_v7}")
-
-                if data_v7.get('code') == '200':
-                    weather_data['air'] = data_v7['now']
-                    print("✅ v7 降级 API 获取成功")
-        else:
-            print("❌ 数据库中没有经纬度数据，跳过空气质量查询")
+                print(f"Air API No Data: {data_air}")
 
     except Exception as e:
-        print(f"🔥 发生严重错误: {e}")
-        # 即使报错，也要返回已经查到的天气数据
+        print(f"Weather Fetch Exception: {e}")
         if not weather_data.get('now'): return None
 
     return weather_data

@@ -633,7 +633,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <!-- ================= 双城天气卡片 (空气质量修复版) ================= -->
+                <!-- ================= 双城天气卡片 (本地图标修正版) ================= -->
                 <div class="weather-card">
 
                     <!-- 左侧：老家 -->
@@ -642,10 +642,9 @@
                          onclick="sendReminder('{{ fam.id }}', '{{ fam.location_home_name }}',
                                                '{{ fam.weather_home.now.text }}',
                                                '{{ fam.weather_home.now.temp }}',
-                                               '{{ fam.weather_home.indices['3'].category if fam.weather_home.indices else '' }}',
+                                               '{{ fam.weather_home.indices['3'].text if fam.weather_home.indices else '' }}',
                                                '{{ fam.weather_home.air.category if fam.weather_home.air else '' }}')">
 
-                        <!-- 设置按钮 -->
                         <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
                                 style="width:28px;height:28px;z-index:10;"
                                 onclick="event.stopPropagation(); openWeatherModal('{{ fam.id }}', 'home', '{{ fam.location_home_name }}')">
@@ -663,16 +662,17 @@
 
                         <div class="weather-main">
                             <div class="weather-temp">{{ fam.weather_home.now.temp }}°</div>
+                            <!-- [修改] 使用本地 static/weather 图标 -->
                             <img src="/static/weather/{{ fam.weather_home.now.icon }}.svg" class="weather-icon">
                         </div>
 
                         <div class="weather-footer">
                             <span class="weather-tag">{{ fam.weather_home.now.text }}</span>
-                            <!-- 穿衣指数 -->
+                            <!-- [修改] 去掉了 '衣:' 前缀，直接显示 '较冷' -->
                             {% if fam.weather_home.indices and fam.weather_home.indices['3'] %}
                             <span class="weather-tag">{{ fam.weather_home.indices['3'].category }}</span>
                             {% endif %}
-                            <!-- [新增] 空气质量 -->
+                            <!-- 空气质量 -->
                             {% if fam.weather_home.air %}
                             <span class="weather-tag" style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_home.air.category else '' }}">
                                 空气{{ fam.weather_home.air.category }}
@@ -681,7 +681,6 @@
                         </div>
                     </div>
                     {% else %}
-                    <!-- 空状态 -->
                     <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'home', '')">
                         <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
                         <small>设置老家</small>
@@ -694,7 +693,7 @@
                          onclick="sendReminder('{{ fam.id }}', '{{ fam.location_away_name }}',
                                                '{{ fam.weather_away.now.text }}',
                                                '{{ fam.weather_away.now.temp }}',
-                                               '{{ fam.weather_away.indices['3'].category if fam.weather_away.indices else '' }}',
+                                               '{{ fam.weather_away.indices['3'].text if fam.weather_away.indices else '' }}',
                                                '{{ fam.weather_away.air.category if fam.weather_away.air else '' }}')">
 
                         <button class="btn btn-sm btn-light bg-white bg-opacity-50 border-0 position-absolute top-0 end-0 m-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm"
@@ -714,6 +713,7 @@
 
                         <div class="weather-main">
                             <div class="weather-temp">{{ fam.weather_away.now.temp }}°</div>
+                            <!-- [修改] 使用本地 static/weather 图标 -->
                             <img src="/static/weather/{{ fam.weather_away.now.icon }}.svg" class="weather-icon">
                         </div>
 
@@ -722,7 +722,6 @@
                             {% if fam.weather_away.indices and fam.weather_away.indices['3'] %}
                             <span class="weather-tag">{{ fam.weather_away.indices['3'].category }}</span>
                             {% endif %}
-                            <!-- [新增] 空气质量 -->
                             {% if fam.weather_away.air %}
                             <span class="weather-tag" style="{{ 'background:#ffc107;color:#000;' if '污染' in fam.weather_away.air.category else '' }}">
                                 空气{{ fam.weather_away.air.category }}
@@ -731,7 +730,6 @@
                         </div>
                     </div>
                     {% else %}
-                    <!-- 空状态 -->
                     <div class="weather-col weather-empty" onclick="openWeatherModal('{{ fam.id }}', 'away', '')">
                         <i class="fas fa-plus-circle fa-2x mb-2 opacity-50"></i>
                         <small>设置我的城市</small>
@@ -1565,43 +1563,45 @@
         new bootstrap.Modal(document.getElementById('weatherModal')).show();
     }
 
-    // [终极版 v2] 智能天气提醒生成器
-    // 修复了阴天/多云/雾霾的文案逻辑
-    function sendReminder(famId, city, weather, temp, dressTips, airCategory) {
+    // [终极逻辑恢复版] 智能天气提醒
+    function sendReminder(famId, city, weather, temp, dressText, airCategory) {
         let msg = "";
         const tempNum = parseInt(temp);
+        // 处理穿衣建议文字 (去掉末尾句号)
+        const dressTips = dressText ? dressText.replace(/。$/, '') : '';
 
-        // --- 1. 恶劣天气 (雨/雪/冰雹) ---
+        // --- 1. 恶劣天气 (雨/雪/冰雹/雷) ---
         if (weather.includes("雨")) {
             msg = `🌧️ ${city}下雨啦，出门记得带伞，别淋湿了！`;
         }
         else if (weather.includes("雪")) {
             msg = `❄️ ${city}下雪了，路滑注意安全，多穿点！`;
         }
-        else if (weather.includes("冰雹")) {
-            msg = `🌨️ ${city}有冰雹，注意安全，尽量待在室内！`;
+        else if (weather.includes("冰雹") || weather.includes("雷")) {
+            msg = `⛈️ ${city}天气恶劣 (${weather})，注意安全，尽量待在室内！`;
         }
 
         // --- 2. 空气质量 (污染) ---
-        else if (airCategory && (airCategory.includes("污染") || airCategory.includes("差"))) {
+        // 只要不是 "优" 或 "良"，都算不太好
+        else if (airCategory && airCategory !== "优" && airCategory !== "良") {
             msg = `😷 ${city}今天空气不太好（${airCategory}），出门记得戴口罩哦！`;
         }
 
-        // --- 3. 能见度 (雾/霾/沙尘) ---
+        // --- 3. 能见度 (雾/霾/沙/尘) ---
         else if (weather.includes("雾") || weather.includes("霾") || weather.includes("沙") || weather.includes("尘")) {
             msg = `🌫️ ${city}有${weather}，能见度不高，出门注意安全，戴好口罩。`;
         }
 
         // --- 4. 极端气温 (太冷/太热) ---
-        else if (tempNum <= 5) {
-            const tip = dressTips ? `建议${dressTips}` : '记得穿厚点保暖';
-            msg = `🥶 ${city}现在只有 ${temp}℃，太冷了！${tip}。`;
+        else if (tempNum <= 10) {
+            // 如果有官方建议就用官方的，没有就兜底
+            msg = `🥶 ${city}很冷 (${temp}℃)，${dressTips || '记得穿厚点保暖'}。`;
         }
-        else if (tempNum >= 35) {
-            msg = `🥵 ${city}高温 ${temp}℃，别中暑了，尽量呆在室内喝凉茶~`;
+        else if (tempNum >= 30) {
+            msg = `🥵 ${city}高温 ${temp}℃，${dressTips || '别中暑了，多喝水'}。`;
         }
 
-        // --- 5. 阴天/多云 (新增逻辑) ---
+        // --- 5. 阴天/多云 ---
         else if (weather.includes("阴")) {
             msg = `☁️ ${city}今天是阴天，虽然没有大太阳，但心情也要美美的哦！`;
         }
@@ -1609,18 +1609,16 @@
             msg = `⛅ ${city}多云天气，气温${temp}℃，出去走走透透气吧~`;
         }
 
-        // --- 6. 晴天/默认好天气 ---
+        // --- 6. 晴天/舒适 (兜底) ---
         else {
             const airText = airCategory ? `空气${airCategory}` : '';
-            // 如果是晴天，强调晒太阳
-            if (weather.includes("晴")) {
-                msg = `☀️ ${city}天气真好 (${weather} ${temp}℃)，记得晒晒太阳补补钙！`;
+            if(dressTips) {
+                msg = `🌤️ ${city}天气不错 (${weather} ${temp}℃ ${airText})，${dressTips}。`;
             } else {
-                msg = `✨ ${city}天气不错 (${weather} ${temp}℃ ${airText})，${dressTips ? dressTips : '祝你今天好心情'}！`;
+                msg = `✨ ${city}天气不错 (${weather} ${temp}℃ ${airText})，祝你今天好心情！`;
             }
         }
 
-        // --- 确认发送 ---
         if(!confirm(`要发送这条提醒给家人吗？\n\n"${msg}"`)) return;
 
         // --- 提交表单 ---
@@ -1629,25 +1627,16 @@
         form.action = '/send_family_reminder';
 
         const inputCsrf = document.createElement('input');
-        inputCsrf.type = 'hidden';
-        inputCsrf.name = 'csrf_token';
-        inputCsrf.value = '{{ csrf_token() }}';
+        inputCsrf.type = 'hidden'; inputCsrf.name = 'csrf_token'; inputCsrf.value = '{{ csrf_token() }}';
 
         const inputFamId = document.createElement('input');
-        inputFamId.type = 'hidden';
-        inputFamId.name = 'family_id';
-        inputFamId.value = famId;
+        inputFamId.type = 'hidden'; inputFamId.name = 'family_id'; inputFamId.value = famId;
 
         const inputContent = document.createElement('input');
-        inputContent.type = 'hidden';
-        inputContent.name = 'content';
-        inputContent.value = msg;
+        inputContent.type = 'hidden'; inputContent.name = 'content'; inputContent.value = msg;
 
-        form.appendChild(inputCsrf);
-        form.appendChild(inputFamId);
-        form.appendChild(inputContent);
+        form.appendChild(inputCsrf); form.appendChild(inputFamId); form.appendChild(inputContent);
         document.body.appendChild(form);
-
         showLoading();
         form.submit();
     }
