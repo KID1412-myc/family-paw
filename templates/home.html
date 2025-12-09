@@ -2569,30 +2569,58 @@
         listBody.innerHTML = '';
 
         if (!events || events.length === 0) {
-            listBody.innerHTML = '<div class="p-4 text-center text-muted">暂无数据</div>';
+            listBody.innerHTML = '<div class="p-5 text-center text-muted"><i class="far fa-calendar-times fa-2x mb-3"></i><br>暂无记录</div>';
         } else {
             events.forEach(e => {
                 const isReunion = e.type === 'reunion';
-                const badge = e.is_lunar ? '<span class="badge bg-light text-dark border ms-1">农</span>' : '';
-                // 显示累计天数
-                const totalInfo = (e.data.total > 0 && e.data.is_repeat) ?
-                    `<div class="text-primary small mt-1">❤️ 已累计 ${e.data.total} 天</div>` : '';
+                const badge = e.is_lunar ? '<span class="badge bg-light text-secondary border ms-1" style="font-weight:normal;">农</span>' : '';
 
+                // --- 1. 计算显示逻辑 (拒绝阴间负数) ---
+                let dayDisplayHtml = '';
+                let titleClass = 'fw-bold text-dark';
+
+                if (e.data.days === 0) {
+                    // 今天
+                    dayDisplayHtml = '<span class="badge bg-success rounded-pill px-3">今天</span>';
+                } else if (e.data.days > 0) {
+                    // 未来 (红色/黑色)
+                    const color = e.data.days <= 7 ? 'text-danger' : 'text-dark';
+                    dayDisplayHtml = `<span class="fs-5 fw-bold ${color}">${e.data.days} <small class="fs-6 fw-normal text-muted">天后</small></span>`;
+                } else {
+                    // [修复] 过去 (灰色，取绝对值)
+                    titleClass = 'fw-bold text-muted text-decoration-line-through'; // 标题加删除线，表示已过去
+                    dayDisplayHtml = `<span class="text-muted small">已过 ${Math.abs(e.data.days)} 天</span>`;
+                }
+
+                // 累计天数显示
+                const totalInfo = (e.data.total > 0 && e.data.is_repeat) ?
+                    `<div class="text-primary small mt-1" style="font-size:11px;">❤️ 已累计 ${e.data.total} 天</div>` : '';
+
+                // --- 2. 组装 HTML (优化按钮点击区域) ---
                 const html = `
                     <div class="list-group-item d-flex justify-content-between align-items-center py-3">
-                        <div>
-                            <div class="fw-bold">${e.title} ${badge}</div>
-                            <div class="small text-muted">目标: ${e.data.date_str}</div>
+                        <div class="pe-3">
+                            <div class="${titleClass}" style="font-size: 15px;">${e.title} ${badge}</div>
+                            <div class="small text-muted mt-1" style="font-size: 12px;">目标: ${e.data.date_str}</div>
                             ${totalInfo}
                         </div>
+
                         <div class="d-flex align-items-center gap-3">
-                            <span class="fs-5 fw-bold ${e.data.days <= 7 ? 'text-danger' : 'text-dark'}">${e.data.days}天</span>
-                            <form action="/delete_family_event" method="POST" onsubmit="return confirm('确定删除吗？')">
+                            <!-- 天数显示 -->
+                            <div class="text-end" style="min-width: 60px;">
+                                ${dayDisplayHtml}
+                            </div>
+
+                            <!-- [修复] 删除按钮：加大点击范围 (px-2 py-2) -->
+                            <form action="/delete_family_event" method="POST" onsubmit="return confirm('确定要删除这条记录吗？')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="family_id" value="${fid}">
                                 <input type="hidden" name="event_id" value="${e.id || ''}">
                                 <input type="hidden" name="type" value="${isReunion ? 'reunion' : 'event'}">
-                                <button class="btn btn-sm text-muted p-0"><i class="fas fa-trash"></i></button>
+
+                                <button class="btn btn-sm btn-light text-secondary border-0 px-3 py-2 rounded-3" title="删除">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </form>
                         </div>
                     </div>
