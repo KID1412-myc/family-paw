@@ -636,8 +636,10 @@
         .family-stage-card::before {
             content: '';
             position: absolute;
-            top: -50px; right: -50px;
-            width: 150px; height: 150px;
+            top: -50px;
+            right: -50px;
+            width: 150px;
+            height: 150px;
             background: radial-gradient(circle, #ffeaa7 0%, transparent 70%);
             opacity: 0.6;
             pointer-events: none;
@@ -801,6 +803,42 @@
                 transform: translateY(-4px);
             }
         }
+
+        /* === 家庭筛选条 === */
+        .family-filter-bar {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 5px 2px 15px 2px;
+            margin-bottom: 5px;
+            scrollbar-width: none;
+        }
+
+        .family-filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            white-space: nowrap;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 1px solid #eee;
+            background: white;
+            color: #666;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+        }
+
+        /* 选中状态 */
+        .filter-btn.active {
+            background: #667eea; /* 主题色 */
+            color: white;
+            border-color: #667eea;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -856,7 +894,7 @@
     <!-- ================= 家庭客厅 (升级版) ================= -->
     {% if my_families %}
         {% for fam in my_families %}
-            <div class="family-stage-card">
+            <div class="family-stage-card fam-item fam-{{ fam.id }}">
 
                 <!-- 顶部：家庭名 + 邀请码 -->
                 <div class="stage-header">
@@ -864,7 +902,7 @@
                         <i class="fas fa-home text-warning me-2"></i>{{ fam.name }}
                     </div>
                     <div class="invite-btn" onclick="copyCode(this)">
-                        <i class="fas fa-key me-1"></i>码: {{ fam.invite_code }}
+                        <i class="fas fa-key me-1"></i>邀请码: {{ fam.invite_code }}
                     </div>
                 </div>
 
@@ -926,7 +964,7 @@
     {% if my_families %}
         {% for fam in my_families %}
             {% if fam.reminders %}
-                <div class="mb-3">
+                <div class="mb-3 fam-item fam-{{ fam.id }}">
                     {% for rem in fam.reminders %}
                         <div class="alert shadow-sm border-0 rounded-4 d-flex align-items-start mb-2 fade show"
                              id="reminder-box-{{ rem.id }}"
@@ -966,11 +1004,20 @@
 
     <!-- ================= Tab: 萌宠 ================= -->
     <div id="tab-pets" class="{% if current_tab != 'pets' %}d-none{% endif %}">
+        <!-- [新增] 家庭筛选条 -->
+        {% if my_families|length > 1 %} <!-- 只有一个家就不显示条了 -->
+        <div class="family-filter-bar">
+            <button class="filter-btn active" onclick="filterFamily('all', this)">🏠 全部</button>
+            {% for f in my_families %}
+            <button class="filter-btn" onclick="filterFamily('{{ f.id }}', this)">{{ f.name }}</button>
+            {% endfor %}
+        </div>
+        {% endif %}
         <!-- ================= 归家倒计时卡片 ================= -->
         {% if my_families %}
             {% for fam in my_families %}
                 <!-- 只有设置了日期，或者我是当前查看者时显示设置按钮 -->
-                <div class="card-box mb-3 shadow-sm {% if fam.days_left is not none and fam.days_left >= 0 %}bg-gradient-warm{% else %}bg-gradient-cool{% endif %}">
+                <div class="card-box mb-3 shadow-sm {% if fam.days_left is not none and fam.days_left >= 0 %}bg-gradient-warm{% else %}bg-gradient-cool{% endif %} fam-item fam-{{ fam.id }}">
                     <div class="p-3 position-relative">
                         <!-- 设置按钮 (右上角) -->
                         <button class="btn btn-sm btn-light bg-white bg-opacity-25 border-0 text-white position-absolute top-0 end-0 m-2 rounded-circle"
@@ -1014,7 +1061,7 @@
                     </div>
                 </div>
                 <!-- ================= 双城天气卡片 (本地图标修正版) ================= -->
-                <div class="weather-card">
+                <div class="weather-card fam-item fam-{{ fam.id }}">
 
                     <!-- 左侧：老家 -->
                     {% if fam.weather_home %}
@@ -1123,7 +1170,7 @@
                     {% endif %}
                 </div>
                 <!-- ================= 许愿菜单 (升级版) ================= -->
-                <div class="card-box mb-4 p-3">
+                <div class="card-box mb-4 p-3 fam-item fam-{{ fam.id }}">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0 fw-bold d-flex align-items-center">
                             <span style="font-size: 20px; margin-right: 8px;">🍱</span> 许愿菜单
@@ -1206,7 +1253,7 @@
         {% endif %}
 
         {% for pet in pets %}
-            <div class="card-box">
+            <div class="card-box fam-item fam-{{ pet.family_id }}">
                 <!-- 宠物标题栏 -->
                 <div class="p-3 d-flex justify-content-between align-items-center border-bottom border-light">
                     <h5 class="mb-0 fw-bold d-flex align-items-center">
@@ -2213,7 +2260,7 @@
         head.classList.add('shake-animation');
 
         // 3. 震动反馈 (如果手机支持)
-        if(navigator.vibrate) navigator.vibrate(50);
+        if (navigator.vibrate) navigator.vibrate(50);
 
         // === 逻辑分流 ===
 
@@ -2228,19 +2275,34 @@
         // 情况 B: 点的是别人 -> 拍一拍
         else {
             // 这里的 confirm 会打断动画，所以我们把它放在动画之后，或者接受打断
-            if(confirm(`要拍一拍 ${name} 吗？`)) {
+            if (confirm(`要拍一拍 ${name} 吗？`)) {
 
                 // [关键修复] 创建表单，但不立即提交
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/nudge_member';
 
-                const i1 = document.createElement('input'); i1.type='hidden'; i1.name='csrf_token'; i1.value='{{ csrf_token() }}';
-                const i2 = document.createElement('input'); i2.type='hidden'; i2.name='target_uid'; i2.value=uid;
-                const i3 = document.createElement('input'); i3.type='hidden'; i3.name='target_name'; i3.value=name;
-                const i4 = document.createElement('input'); i4.type='hidden'; i4.name='family_id'; i4.value=famId;
+                const i1 = document.createElement('input');
+                i1.type = 'hidden';
+                i1.name = 'csrf_token';
+                i1.value = '{{ csrf_token() }}';
+                const i2 = document.createElement('input');
+                i2.type = 'hidden';
+                i2.name = 'target_uid';
+                i2.value = uid;
+                const i3 = document.createElement('input');
+                i3.type = 'hidden';
+                i3.name = 'target_name';
+                i3.value = name;
+                const i4 = document.createElement('input');
+                i4.type = 'hidden';
+                i4.name = 'family_id';
+                i4.value = famId;
 
-                form.appendChild(i1); form.appendChild(i2); form.appendChild(i3); form.appendChild(i4);
+                form.appendChild(i1);
+                form.appendChild(i2);
+                form.appendChild(i3);
+                form.appendChild(i4);
                 document.body.appendChild(form);
 
                 // [核心] 让动画飞一会儿 (700ms) 再提交刷新
@@ -2252,6 +2314,29 @@
                 // 如果取消了，移除动画类
                 head.classList.remove('shake-animation');
             }
+        }
+    }
+    // 家庭筛选逻辑
+    function filterFamily(famId, btn) {
+        // 1. 按钮样式切换
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // 2. 内容显示/隐藏
+        const allItems = document.querySelectorAll('.fam-item');
+
+        if (famId === 'all') {
+            // 显示全部
+            allItems.forEach(item => item.classList.remove('d-none'));
+        } else {
+            // 筛选显示
+            allItems.forEach(item => {
+                if (item.classList.contains('fam-' + famId)) {
+                    item.classList.remove('d-none');
+                } else {
+                    item.classList.add('d-none');
+                }
+            });
         }
     }
 
