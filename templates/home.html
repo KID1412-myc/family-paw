@@ -949,9 +949,84 @@
             box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
             transform: scale(1.05);
         }
+
+        /* =========================================
+           👴 长辈关怀模式 (Elder Mode) 核心补丁
+           ========================================= */
+        body.elder-mode {
+            /* 1. 全局字号暴力提升 */
+            font-size: 18px !important;
+        }
+
+        body.elder-mode .small,
+        body.elder-mode small,
+        body.elder-mode .text-muted {
+            /* 让辅助文字变大、变深 */
+            font-size: 16px !important;
+            color: #333 !important; /* 拒绝浅灰，改用深灰 */
+            opacity: 1 !important; /* 拒绝半透明 */
+        }
+
+        body.elder-mode h5,
+        body.elder-mode .fw-bold {
+            font-size: 20px !important;
+            font-weight: 900 !important; /* 超粗体 */
+        }
+
+        /* 2. 卡片增强 */
+        body.elder-mode .card-box,
+        body.elder-mode .calendar-card,
+        body.elder-mode .weather-card {
+            border: 2px solid #000 !important; /* 加黑边框，轮廓更清晰 */
+            box-shadow: none !important; /* 去掉阴影，减少视觉干扰 */
+        }
+
+        /* 3. 双城天气：强制变成上下排列 */
+        body.elder-mode .weather-card {
+            flex-direction: column !important;
+        }
+
+        body.elder-mode .weather-col {
+            border-bottom: 1px solid #ccc;
+            padding: 25px !important;
+        }
+
+        body.elder-mode .weather-temp {
+            font-size: 48px !important; /* 温度巨无霸 */
+            color: #000 !important;
+        }
+
+        /* 4. 倒计时数字 */
+        body.elder-mode .cal-number {
+            font-size: 80px !important;
+            color: #d63031 !important;
+        }
+
+        /* 5. 按钮放大 */
+        body.elder-mode .btn,
+        body.elder-mode .nav-item {
+            font-size: 18px !important;
+            padding: 12px !important;
+        }
+
+        /* 6. 底部导航栏 */
+        body.elder-mode .bottom-nav {
+            height: 80px !important;
+        }
+
+        body.elder-mode .nav-item i {
+            font-size: 30px !important;
+        }
+
+        /* 7. 隐藏不需要的元素 (比如编辑按钮) */
+        /* 长辈通常只需要看，不需要改 */
+        body.elder-mode .cal-header-icon,
+        body.elder-mode .btn-link .fa-cog {
+            display: none !important;
+        }
     </style>
 </head>
-<body>
+<body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
 
 <!-- 全屏加载动画 -->
 <div id="loading-overlay">
@@ -1767,7 +1842,25 @@
                 </div>
             </div>
         </div>
+        <!-- [新增] 关怀模式开关 -->
+        <div class="card-box p-3 mb-3">
+            <form action="/update_profile" method="POST" id="elderModeForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <!-- 这里的 display_name 是为了防止覆盖名字，传原值 -->
+                <input type="hidden" name="display_name" value="{{ my_profile.display_name }}">
 
+                <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0">
+                    <label class="form-check-label fw-bold d-flex align-items-center gap-2" for="elderSwitch">
+                        <i class="fas fa-eye text-primary fa-lg"></i>
+                        <span>长辈关怀模式 (大字版)</span>
+                    </label>
+                    <input class="form-check-input ms-0" type="checkbox" name="is_elder_mode" id="elderSwitch"
+                           style="width: 50px; height: 25px;"
+                           {% if my_profile.is_elder_mode %}checked{% endif %}
+                           onchange="document.getElementById('elderModeForm').submit()">
+                </div>
+            </form>
+        </div>
         <!-- 安全设置卡片 -->
         <div class="card-box p-3">
             <h6 class="mb-3 fw-bold text-dark"><i class="fas fa-lock me-2 text-secondary"></i>安全设置</h6>

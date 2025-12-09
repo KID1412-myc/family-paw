@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '3.0.2'
+CURRENT_APP_VERSION = '3.1.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -1303,11 +1303,14 @@ def leave_family():
 @app.route('/update_profile', methods=['POST'])
 @login_required
 def update_profile():
-    """更新头像和昵称"""
+    """更新个人资料 (含关怀模式)"""
     db = get_db()
     display_name = request.form.get('display_name')
     file = request.files.get('avatar')
-    update_data = {}
+    # [新增] 获取开关状态 (checkbox 选中发 'on'，没选中发 None)
+    is_elder = request.form.get('is_elder_mode') == 'on'
+
+    update_data = {'is_elder_mode': is_elder}
 
     if display_name:
         update_data['display_name'] = display_name
@@ -1316,23 +1319,16 @@ def update_profile():
         try:
             filename = secure_filename(file.filename)
             file_path = f"avatar_{session['user']}_{int(datetime.now().timestamp())}_{filename}"
-            # 上传头像
-            db.storage.from_("family_photos").upload(
-                file_path,
-                file.read(),
-                {"content-type": file.content_type}
-            )
+            db.storage.from_("family_photos").upload(file_path, file.read(), {"content-type": file.content_type})
             update_data['avatar_url'] = file_path
         except Exception as e:
             flash(f"头像上传失败: {e}", "danger")
 
-    if update_data:
-        try:
-            # 执行更新
-            db.table('profiles').update(update_data).eq('id', session['user']).execute()
-            flash("个人资料已更新", "success")
-        except Exception as e:
-            flash(f"更新失败: {e}", "danger")
+    try:
+        db.table('profiles').update(update_data).eq('id', session['user']).execute()
+        flash("个人资料已更新", "success")
+    except Exception as e:
+        flash(f"更新失败: {e}", "danger")
 
     return redirect(url_for('home', tab='mine'))
 
