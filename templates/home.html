@@ -1128,65 +1128,74 @@
         {% if my_families %}
             {% for fam in my_families %}
                 <!-- ================= 全能时间卡片 (修复点击 + 优化UI) ================= -->
-                <div class="calendar-wrapper fam-item fam-{{ fam.id }}">
-                    <div class="calendar-card">
+                <div class="calendar-card">
 
-                        {% if fam.top_event %}
-                            <!-- A. 有事件状态 -->
-                            <!-- [修改] 整个卡片头部作为一个容器 -->
-                            <div class="cal-header-bar {{ 'cal-header-warm' if fam.top_event.data.days <= 7 else 'cal-header-cool' }}">
-                                <!-- 标题 -->
-                                <span>
+                    {% if fam.top_event %}
+                        {% set days = fam.top_event.data.days %}
+
+                        <!-- 1. 头部装订条 (逻辑升级) -->
+                        <!-- 小于0(过期): 灰 | 0-30(临近): 红 | 大于30(远): 蓝 -->
+                        <div class="cal-header-bar {% if days < 0 %}cal-header-empty{% elif days <= 30 %}cal-header-warm{% else %}cal-header-cool{% endif %}">
+                            <!-- 标题 -->
+                            <span>
                                     {{ fam.top_event.title }}
-                                    {% if fam.top_event.is_lunar %}<span class="badge bg-white text-danger ms-1"
-                                                                         style="font-size:9px; padding:1px 3px;">农</span>{% endif %}
+                                {% if fam.top_event.is_lunar %}<span class="badge bg-white text-danger ms-1"
+                                                                     style="font-size:9px; padding:1px 3px;">农</span>{% endif %}
                                 </span>
 
-                                <!-- [移到这里] 右上角列表/设置按钮 -->
-                                <!-- 注意：onclick 里用了 event.stopPropagation() 防止冒泡，虽然这里没嵌套点击，但加个保险 -->
-                                <div class="cal-header-icon"
-                                     onclick='event.stopPropagation(); openEventListModal("{{ fam.id }}", {{ fam.all_events | tojson }})'>
-                                    <i class="fas fa-list-ul"></i>
-                                </div>
+                            <!-- 右上角列表按钮 -->
+                            <div class="cal-header-icon"
+                                 onclick='event.stopPropagation(); openEventListModal("{{ fam.id }}", {{ fam.all_events | tojson }})'>
+                                <i class="fas fa-list-ul"></i>
                             </div>
+                        </div>
 
-                            <!-- [核心修复] onclick 外面用单引号 '，里面用双引号 "，解决数据冲突问题 -->
-                            <div class="cal-body"
-                                 onclick='openEventListModal("{{ fam.id }}", {{ fam.all_events | tojson }})'>
+                        <!-- 2. 纸张内容 -->
+                        <div class="cal-body"
+                             onclick='openEventListModal("{{ fam.id }}", {{ fam.all_events | tojson }})'>
 
-                                {% if fam.top_event.data.days == 0 %}
-                                    <div class="cal-number text-success" style="font-size: 40px;">🎉</div>
-                                    <div class="cal-label fw-bold text-success">就是今天！</div>
-                                {% else %}
-                                    <div class="cal-number {{ 'text-danger' if fam.top_event.data.days <= 7 else 'text-dark' }}">
-                                        {{ fam.top_event.data.days }}
-                                    </div>
-                                    <div class="cal-label">天后</div>
-                                {% endif %}
+                            {% if days == 0 %}
+                                <!-- 今天 -->
+                                <div class="cal-number text-success" style="font-size: 40px;">🎉</div>
+                                <div class="cal-label fw-bold text-success">就是今天！</div>
 
-                                <div class="cal-target-date d-flex flex-column gap-1">
-                                    <span>目标: {{ fam.top_event.data.date_str }}</span>
+                            {% elif days > 0 %}
+                                <!-- 未来 -->
+                                <div class="cal-number {{ 'text-danger' if days <= 7 else 'text-dark' }}">
+                                    {{ days }}
+                                </div>
+                                <div class="cal-label">天后</div>
 
-                                    {% if fam.top_event.data.is_repeat and fam.top_event.data.total > 0 %}
-                                        <span class="text-primary"
-                                              style="font-size: 10px; border-top: 1px dashed #eee; padding-top: 2px;">
+                            {% else %}
+                                <!-- [修复] 过去 (变成灰色，且取绝对值) -->
+                                <div class="cal-number text-muted" style="opacity: 0.5;">
+                                    {{ days | abs }}
+                                </div>
+                                <div class="cal-label text-muted">天前 (已结束)</div>
+                            {% endif %}
+
+                            <div class="cal-target-date d-flex flex-column gap-1">
+                                <span>目标: {{ fam.top_event.data.date_str }}</span>
+
+                                {% if fam.top_event.data.is_repeat and fam.top_event.data.total > 0 %}
+                                    <span class="text-primary"
+                                          style="font-size: 10px; border-top: 1px dashed #eee; padding-top: 2px;">
                                         已相伴 {{ fam.top_event.data.total }} 天 ❤️
                                     </span>
-                                    {% endif %}
-                                </div>
+                                {% endif %}
                             </div>
+                        </div>
 
-                        {% else %}
-                            <!-- B. 空状态 (引导添加) -->
-                            <div class="cal-header-bar cal-header-empty">家庭大事记</div>
-                            <div class="cal-body" onclick="openAddEventModal('{{ fam.id }}')">
-                                <div class="py-3">
-                                    <i class="fas fa-calendar-plus fa-3x text-muted opacity-25 mb-2"></i>
-                                    <div class="text-muted small">添加生日 / 纪念日</div>
-                                </div>
+                    {% else %}
+                        <!-- B. 空状态 (引导添加) -->
+                        <div class="cal-header-bar cal-header-empty">家庭大事记</div>
+                        <div class="cal-body" onclick="openAddEventModal('{{ fam.id }}')">
+                            <div class="py-3">
+                                <i class="fas fa-calendar-plus fa-3x text-muted opacity-25 mb-2"></i>
+                                <div class="text-muted small">添加生日 / 纪念日</div>
                             </div>
-                        {% endif %}
-                    </div>
+                        </div>
+                    {% endif %}
                 </div>
                 <!-- ================= 双城天气卡片 (本地图标修正版) ================= -->
                 <div class="weather-card fam-item fam-{{ fam.id }}">

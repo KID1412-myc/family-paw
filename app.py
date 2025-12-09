@@ -582,11 +582,17 @@ def home():
                         except:
                             pass
 
-                        # 3. 排序与选取 (取剩余天数最小的)
+                        # 3. 排序与选取
                         if candidate_events:
-                            candidate_events.sort(key=lambda x: x['data']['days'])
+                            # 排序逻辑：
+                            # 第一优先级: 是否过期 (x['data']['days'] < 0)。False(0) 排前，True(1) 排后
+                            # 第二优先级: 剩余天数的绝对值 (越近越前)
+                            candidate_events.sort(key=lambda x: (
+                                1 if x['data']['days'] < 0 else 0,
+                                abs(x['data']['days'])
+                            ))
+
                             f['top_event'] = candidate_events[0]
-                            # 存全部事件供列表弹窗使用
                             f['all_events'] = candidate_events
 
                         # === 2. 天气缓存逻辑 (核心升级) ===
