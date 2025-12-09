@@ -1232,11 +1232,15 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-5" onclick="openWishModal('{{ fam.id }}')"
-                             style="cursor: pointer; background: #f9f9f9; border-radius: 12px; border: 2px dashed #eee;">
+                        <!-- 空状态：Flex 完美居中 -->
+                        <div class="d-flex flex-column align-items-center justify-content-center py-4"
+                             onclick="openWishModal('{{ fam.id }}')"
+                             style="cursor: pointer; background: #f9f9f9; border-radius: 12px; border: 2px dashed #eee; min-height: 160px;">
+
                             <div style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;">🍽️</div>
                             <div class="text-muted fw-bold">空空如也</div>
-                            <small class="text-muted opacity-75">快点一个想吃的菜吧！</small>
+                            <small class="text-muted opacity-75 mt-1">快点一个想吃的菜吧！</small>
+
                         </div>
                     {% endif %}
                 </div>

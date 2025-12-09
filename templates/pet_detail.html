@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>{{ pet.name }}的档案</title>
 
     <!-- PWA 配置 -->
@@ -30,60 +31,96 @@
             position: relative;
             /* 关键：底部做一个圆弧 */
             border-radius: 0 0 40px 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             overflow: hidden;
         }
+
         .pet-header::after {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 100%);
         }
 
         .header-content {
-            position: absolute; bottom: 40px; left: 25px; right: 25px; z-index: 2; color: white;
-            display: flex; align-items: flex-end; justify-content: space-between;
+            position: absolute;
+            bottom: 40px;
+            left: 25px;
+            right: 25px;
+            z-index: 2;
+            color: white;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
         }
 
         .pet-name {
-            font-size: 36px; font-weight: 900;
-            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-size: 36px;
+            font-weight: 900;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
             letter-spacing: 1px;
-            display: flex; align-items: center; gap: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .pet-tags span {
-            background: rgba(255,255,255,0.25);
+            background: rgba(255, 255, 255, 0.25);
             backdrop-filter: blur(5px);
             padding: 4px 10px;
             border-radius: 20px;
             font-size: 12px;
-            border: 1px solid rgba(255,255,255,0.4);
+            border: 1px solid rgba(255, 255, 255, 0.4);
             margin-right: 5px;
         }
 
         .edit-fab {
-            background: white; color: #333;
-            width: 45px; height: 45px;
+            background: white;
+            color: #333;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s;
             border: none;
         }
-        .edit-fab:active { transform: scale(0.9); }
+
+        .edit-fab:active {
+            transform: scale(0.9);
+        }
 
         .back-btn {
-            position: absolute; top: max(20px, env(safe-area-inset-top)); left: 20px; z-index: 10;
-            background: rgba(0,0,0,0.3); backdrop-filter: blur(5px);
-            width: 40px; height: 40px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; color: white; text-decoration: none;
+            position: absolute;
+            top: max(20px, env(safe-area-inset-top));
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
         }
 
         /* === 2. 悬浮数据卡片 (多彩版) === */
         .status-container {
             margin-top: -30px; /* 向上插入头部 */
             padding: 0 20px;
-            position: relative; z-index: 5;
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+            position: relative;
+            z-index: 5;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
         }
 
         .status-card {
@@ -91,118 +128,171 @@
             border-radius: 18px;
             padding: 15px 10px;
             text-align: center;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        .sc-icon { font-size: 24px; margin-bottom: 5px; }
-        .sc-label { font-size: 11px; color: #888; margin-bottom: 2px; }
-        .sc-val { font-size: 15px; font-weight: 800; color: #333; }
+        .sc-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .sc-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .sc-val {
+            font-size: 15px;
+            font-weight: 800;
+            color: #333;
+        }
 
         /* 不同类型的卡片配色 */
-        .sc-weight { border-bottom: 4px solid #74b9ff; }
-        .sc-vac { border-bottom: 4px solid #ff7675; }
-        .sc-deworm { border-bottom: 4px solid #55efc4; }
+        .sc-weight {
+            border-bottom: 4px solid #74b9ff;
+        }
+
+        .sc-vac {
+            border-bottom: 4px solid #ff7675;
+        }
+
+        .sc-deworm {
+            border-bottom: 4px solid #55efc4;
+        }
 
         /* === 3. 拍立得相册墙 === */
-        .gallery-section { padding: 25px 20px; }
-        .section-title { font-size: 20px; font-weight: 800; color: #2d3436; margin-bottom: 15px; display: flex; align-items: center; }
-        .section-title i { color: #fdcb6e; margin-right: 8px; }
+        .gallery-section {
+            padding: 25px 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #2d3436;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title i {
+            color: #fdcb6e;
+            margin-right: 8px;
+        }
 
         .polaroid-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
         }
 
         .polaroid {
             background: white;
             padding: 8px 8px 25px 8px; /* 底部留白写字 */
             border-radius: 4px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             transform: rotate(var(--rot));
             transition: transform 0.2s, z-index 0s;
             position: relative;
         }
-        .polaroid:active { transform: scale(1.05) rotate(0deg); z-index: 10; }
+
+        .polaroid:active {
+            transform: scale(1.05) rotate(0deg);
+            z-index: 10;
+        }
 
         .polaroid img {
-            width: 100%; aspect-ratio: 1/1; object-fit: cover;
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
             border: 1px solid #eee;
         }
 
         .polaroid-date {
-            position: absolute; bottom: 5px; right: 10px;
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
             font-family: 'Courier New', monospace;
-            font-size: 10px; color: #888;
+            font-size: 10px;
+            color: #888;
         }
 
         /* 装饰元素 */
         .tape {
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-            width: 40px; height: 12px;
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 12px;
             background: rgba(255, 255, 255, 0.4);
-            border: 1px solid rgba(0,0,0,0.05);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 <body>
 
-    <!-- 1. 沉浸式头部 -->
-    <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-    <div class="pet-header">
-        <div class="header-content">
-            <div>
-                <div class="pet-name">
-                    {{ pet.name }}
-                    {% if pet.gender == 'male' %}
-                        <i class="fas fa-mars text-info fs-5"></i>
-                    {% elif pet.gender == 'female' %}
-                        <i class="fas fa-venus text-danger fs-5"></i>
-                    {% endif %}
-                </div>
-                <div class="pet-tags mt-2">
-                    <span>🎂 {{ pet.age_display }}</span>
-                    <span>
+<!-- 1. 沉浸式头部 -->
+<a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+<div class="pet-header">
+    <div class="header-content">
+        <div>
+            <div class="pet-name">
+                {{ pet.name }}
+                {% if pet.gender == 'male' %}
+                    <i class="fas fa-mars text-info fs-5"></i>
+                {% elif pet.gender == 'female' %}
+                    <i class="fas fa-venus text-danger fs-5"></i>
+                {% endif %}
+            </div>
+            <div class="pet-tags mt-2">
+                <span>🎂 {{ pet.age_display }}</span>
+                <span>
                         {% if pet.type=='dog' %}🐶 汪星人{% else %}🐱 喵星人{% endif %}
                     </span>
-                </div>
             </div>
+        </div>
 
-            {% if pet.is_owner %}
+        {% if pet.is_owner %}
             <button class="edit-fab" data-bs-toggle="modal" data-bs-target="#editProfileModal">
                 <i class="fas fa-pencil-alt"></i>
             </button>
-            {% endif %}
-        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 2. 数据仪表盘 (多彩卡片) -->
+<div class="status-container">
+    <div class="status-card sc-weight">
+        <div class="sc-icon">⚖️</div>
+        <div class="sc-label">当前体重</div>
+        <div class="sc-val">{{ pet.weight or '--' }} <small>kg</small></div>
+    </div>
+    <div class="status-card sc-vac">
+        <div class="sc-icon">💉</div>
+        <div class="sc-label">上次疫苗</div>
+        <div class="sc-val">{{ pet.vaccine_date or '未记录' }}</div>
+    </div>
+    <div class="status-card sc-deworm">
+        <div class="sc-icon">💊</div>
+        <div class="sc-label">上次驱虫</div>
+        <div class="sc-val">{{ pet.deworm_date or '未记录' }}</div>
+    </div>
+</div>
+
+<!-- 3. 时光相册 (拍立得风格) -->
+<div class="gallery-section">
+    <div class="section-title">
+        <i class="fas fa-images"></i> 成长时光机 <small class="text-muted ms-2 fw-normal fs-6">({{ pet.photos|length }}张)</small>
     </div>
 
-    <!-- 2. 数据仪表盘 (多彩卡片) -->
-    <div class="status-container">
-        <div class="status-card sc-weight">
-            <div class="sc-icon">⚖️</div>
-            <div class="sc-label">当前体重</div>
-            <div class="sc-val">{{ pet.weight or '--' }} <small>kg</small></div>
-        </div>
-        <div class="status-card sc-vac">
-            <div class="sc-icon">💉</div>
-            <div class="sc-label">上次疫苗</div>
-            <div class="sc-val">{{ pet.vaccine_date or '未记录' }}</div>
-        </div>
-        <div class="status-card sc-deworm">
-            <div class="sc-icon">💊</div>
-            <div class="sc-label">上次驱虫</div>
-            <div class="sc-val">{{ pet.deworm_date or '未记录' }}</div>
-        </div>
-    </div>
-
-    <!-- 3. 时光相册 (拍立得风格) -->
-    <div class="gallery-section">
-        <div class="section-title">
-            <i class="fas fa-images"></i> 成长时光机 <small class="text-muted ms-2 fw-normal fs-6">({{ pet.photos|length }}张)</small>
-        </div>
-
-        <div class="polaroid-grid">
-            {% for p in pet.photos %}
+    <div class="polaroid-grid">
+        {% for p in pet.photos %}
             <!-- 随机旋转角度: -3deg 到 3deg -->
             <div class="polaroid" style="--rot: {{ range(-3, 3)|random }}deg" onclick="window.open('{{ p.url }}')">
                 <!-- 顶部胶带装饰 -->
@@ -210,66 +300,74 @@
                 <img src="{{ p.url }}" loading="lazy">
                 <div class="polaroid-date">{{ p.created_at[:10] }}</div>
             </div>
-            {% else %}
-            <div class="col-12 text-center py-5 text-muted">
+        {% else %}
+            <!-- [修改] 空状态：强制跨越所有网格列 (grid-column: 1/-1) 并居中 -->
+            <div class="text-center text-muted py-5 d-flex flex-column align-items-center justify-content-center"
+                 style="grid-column: 1 / -1; min-height: 200px;">
+
                 <img src="https://cdn-icons-png.flaticon.com/512/7486/7486747.png" width="80" style="opacity: 0.5;">
-                <p class="mt-3">相册空空如也<br>快去首页给它拍张照吧！</p>
+                <p class="mt-3 small">相册空空如也<br>快去首页给它拍张照吧！</p>
+
             </div>
-            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 编辑档案弹窗 (保持逻辑不变，只美化按钮) -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📝 完善小档案</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/update_pet_detail" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="pet_id" value="{{ pet.id }}">
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">他是弟弟还是妹妹？</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="gender" id="g_male" value="male"
+                                   {% if pet.gender=='male' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary py-2" for="g_male">💙 弟弟</label>
+                            <input type="radio" class="btn-check" name="gender" id="g_female" value="female"
+                                   {% if pet.gender=='female' %}checked{% endif %}>
+                            <label class="btn btn-outline-danger py-2" for="g_female">💖 妹妹</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">生日 (用于算年龄)</label>
+                        <input type="date" name="birthday" class="form-control form-control-lg"
+                               value="{{ pet.birthday }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">体重 (kg)</label>
+                        <input type="number" step="0.1" name="weight" class="form-control form-control-lg"
+                               value="{{ pet.weight }}" placeholder="0.0">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label small text-muted">💉 上次疫苗</label>
+                            <input type="date" name="vaccine_date" class="form-control" value="{{ pet.vaccine_date }}">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label small text-muted">💊 上次驱虫</label>
+                            <input type="date" name="deworm_date" class="form-control" value="{{ pet.deworm_date }}">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-dark w-100 fw-bold rounded-3 py-3 mt-2">保存档案</button>
+                </form>
+            </div>
         </div>
     </div>
+</div>
 
-    <!-- 编辑档案弹窗 (保持逻辑不变，只美化按钮) -->
-    <div class="modal fade" id="editProfileModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📝 完善小档案</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form action="/update_pet_detail" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="pet_id" value="{{ pet.id }}">
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">他是弟弟还是妹妹？</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="gender" id="g_male" value="male" {% if pet.gender=='male' %}checked{% endif %}>
-                                <label class="btn btn-outline-primary py-2" for="g_male">💙 弟弟</label>
-                                <input type="radio" class="btn-check" name="gender" id="g_female" value="female" {% if pet.gender=='female' %}checked{% endif %}>
-                                <label class="btn btn-outline-danger py-2" for="g_female">💖 妹妹</label>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">生日 (用于算年龄)</label>
-                            <input type="date" name="birthday" class="form-control form-control-lg" value="{{ pet.birthday }}">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label small text-muted">体重 (kg)</label>
-                            <input type="number" step="0.1" name="weight" class="form-control form-control-lg" value="{{ pet.weight }}" placeholder="0.0">
-                        </div>
-
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label small text-muted">💉 上次疫苗</label>
-                                <input type="date" name="vaccine_date" class="form-control" value="{{ pet.vaccine_date }}">
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label small text-muted">💊 上次驱虫</label>
-                                <input type="date" name="deworm_date" class="form-control" value="{{ pet.deworm_date }}">
-                            </div>
-                        </div>
-
-                        <button class="btn btn-dark w-100 fw-bold rounded-3 py-3 mt-2">保存档案</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
