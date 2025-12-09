@@ -891,6 +891,15 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+    <!-- [新增] 家庭筛选条 -->
+    {% if my_families|length > 1 %} <!-- 只有一个家就不显示条了 -->
+        <div class="family-filter-bar">
+            <button class="filter-btn active" onclick="filterFamily('all', this)">🏠 全部</button>
+            {% for f in my_families %}
+                <button class="filter-btn" onclick="filterFamily('{{ f.id }}', this)">{{ f.name }}</button>
+            {% endfor %}
+        </div>
+    {% endif %}
     <!-- ================= 家庭客厅 (升级版) ================= -->
     {% if my_families %}
         {% for fam in my_families %}
@@ -1004,15 +1013,7 @@
 
     <!-- ================= Tab: 萌宠 ================= -->
     <div id="tab-pets" class="{% if current_tab != 'pets' %}d-none{% endif %}">
-        <!-- [新增] 家庭筛选条 -->
-        {% if my_families|length > 1 %} <!-- 只有一个家就不显示条了 -->
-        <div class="family-filter-bar">
-            <button class="filter-btn active" onclick="filterFamily('all', this)">🏠 全部</button>
-            {% for f in my_families %}
-            <button class="filter-btn" onclick="filterFamily('{{ f.id }}', this)">{{ f.name }}</button>
-            {% endfor %}
-        </div>
-        {% endif %}
+
         <!-- ================= 归家倒计时卡片 ================= -->
         {% if my_families %}
             {% for fam in my_families %}
@@ -2316,6 +2317,7 @@
             }
         }
     }
+
     // 家庭筛选逻辑
     function filterFamily(famId, btn) {
         // 1. 按钮样式切换
