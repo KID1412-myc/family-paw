@@ -1426,7 +1426,7 @@
                         <div class="uploader-badge"><i class="fas fa-camera"></i> {{ pet.photo_uploader }}</div>
                         {% if pet.latest_user_id == current_user_id %}
                             <form action="/delete_log/{{ pet.latest_log_id }}" method="POST"
-                                  onsubmit="return confirm('删照片？')">
+                                  onsubmit="return confirm('确定删照片？')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="delete-btn"><i class="fas fa-trash-alt"></i></button>
                             </form>
@@ -2578,7 +2578,7 @@
                         </div>
                         <div class="d-flex align-items-center gap-3">
                             <span class="fs-5 fw-bold ${e.data.days <= 7 ? 'text-danger' : 'text-dark'}">${e.data.days}天</span>
-                            <form action="/delete_family_event" method="POST" onsubmit="return confirm('删？')">
+                            <form action="/delete_family_event" method="POST" onsubmit="return confirm('确定删除吗？')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="family_id" value="${fid}">
                                 <input type="hidden" name="event_id" value="${e.id || ''}">
