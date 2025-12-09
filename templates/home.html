@@ -1004,9 +1004,13 @@
     <!-- [新增] 家庭筛选条 -->
     {% if my_families|length > 1 %} <!-- 只有一个家就不显示条了 -->
         <div class="family-filter-bar">
-            <button class="filter-btn active" onclick="filterFamily('all', this)">🏠 全部</button>
+            <!-- 给"全部"按钮加 id -->
+            <button id="filter-btn-all" class="filter-btn active" onclick="filterFamily('all', this)">🏠 全部</button>
+
             {% for f in my_families %}
-                <button class="filter-btn" onclick="filterFamily('{{ f.id }}', this)">{{ f.name }}</button>
+                <!-- 给每个家庭按钮加 id="filter-btn-家庭ID" -->
+                <button id="filter-btn-{{ f.id }}" class="filter-btn"
+                        onclick="filterFamily('{{ f.id }}', this)">{{ f.name }}</button>
             {% endfor %}
         </div>
     {% endif %}
@@ -2525,20 +2529,40 @@
         }
     }
 
-    // 家庭筛选逻辑
+    // ================= 家庭筛选逻辑 (带记忆) =================
+
+    // 1. 页面加载完成后：自动恢复上次的选择
+    document.addEventListener('DOMContentLoaded', function () {
+        // ... 原有的其他初始化逻辑 (如更新日志) ...
+
+        // [新增] 读取上次选中的家庭 ID
+        const lastFamId = localStorage.getItem('last_filter_family');
+
+        // 如果有记录，且不是默认的 'all'，且页面上确实有这个按钮 (防止退群后报错)
+        if (lastFamId && lastFamId !== 'all') {
+            const targetBtn = document.getElementById('filter-btn-' + lastFamId);
+            if (targetBtn) {
+                // 模拟点击，触发筛选效果
+                filterFamily(lastFamId, targetBtn);
+            }
+        }
+    });
+
+    // 2. 筛选函数
     function filterFamily(famId, btn) {
-        // 1. 按钮样式切换
+        // [新增] 记下来！下次刷新我还选这个
+        localStorage.setItem('last_filter_family', famId);
+
+        // 样式切换
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        // 2. 内容显示/隐藏
+        // 内容显示/隐藏
         const allItems = document.querySelectorAll('.fam-item');
 
         if (famId === 'all') {
-            // 显示全部
             allItems.forEach(item => item.classList.remove('d-none'));
         } else {
-            // 筛选显示
             allItems.forEach(item => {
                 if (item.classList.contains('fam-' + famId)) {
                     item.classList.remove('d-none');
