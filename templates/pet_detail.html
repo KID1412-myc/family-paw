@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>{{ pet.name }}的档案</title>
+    <!-- 复用主页的基础样式库 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body { background-color: #f2f4f7; padding-bottom: 50px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+        /* === 沉浸式头部 === */
+        .pet-header {
+            height: 280px;
+            background-image: url('{{ pet.cover_url }}');
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        /* 渐变遮罩，为了看清上面的字 */
+        .pet-header::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6));
+        }
+
+        .header-content {
+            position: absolute; bottom: 30px; left: 20px; right: 20px; z-index: 2; color: white;
+            display: flex; align-items: flex-end; justify-content: space-between;
+        }
+
+        .pet-name { font-size: 32px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3); line-height: 1;}
+        .pet-meta { font-size: 14px; opacity: 0.9; margin-top: 5px; font-weight: 500; }
+
+        /* 性别徽章 */
+        .gender-badge {
+            width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-left: 5px; vertical-align: middle;
+        }
+        .gender-male { background: #74b9ff; color: white; }
+        .gender-female { background: #ff7675; color: white; }
+
+        /* 返回按钮 */
+        .back-btn {
+            position: absolute; top: max(15px, env(safe-area-inset-top)); left: 15px; z-index: 10;
+            background: rgba(255,255,255,0.2); backdrop-filter: blur(5px);
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; color: white; text-decoration: none;
+        }
+
+        /* === 信息卡片 === */
+        .info-card {
+            background: white; border-radius: 20px; padding: 20px; margin: -20px 15px 20px 15px;
+            position: relative; z-index: 3;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        /* 健康数据格子 */
+        .health-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
+        .health-item { background: #f8f9fa; border-radius: 12px; padding: 12px 5px; }
+        .health-label { font-size: 11px; color: #999; margin-bottom: 2px; }
+        .health-value { font-size: 16px; font-weight: bold; color: #333; }
+
+        /* 状态点 */
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+        .dot-green { background: #00b894; }
+        .dot-red { background: #ff7675; }
+
+        /* === 相册瀑布流 === */
+        .gallery-title { margin: 20px 15px 10px; font-weight: bold; color: #333; font-size: 18px; }
+        .gallery {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 15px;
+        }
+        .gallery-img {
+            width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部大图区 -->
+    <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+    <div class="pet-header">
+        <div class="header-content">
+            <div>
+                <div class="pet-name">
+                    {{ pet.name }}
+                    {% if pet.gender == 'male' %}<span class="gender-badge gender-male"><i class="fas fa-mars"></i></span>
+                    {% elif pet.gender == 'female' %}<span class="gender-badge gender-female"><i class="fas fa-venus"></i></span>
+                    {% endif %}
+                </div>
+                <div class="pet-meta">
+                    🎂 {{ pet.age_display }}
+                    {% if pet.type=='dog' %}| 🐶 汪星人{% else %}| 🐱 喵星人{% endif %}
+                </div>
+            </div>
+
+            {% if pet.is_owner %}
+            <button class="btn btn-light btn-sm rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                <i class="fas fa-pen small me-1"></i>编辑
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 健康数据卡片 -->
+    <div class="info-card">
+        <div class="health-grid">
+            <div class="health-item">
+                <div class="health-label">⚖️ 体重</div>
+                <div class="health-value">{{ pet.weight or '--' }} <small>kg</small></div>
+            </div>
+            <div class="health-item">
+                <div class="health-label">💉 上次疫苗</div>
+                <div class="health-value" style="font-size: 14px; line-height: 24px;">
+                    {{ pet.vaccine_date or '未记录' }}
+                </div>
+            </div>
+            <div class="health-item">
+                <div class="health-label">🐛 上次驱虫</div>
+                <div class="health-value" style="font-size: 14px; line-height: 24px;">
+                    {{ pet.deworm_date or '未记录' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 相册流 -->
+    <div class="gallery-title">📸 成长点滴 ({{ pet.photos|length }})</div>
+    <div class="gallery">
+        {% for p in pet.photos %}
+        <img src="{{ p.url }}" class="gallery-img" loading="lazy" onclick="window.open(this.src)">
+        {% else %}
+        <div class="text-center text-muted col-12 py-4">还没有照片哦，快去首页打卡吧</div>
+        {% endfor %}
+    </div>
+
+    <!-- 编辑档案弹窗 -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">📝 完善档案</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/update_pet_detail" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="pet_id" value="{{ pet.id }}">
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">性别</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="gender" id="g_male" value="male" {% if pet.gender=='male' %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="g_male">💙 弟弟</label>
+                                <input type="radio" class="btn-check" name="gender" id="g_female" value="female" {% if pet.gender=='female' %}checked{% endif %}>
+                                <label class="btn btn-outline-danger" for="g_female">💖 妹妹</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">生日</label>
+                            <input type="date" name="birthday" class="form-control" value="{{ pet.birthday }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">体重 (kg)</label>
+                            <input type="number" step="0.1" name="weight" class="form-control" value="{{ pet.weight }}" placeholder="0.0">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small text-muted">上次疫苗</label>
+                                <input type="date" name="vaccine_date" class="form-control" value="{{ pet.vaccine_date }}">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small text-muted">上次驱虫</label>
+                                <input type="date" name="deworm_date" class="form-control" value="{{ pet.deworm_date }}">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary w-100 fw-bold rounded-3">保存档案</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1256,14 +1256,17 @@
         {% for pet in pets %}
             <div class="card-box fam-item fam-{{ pet.family_id }}">
                 <!-- 宠物标题栏 -->
-                <div class="p-3 d-flex justify-content-between align-items-center border-bottom border-light">
+                <!-- [修改] 给整个标题栏加个 onclick 跳转 -->
+                <div class="p-3 d-flex justify-content-between align-items-center border-bottom border-light"
+                     onclick="location.href='/pet/{{ pet.id }}'"
+                     style="cursor: pointer;">
                     <h5 class="mb-0 fw-bold d-flex align-items-center">
                         {% if pet.type == 'dog' %}
                             <i class="fas fa-dog text-secondary me-2 fa-lg"></i>
                         {% else %}
                             <i class="fas fa-cat text-secondary me-2 fa-lg"></i>
                         {% endif %}
-                        {{ pet.name }}
+                        {{ pet.name }} <i class="fas fa-chevron-right ms-2 text-muted" style="font-size: 12px;"></i> <!-- 加个小箭头提示可点击 -->
                         {% if pet.family_name %}
                             <span class="badge bg-light text-muted border ms-2 fw-normal"
                                   style="font-size: 10px;">{{ pet.family_name }}</span>

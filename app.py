@@ -230,6 +230,35 @@ def get_weather_full(city_id, lat=None, lon=None):
     return weather_data
 
 
+def calculate_age(birthday):
+    """根据生日计算 'X岁Y个月'"""
+    if not birthday: return "年龄未知"
+    try:
+        birth = datetime.strptime(birthday, '%Y-%m-%d').date()
+        today = datetime.now(timezone(timedelta(hours=8))).date()
+
+        # 还没出生?
+        if birth > today: return "即将出生"
+
+        years = today.year - birth.year
+        months = today.month - birth.month
+        if today.day < birth.day: months -= 1
+
+        if months < 0:
+            years -= 1
+            months += 12
+
+        if years == 0 and months == 0:
+            days = (today - birth).days
+            return f"{days}天大"
+        elif years == 0:
+            return f"{months}个月大"
+        else:
+            return f"{years}岁 {months}个月"
+    except:
+        return "年龄未知"
+
+
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
 def get_db():
@@ -711,6 +740,89 @@ def home():
                            current_tab=current_tab, today=today_str,
                            latest_update=latest_update)
 
+# ================= 宠物详情页模块 =================
+@app.route('/pet/<int:pet_id>')
+@login_required
+def pet_detail(pet_id):
+    """宠物详情页"""
+    db = get_db()
+
+    # 1. 获取宠物基础信息
+    pet = {}
+    try:
+        res = db.table('pets').select('*').eq('id', pet_id).single().execute()
+        if res.data:
+            pet = res.data
+            # 计算年龄
+            pet['age_display'] = calculate_age(pet.get('birthday'))
+
+            # 处理图片链接 (头像和封面)
+            # 如果没有专门设封面，就用最新的一张照片当封面，还没有就用默认图
+            cover_path = pet.get('cover_image')
+
+            # 2. 获取这只宠物的照片墙 (Logs)
+            logs_res = db.table('logs').select('*') \
+                .eq('pet_id', pet_id) \
+                .eq('action', 'photo') \
+                .order('created_at', desc=True) \
+                .execute()
+
+            photos = logs_res.data or []
+
+            # 补全图片URL
+            for p in photos:
+                if p.get('image_path'):
+                    p['url'] = f"{url}/storage/v1/object/public/family_photos/{p['image_path']}"
+
+            # 智能决定封面：有设定用设定，没设定用最新照片
+            if cover_path:
+                pet['cover_url'] = f"{url}/storage/v1/object/public/family_photos/{cover_path}"
+            elif photos:
+                pet['cover_url'] = photos[0]['url']
+            else:
+                # 默认封面 (可以是网图或者本地图)
+                pet['cover_url'] = "/static/default_cover.jpg"  # 暂时用个占位，或者前端CSS处理
+
+            pet['photos'] = photos
+
+            # 3. 检查我是不是主人 (用于显示编辑按钮)
+            is_owner = False
+            owner_res = db.table('pet_owners').select('user_id').eq('pet_id', pet_id).execute()
+            if owner_res.data:
+                owner_ids = [o['user_id'] for o in owner_res.data]
+                if session['user'] in owner_ids or session.get('is_impersonator'):
+                    is_owner = True
+            pet['is_owner'] = is_owner
+
+    except Exception as e:
+        print(f"Pet Detail Error: {e}")
+        return redirect(url_for('home'))
+
+    return render_template('pet_detail.html', pet=pet)
+
+
+@app.route('/update_pet_detail', methods=['POST'])
+@login_required
+def update_pet_detail():
+    """更新宠物详细档案"""
+    db = get_db()
+    pet_id = request.form.get('pet_id')
+
+    data = {
+        'birthday': request.form.get('birthday') or None,
+        'weight': request.form.get('weight') or None,
+        'vaccine_date': request.form.get('vaccine_date') or None,
+        'deworm_date': request.form.get('deworm_date') or None,
+        'gender': request.form.get('gender') or 'unknown'
+    }
+
+    try:
+        db.table('pets').update(data).eq('id', pet_id).execute()
+        flash("档案更新成功！", "success")
+    except Exception as e:
+        flash(f"更新失败: {e}", "danger")
+
+    return redirect(url_for('pet_detail', pet_id=pet_id))
 
 @app.route('/action', methods=['POST'])
 @login_required
