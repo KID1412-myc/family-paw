@@ -5,7 +5,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 import requests
-
+from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
 from werkzeug.middleware.proxy_fix import ProxyFix
 # 引入 Flask 相关组件
@@ -259,6 +259,68 @@ def calculate_age(birthday):
         return "年龄未知"
 
 
+# [新增] 计算事件详情
+def calculate_event_details(event):
+    """
+    返回: {days: 剩余天数, total: 累计天数, date_str: 下次日期, is_repeat: bool}
+    """
+    try:
+        today = datetime.now(timezone(timedelta(hours=8))).date()
+        start_date = datetime.strptime(event['event_date'], '%Y-%m-%d').date()
+
+        # 1. 计算累计天数 (如果开始时间在过去)
+        total_days = 0
+        if start_date <= today:
+            total_days = (today - start_date).days
+
+        # 2. 计算下一次日期
+        next_date = None
+
+        if not event.get('is_repeat'):
+            # A. 一次性事件 (如考研)
+            next_date = start_date
+        else:
+            # B. 重复事件 (农历/公历)
+            if event['event_type'] == 'lunar':
+                try:
+                    # 尝试今年的农历
+                    lunar_next = ZhDate(today.year, start_date.month, start_date.day)
+                    solar_next = lunar_next.to_datetime().date()
+                    if solar_next < today:
+                        # 今年过了算明年
+                        lunar_next = ZhDate(today.year + 1, start_date.month, start_date.day)
+                        solar_next = lunar_next.to_datetime().date()
+                    next_date = solar_next
+                except:
+                    # 简单回退到公历防止报错
+                    next_date = start_date.replace(year=today.year)
+            else:
+                # 公历
+                try:
+                    next_date = start_date.replace(year=today.year)
+                except ValueError:
+                    next_date = start_date.replace(year=today.year, day=28)  # 闰年修正
+
+                if next_date < today:
+                    try:
+                        next_date = start_date.replace(year=today.year + 1)
+                    except:
+                        next_date = start_date.replace(year=today.year + 1, day=28)
+
+        # 3. 计算剩余天数
+        days_left = (next_date - today).days
+
+        return {
+            'days': days_left,
+            'total': total_days,
+            'date_str': next_date.strftime('%Y-%m-%d'),
+            'is_repeat': event.get('is_repeat')
+        }
+    except Exception as e:
+        print(f"Calc Error: {e}")
+        return None
+
+
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
 def get_db():
@@ -482,14 +544,50 @@ def home():
                     utc_now = datetime.now(timezone.utc)
 
                     for f in my_families:
-                        # === 1. 倒计时逻辑 (保持不变) ===
-                        f['days_left'] = None
+                        # [全能时间卡片逻辑]
+                        f['top_event'] = None
+                        candidate_events = []
+
+                        # 1. 归家倒计时 (兼容旧数据)
                         if f.get('reunion_date'):
                             try:
                                 target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
-                                f['days_left'] = (target - bj_now_date).days
+                                days = (target - bj_now_date).days
+                                if days >= 0:
+                                    candidate_events.append({
+                                        'title': f.get('reunion_name') or '团圆',
+                                        'data': {'days': days, 'total': 0, 'date_str': f['reunion_date'],
+                                                 'is_repeat': False},
+                                        'type': 'reunion'
+                                    })
                             except:
                                 pass
+
+                        # 2. 数据库里的家庭大事
+                        try:
+                            db_events = db.table('family_events').select('*').eq('family_id',
+                                                                                 f['id']).execute().data or []
+                            for e in db_events:
+                                calc = calculate_event_details(e)
+                                if calc:
+                                    # 只显示未来的(days>=0)，或者纪念日(total>0)
+                                    if calc['days'] >= 0 or calc['total'] > 0:
+                                        candidate_events.append({
+                                            'id': e['id'],
+                                            'title': e['title'],
+                                            'data': calc,
+                                            'type': 'event',
+                                            'is_lunar': e['event_type'] == 'lunar'
+                                        })
+                        except:
+                            pass
+
+                        # 3. 排序与选取 (取剩余天数最小的)
+                        if candidate_events:
+                            candidate_events.sort(key=lambda x: x['data']['days'])
+                            f['top_event'] = candidate_events[0]
+                            # 存全部事件供列表弹窗使用
+                            f['all_events'] = candidate_events
 
                         # === 2. 天气缓存逻辑 (核心升级) ===
                         # 默认先读数据库里的旧缓存 (秒开的核心)
@@ -740,6 +838,7 @@ def home():
                            current_tab=current_tab, today=today_str,
                            latest_update=latest_update)
 
+
 # ================= 宠物详情页模块 =================
 @app.route('/pet/<int:pet_id>')
 @login_required
@@ -823,6 +922,7 @@ def update_pet_detail():
         flash(f"更新失败: {e}", "danger")
 
     return redirect(url_for('pet_detail', pet_id=pet_id))
+
 
 @app.route('/action', methods=['POST'])
 @login_required
@@ -1899,6 +1999,44 @@ def nudge_member():
         print(f"Nudge Error: {e}")
 
     return redirect(url_for('home'))
+
+
+# [新增] 添加大事记
+@app.route('/add_family_event', methods=['POST'])
+@login_required
+def add_family_event():
+    db = get_db()
+    try:
+        db.table('family_events').insert({
+            'family_id': request.form.get('family_id'),
+            'title': request.form.get('title'),
+            'event_date': request.form.get('event_date'),
+            'event_type': request.form.get('event_type'),  # solar/lunar
+            'is_repeat': request.form.get('is_repeat') == 'on'  # Checkbox
+        }).execute()
+        flash("添加成功", "success")
+    except Exception as e:
+        flash(f"失败: {e}", "danger")
+    return redirect(url_for('home'))
+
+
+# [新增] 删除大事记
+@app.route('/delete_family_event', methods=['POST'])
+@login_required
+def delete_family_event():
+    try:
+        # 如果类型是 reunion，说明是删旧版倒计时
+        if request.form.get('type') == 'reunion':
+            get_db().table('families').update({'reunion_date': None, 'reunion_name': None}) \
+                .eq('id', request.form.get('family_id')).execute()
+        else:
+            # 删新表
+            get_db().table('family_events').delete().eq('id', request.form.get('event_id')).execute()
+        flash("已删除", "success")
+    except:
+        pass
+    return redirect(url_for('home'))
+
 
 if __name__ == '__main__':
     # 开发环境启动
