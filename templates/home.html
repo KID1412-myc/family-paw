@@ -1128,7 +1128,7 @@
         {% if my_families %}
             {% for fam in my_families %}
                 <!-- ================= 全能时间卡片 (修复点击 + 优化UI) ================= -->
-                <div class="calendar-card">
+                <div class="calendar-card fam-item fam-{{ fam.id }}">
 
                     {% if fam.top_event %}
                         {% set days = fam.top_event.data.days %}
