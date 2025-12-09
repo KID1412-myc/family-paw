@@ -56,16 +56,121 @@
             transition: transform 0.2s;
         }
 
-        /* 暖色渐变 (即将回家) */
-        .bg-gradient-warm {
-            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%) !important;
-            color: white !important;
+        /* === 拟物化日历卡片 === */
+        .calendar-wrapper {
+            position: relative;
+            margin-bottom: 25px;
+            padding-top: 10px; /* 给金属环留空间 */
         }
 
-        /* 冷色渐变 (平时/未设置) */
-        .bg-gradient-cool {
-            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%) !important;
-            color: white !important;
+        .calendar-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+            text-align: center;
+        }
+
+        /* 日历头部 (装订条) */
+        .cal-header-bar {
+            height: 40px;
+            background: #ff7675; /* 默认红色 */
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* 不同的头部颜色 */
+        .cal-header-warm {
+            background: linear-gradient(135deg, #ff9a9e 0%, #ff6b6b 100%);
+        }
+
+        .cal-header-cool {
+            background: linear-gradient(135deg, #a18cd1 0%, #bc93d1 100%);
+        }
+
+        .cal-header-empty {
+            background: #b2bec3;
+        }
+
+        /* 金属环 (用伪元素画两个圈) */
+        .calendar-card::before, .calendar-card::after {
+            content: '';
+            position: absolute;
+            top: -8px;
+            width: 12px;
+            height: 25px;
+            background: #dfe6e9;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .calendar-card::before {
+            left: 20%;
+        }
+
+        .calendar-card::after {
+            right: 20%;
+        }
+
+        /* 日历纸张主体 */
+        .cal-body {
+            padding: 20px;
+            background-color: #fff;
+            background-image: radial-gradient(#f0f0f0 1px, transparent 1px); /* 纸张纹理 */
+            background-size: 20px 20px;
+        }
+
+        /* 巨大的倒数数字 */
+        .cal-number {
+            font-size: 56px;
+            font-weight: 900;
+            color: #2d3436;
+            line-height: 1;
+            margin-bottom: 5px;
+            font-family: 'Arial', sans-serif; /* 用无衬线字体更现代 */
+        }
+
+        .cal-label {
+            font-size: 14px;
+            color: #636e72;
+            margin-bottom: 10px;
+        }
+
+        .cal-target-date {
+            display: inline-block;
+            background: #f1f2f6;
+            color: #747d8c;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* 编辑按钮 (悬浮在纸张右下角) */
+        .cal-edit-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid #eee;
+            color: #b2bec3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
         }
 
         /* === 新版双城天气样式 === */
@@ -1018,47 +1123,55 @@
         {% if my_families %}
             {% for fam in my_families %}
                 <!-- 只有设置了日期，或者我是当前查看者时显示设置按钮 -->
-                <div class="card-box mb-3 shadow-sm {% if fam.days_left is not none and fam.days_left >= 0 %}bg-gradient-warm{% else %}bg-gradient-cool{% endif %} fam-item fam-{{ fam.id }}">
-                    <div class="p-3 position-relative">
-                        <!-- 设置按钮 (右上角) -->
-                        <button class="btn btn-sm btn-light bg-white bg-opacity-25 border-0 text-white position-absolute top-0 end-0 m-2 rounded-circle"
-                                style="width:32px;height:32px;"
-                                onclick="openReunionModal('{{ fam.id }}', '{{ fam.reunion_name or '' }}', '{{ fam.reunion_date or '' }}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
+                <div class="calendar-wrapper fam-item fam-{{ fam.id }}">
 
-                        <!-- 内容区 -->
-                        {% if fam.days_left is not none %}
-                            <div class="text-center py-2">
+                    <div class="calendar-card">
+
+                        <!-- 1. 头部装订条 -->
+                        <div class="cal-header-bar {% if fam.days_left is not none and fam.days_left >= 0 %}cal-header-warm{% else %}cal-header-empty{% endif %}">
+                            {% if fam.days_left is not none %}
+                                {{ fam.reunion_name or '团圆倒计时' }}
+                            {% else %}
+                                尚未设置
+                            {% endif %}
+                        </div>
+
+                        <!-- 2. 纸张内容 -->
+                        <div class="cal-body"
+                             onclick="openReunionModal('{{ fam.id }}', '{{ fam.reunion_name or '' }}', '{{ fam.reunion_date or '' }}')">
+
+                            {% if fam.days_left is not none %}
                                 {% if fam.days_left > 0 %}
-                                    <div class="small opacity-75 mb-1">{{ fam.reunion_name or '距离团圆还有' }}</div>
-                                    <div class="display-1 fw-bold" style="line-height: 1;">{{ fam.days_left }}</div>
-                                    <div class="small opacity-75 mt-1">天</div>
-                                    <div class="badge bg-white text-danger mt-3 px-3 rounded-pill shadow-sm"
-                                         style="font-weight:800;">
-                                        📅 {{ fam.reunion_date }}
-                                    </div>
+                                    <div class="cal-number text-danger">{{ fam.days_left }}</div>
+                                    <div class="cal-label">天后回家</div>
+                                    <div class="cal-target-date">目标: {{ fam.reunion_date }}</div>
+
                                 {% elif fam.days_left == 0 %}
                                     <!-- 当天特效 -->
-                                    <div class="display-4 fw-bold mb-2">🎉 今天团圆！</div>
-                                    <div class="small">欢迎回家</div>
+                                    <div class="cal-number text-success" style="font-size: 40px;">🎉</div>
+                                    <div class="cal-label fw-bold text-success">就是今天！</div>
+                                    <div class="cal-target-date">欢迎回家</div>
+
                                 {% else %}
                                     <!-- 过期 -->
-                                    <div class="opacity-50">
-                                        <div class="fs-4 fw-bold">{{ fam.reunion_name }}</div>
-                                        <div class="small">已经过去 {{ fam.days_left|abs }} 天啦</div>
-                                    </div>
+                                    <div class="cal-number text-muted"
+                                         style="font-size: 32px; opacity: 0.5;">{{ fam.days_left|abs }}</div>
+                                    <div class="cal-label text-muted">天前已过去</div>
                                 {% endif %}
+
+                            {% else %}
+                                <!-- 空状态 -->
+                                <div class="py-3">
+                                    <i class="far fa-calendar-plus fa-3x text-muted opacity-25 mb-2"></i>
+                                    <div class="text-muted small">给盼头定个日子</div>
+                                </div>
+                            {% endif %}
+
+                            <!-- 编辑按钮 -->
+                            <div class="cal-edit-btn">
+                                <i class="fas fa-pencil-alt"></i>
                             </div>
-                        {% else %}
-                            <!-- 未设置状态 -->
-                            <div class="text-center py-3" onclick="openReunionModal('{{ fam.id }}', '', '')"
-                                 style="cursor: pointer;">
-                                <i class="far fa-clock fa-2x mb-2 opacity-50"></i>
-                                <div class="fw-bold">设置{{ fam.name }}的团圆倒计时</div>
-                                <small class="opacity-75">给盼头定个日子 📅</small>
-                            </div>
-                        {% endif %}
+                        </div>
                     </div>
                 </div>
                 <!-- ================= 双城天气卡片 (本地图标修正版) ================= -->
@@ -1270,7 +1383,8 @@
                         {% else %}
                             <i class="fas fa-cat text-secondary me-2 fa-lg"></i>
                         {% endif %}
-                        {{ pet.name }} <i class="fas fa-chevron-right ms-2 text-muted" style="font-size: 12px;"></i> <!-- 加个小箭头提示可点击 -->
+                        {{ pet.name }} <i class="fas fa-chevron-right ms-2 text-muted" style="font-size: 12px;"></i>
+                        <!-- 加个小箭头提示可点击 -->
                         {% if pet.family_name %}
                             <span class="badge bg-light text-muted border ms-2 fw-normal"
                                   style="font-size: 10px;">{{ pet.family_name }}</span>
