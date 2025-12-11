@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>🎄 我们的记忆圣诞树</title>
+    <!-- 引入中文字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0; overflow: hidden;
-            background: radial-gradient(circle at center, #500000 0%, #1a0000 100%); /* 深红丝绒背景 */
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; /* [关键] 禁止浏览器默认手势 */
+            background-color: #050505; /* 纯黑背景 */
+            font-family: sans-serif;
+            touch-action: none;
         }
 
-        /* 退出按钮 */
         #exit-btn {
             position: absolute; top: 20px; right: 20px;
             width: 44px; height: 44px;
@@ -22,66 +23,63 @@
             display: flex; align-items: center; justify-content: center;
             color: white; text-decoration: none; font-size: 24px;
             z-index: 100; border: 1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        /* 底部提示 */
-        #instruction {
-            position: absolute; bottom: 40px; width: 100%;
-            text-align: center; color: #ffbf00;
-            font-size: 13px; letter-spacing: 1px;
-            pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            animation: float 3s infinite ease-in-out;
-            z-index: 50;
+        #title-overlay {
+            position: absolute; top: 8%; width: 100%;
+            text-align: center; pointer-events: none; z-index: 50;
         }
-
-        /* 权限引导层 (iOS专用) */
-        #ios-permission {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 9999;
-            display: none; align-items: center; justify-content: center; flex-direction: column;
-            color: white; text-align: center;
+        .main-title {
+            font-family: 'Ma Shan Zheng', cursive; /* 书法体 */
+            color: #d63031; /* 圣诞红 */
+            font-size: 50px; margin: 0;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            letter-spacing: 5px;
         }
-
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        .sub-title {
+            color: #b2bec3; font-size: 12px; letter-spacing: 4px;
+            margin-top: 5px; opacity: 0.8;
+        }
 
         #loading {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #2b0a0a; z-index: 999;
+            background: #000; z-index: 999;
             display: flex; align-items: center; justify-content: center; flex-direction: column;
-            color: #ffd700; transition: opacity 0.5s;
+            color: #d4af37; transition: opacity 0.5s;
         }
 
-        /* 弹窗样式 */
+        /* 照片弹窗 */
         #photo-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.85);
             display: none; align-items: center; justify-content: center; flex-direction: column;
             z-index: 200; backdrop-filter: blur(10px);
         }
         .polaroid-card {
-            background: #fff; padding: 12px 12px 40px 12px;
-            border-radius: 6px; box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-            transform: rotate(-2deg) scale(0.9);
-            max-width: 85%; max-height: 80%;
-            text-align: center; transition: transform 0.3s;
+            background: #fff; padding: 10px 10px 40px 10px;
+            border-radius: 4px;
+            transform: scale(0.8); transition: transform 0.3s;
+            max-width: 90%;
         }
-        .polaroid-card.show { transform: rotate(0deg) scale(1); }
+        .polaroid-card.show { transform: scale(1); }
+        #modal-img { max-width: 100%; max-height: 50vh; background: #eee; display: block; }
+        #modal-text { color: #222; margin-top: 15px; font-weight: bold; text-align: center; }
 
-        #modal-img {
-            max-width: 100%; max-height: 50vh;
-            background: #eee; object-fit: contain;
-            border: 1px solid #ddd;
+        #instruction {
+            position: absolute; bottom: 40px; width: 100%;
+            text-align: center; color: rgba(255,255,255,0.3);
+            font-size: 12px; letter-spacing: 1px;
+            pointer-events: none;
         }
-        #modal-text { color: #222; margin-top: 15px; font-weight: bold; font-size: 16px; font-family: cursive, sans-serif; }
-        #modal-date { color: #888; font-size: 12px; margin-top: 5px; font-family: monospace; }
 
-        /* 礼物 Alert 美化 */
+        /* 礼物弹窗 */
         .gift-alert {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: white; padding: 20px; border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;
-            z-index: 300; display: none; min-width: 260px;
+            background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+            padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center;
+            z-index: 300; display: none; min-width: 280px;
+            border: 2px solid #ffd700;
         }
     </style>
 </head>
@@ -89,60 +87,63 @@
     <a href="/" id="exit-btn">×</a>
 
     <div id="loading">
-        <div style="font-size: 50px;">🎄</div>
-        <div style="margin-top:15px; font-size: 14px;">准备惊喜中...</div>
+        <div style="font-size: 40px; margin-bottom: 15px;">🎄</div>
+        <div style="color: #bbb; font-size: 14px;">正在布置圣诞树...</div>
     </div>
 
-    <div id="ios-permission" onclick="requestMotion()">
-        <div style="font-size: 40px; margin-bottom: 20px;">📱</div>
-        <p>点我一下<br>开启“摇一摇”特效</p>
+    <div id="title-overlay">
+        <h1 class="main-title">圣诞快乐</h1>
+        <div class="sub-title">属于我们的独家记忆</div>
     </div>
 
-    <div id="instruction">✨ 双指捏合 / 摇一摇 / 点击挂件 ✨</div>
+    <div id="instruction">下滑炸开 / 捏合 / 摇一摇</div>
 
     <!-- 照片弹窗 -->
     <div id="photo-modal" onclick="closeModal()">
         <div class="polaroid-card" id="polaroid-card" onclick="event.stopPropagation()">
             <img id="modal-img" src="">
             <div id="modal-text"></div>
-            <div id="modal-date"></div>
         </div>
     </div>
 
     <!-- 礼物弹窗 -->
     <div class="gift-alert" id="gift-alert">
-        <div style="font-size: 40px; margin-bottom: 10px;">🎁</div>
-        <div id="gift-content" style="font-weight: bold; margin-bottom: 15px;"></div>
+        <div style="font-size: 50px; margin-bottom: 15px;">🎁</div>
+        <div style="color:#999; font-size:12px; margin-bottom:5px;">家人的愿望</div>
+        <div id="gift-content" style="font-weight: bold; font-size:18px; color:#333; margin-bottom: 20px;"></div>
         <button onclick="document.getElementById('gift-alert').style.display='none'"
-                style="border:none; background:#ff4757; color:white; padding:8px 20px; border-radius:20px; font-weight:bold;">开心</button>
+                style="border:none; background:#d63031; color:white; padding:10px 30px; border-radius:25px; font-weight:bold; font-size:14px;">收到</button>
     </div>
 
     <div id="scene-container"></div>
 
+    <!-- 依赖 -->
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- 后期处理 -->
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 
     <script>
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer, composer, controls;
+        let mainGroup = new THREE.Group(); // 整个树组
         let photosGroup = new THREE.Group();
         let giftsGroup = new THREE.Group();
-        let treeGroup = new THREE.Group();
-        let particles;
+        let leavesMesh, lightsMesh;
 
+        // 动画变量
         let explosionProgress = 0;
         let targetProgress = 0;
-
+        const leavesData = [];
+        const lightsData = [];
         const photosData = [];
-        const particlesData = [];
+        const dummy = new THREE.Object3D();
 
-        // 点击判断变量
-        let isDragging = false;
-        let mouseDownTime = 0;
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        // 1. 获取数据
         fetch('/api/christmas_data')
             .then(res => res.json())
             .then(data => {
@@ -151,290 +152,274 @@
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('loading').innerHTML = "加载失败<br><small>请刷新重试</small>";
+                document.getElementById('loading').innerHTML = "加载失败";
             });
 
         function init(data) {
             const container = document.getElementById('scene-container');
             scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 14, 32);
+            camera.position.set(0, 5, 38); // [修复] 相机拉远点，低一点
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.outputEncoding = THREE.sRGBEncoding;
+            // [修复] 降低曝光度，防止亮瞎眼
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 1.2;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableZoom = false;
             controls.enablePan = false;
             controls.autoRotate = true;
-            controls.autoRotateSpeed = 0.8;
+            controls.autoRotateSpeed = 0.6;
             controls.enableDamping = true;
 
-            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            // [修复] 灯光调整
+            const ambient = new THREE.AmbientLight(0xffffff, 0.4); // 调低环境光
             scene.add(ambient);
-            const dirLight = new THREE.DirectionalLight(0xffeeb1, 1.2);
-            dirLight.position.set(10, 20, 10);
-            scene.add(dirLight);
-            const pointLight = new THREE.PointLight(0xff0000, 0.5, 20);
-            pointLight.position.set(-10, 5, 10);
+            const pointLight = new THREE.PointLight(0xffaa00, 1, 50); // 内部暖光
+            pointLight.position.set(0, 10, 0);
             scene.add(pointLight);
 
-            createGlowingTree();
+            // [修复] 把整棵树往下移，让它居中
+            mainGroup.position.y = -10;
 
+            // === 1. 构建树 ===
+            createSolidTree();
+
+            // === 2. 挂照片 ===
             if (data.photos) {
-                data.photos.forEach((p, i) => createPolaroid(p, i, data.photos.length));
-                treeGroup.add(photosGroup);
+                const pList = data.photos.slice(0, 20);
+                pList.forEach((p, i) => createFloatingPhoto(p, i, pList.length));
+                mainGroup.add(photosGroup);
             }
 
+            // === 3. 堆礼物 ===
             if (data.wishes) {
-                createFancyGifts(data.wishes);
-                treeGroup.add(giftsGroup);
+                createGifts(data.wishes);
+                mainGroup.add(giftsGroup);
             }
 
-            scene.add(treeGroup);
+            scene.add(mainGroup);
 
-            // [修复] 这里调用了，下面必须定义
+            // [修复] 辉光参数微调 (强度减弱，阈值提高)
+            const renderScene = new THREE.RenderPass(scene, camera);
+            const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0.2; // 只有比较亮的东西才发光
+            bloomPass.strength = 0.6;  // 强度大大降低
+            bloomPass.radius = 0.5;
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            // 交互
             setupInteractions();
-
-            checkIOSPermission();
+            if(window.DeviceMotionEvent) setupShake();
 
             setTimeout(() => {
                 const l = document.getElementById('loading');
                 l.style.opacity = 0;
-                setTimeout(()=>l.style.display='none', 500);
-            }, 800);
+                setTimeout(()=>l.style.display='none', 800);
+            }, 1000);
         }
 
-        // === 1. 发光粒子树 ===
-        function createGlowingTree() {
-            const count = 3500;
-            const geometry = new THREE.BufferGeometry();
-            const positions = [];
-            const colors = [];
+        function createSolidTree() {
+            // A. 树叶 (绿色方块，不发光，只反光)
+            const leafGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const leafMat = new THREE.MeshStandardMaterial({
+                color: 0x0f6d36, // 经典的圣诞深绿
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            const leavesCount = 2800;
+            leavesMesh = new THREE.InstancedMesh(leafGeo, leafMat, leavesCount);
 
-            const colorGreen = new THREE.Color(0x00b894);
-            const colorGold = new THREE.Color(0xf1c40f);
+            // B. 红色彩球 (发微光)
+            const lightGeo = new THREE.SphereGeometry(0.25, 16, 16);
+            const lightMat = new THREE.MeshStandardMaterial({
+                color: 0xff0000, // 纯红
+                emissive: 0xaa0000, // 暗红自发光
+                emissiveIntensity: 0.8, // 亮度适中
+                roughness: 0.2,
+                metalness: 0.5
+            });
+            const lightsCount = 400;
+            lightsMesh = new THREE.InstancedMesh(lightGeo, lightMat, lightsCount);
 
-            for(let i=0; i<count; i++) {
+            // 螺旋排列
+            for(let i=0; i<leavesCount; i++) {
                 const y = Math.random() * 22;
-                const radius = 9 * (1 - y/24);
-                const angle = y * 8 + Math.random() * Math.PI * 2;
-                const r = radius + (Math.random()-0.5) * 1.0;
+                const maxR = 9 * (1 - y/24);
+                const angle = y * 6 + Math.random() * Math.PI * 2;
+                const r = maxR + (Math.random()-0.5) * 1.5;
 
                 const x = r * Math.cos(angle);
                 const z = r * Math.sin(angle);
 
-                positions.push(x, y, z);
+                dummy.position.set(x, y, z);
+                dummy.rotation.set(Math.random(), Math.random(), Math.random());
+                dummy.scale.setScalar(Math.random() * 0.8 + 0.5);
+                dummy.updateMatrix();
+                leavesMesh.setMatrixAt(i, dummy.matrix);
 
-                particlesData.push({
-                    home: new THREE.Vector3(x, y, z),
-                    chaos: new THREE.Vector3(
-                        (Math.random()-0.5)*80,
-                        (Math.random()-0.5)*80 + 10,
-                        (Math.random()-0.5)*80
-                    )
+                leavesData.push({
+                    homePos: new THREE.Vector3(x,y,z),
+                    chaosPos: new THREE.Vector3((Math.random()-0.5)*80, (Math.random()-0.5)*80+10, (Math.random()-0.5)*80),
+                    rotSpeed: {x:Math.random()*0.02, y:Math.random()*0.02}
                 });
-
-                const isGold = Math.random() > 0.8;
-                const c = isGold ? colorGold : colorGreen;
-                colors.push(c.r, c.g, c.b);
             }
 
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            // 彩球排列
+            for(let i=0; i<lightsCount; i++) {
+                const y = Math.random() * 22;
+                const maxR = 9 * (1 - y/24);
+                const r = maxR + 0.3; // 挂外面
+                const angle = Math.random() * Math.PI * 2;
 
-            const material = new THREE.PointsMaterial({
-                size: 0.5,
-                vertexColors: true,
-                map: getSprite(),
-                transparent: true,
-                alphaTest: 0.1,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending
-            });
+                dummy.position.set(r*Math.cos(angle), y, r*Math.sin(angle));
+                dummy.scale.setScalar(1);
+                dummy.updateMatrix();
+                lightsMesh.setMatrixAt(i, dummy.matrix);
 
-            particles = new THREE.Points(geometry, material);
-            treeGroup.add(particles);
+                lightsData.push({
+                    homePos: dummy.position.clone(),
+                    chaosPos: new THREE.Vector3((Math.random()-0.5)*80, (Math.random()-0.5)*80+10, (Math.random()-0.5)*80)
+                });
+            }
 
+            mainGroup.add(leavesMesh);
+            mainGroup.add(lightsMesh);
+
+            // 树顶星星
             const starGeo = new THREE.IcosahedronGeometry(0.8, 0);
-            const starMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+            const starMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
             const star = new THREE.Mesh(starGeo, starMat);
-            star.position.set(0, 22.5, 0);
-
-            new TWEEN.Tween(star.rotation)
-                .to({ y: Math.PI * 2 }, 5000)
-                .repeat(Infinity).start();
-
-            treeGroup.add(star);
+            star.position.set(0, 23, 0);
+            mainGroup.add(star);
         }
 
-        // === 2. 拍立得照片 ===
-        function createPolaroid(data, index, total) {
+        // === 2. 拍立得照片 (修复朝向) ===
+        function createFloatingPhoto(data, index, total) {
             const loader = new THREE.TextureLoader();
             loader.setCrossOrigin('anonymous');
 
             const group = new THREE.Group();
 
+            // 相纸
             const paperGeo = new THREE.BoxGeometry(2.4, 2.8, 0.05);
-            const paperMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+            const paperMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             const paper = new THREE.Mesh(paperGeo, paperMat);
             group.add(paper);
 
-            const y = 1.5 + (index/total) * 18;
-            const r = 9 * (1 - y/24) + 0.8;
-            const angle = index * 1.8;
+            const y = 2 + (index/total) * 18;
+            const r = 10 * (1 - y/25) + 1.2;
+            const angle = index * 1.5;
 
             const treePos = new THREE.Vector3(r*Math.cos(angle), y, r*Math.sin(angle));
             const chaosPos = new THREE.Vector3((Math.random()-0.5)*70, (Math.random()-0.5)*70, (Math.random()-0.5)*70);
 
             group.position.copy(treePos);
+            // [核心修复] 先看向中心
             group.lookAt(0, y, 0);
+            // [核心修复] 再转180度，背对中心，面向观众
+            group.rotateY(Math.PI);
+            // 随机歪一点
             group.rotateZ((Math.random()-0.5)*0.3);
 
-            group.userData = {
-                isPhoto: true,
-                info: data,
-                treePos: treePos,
-                chaosPos: chaosPos
-            };
+            group.userData = { isPhoto: true, info: data };
+
+            photosData.push({
+                mesh: group,
+                homePos: treePos,
+                chaosPos: chaosPos,
+            });
 
             loader.load(data.url, (tex) => {
                 tex.center.set(0.5, 0.5);
                 const imgGeo = new THREE.PlaneGeometry(2, 2);
                 const imgMat = new THREE.MeshBasicMaterial({ map: tex });
                 const img = new THREE.Mesh(imgGeo, imgMat);
-                img.position.set(0, 0.2, 0.04);
+                // 这里的 z 是局部坐标，0.03 保证在纸前面
+                img.position.set(0, 0.2, 0.03);
+                // 图片也要转过来吗？不用，因为父级group已经转了
                 group.add(img);
             });
 
             photosGroup.add(group);
         }
 
-        // === 3. 礼物盒 ===
-        function createFancyGifts(wishes) {
-            const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        // === 3. 礼物盒 (确保在树下) ===
+        function createGifts(wishes) {
+            const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
 
-            wishes.forEach(w => {
+            wishes.forEach((w, i) => {
                 const group = new THREE.Group();
                 const color = new THREE.Color(w.color);
 
-                const boxMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.2 });
+                const boxMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.3 });
                 const box = new THREE.Mesh(boxGeo, boxMat);
                 group.add(box);
 
-                const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1 });
-                const r1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.05, 0.2), ribbonMat);
-                const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.05, 1.05), ribbonMat);
-                group.add(r1);
-                group.add(r2);
+                // 简单的丝带
+                const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                const r1 = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.25, 0.2), ribbonMat);
+                const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.25, 1.25), ribbonMat);
+                group.add(r1); group.add(r2);
 
-                const angle = Math.random() * 6.28;
-                const r = 4 + Math.random() * 5;
-                const treePos = new THREE.Vector3(r*Math.cos(angle), -0.5 + Math.random()*0.5, r*Math.sin(angle));
+                // 位置：在树底下一圈
+                const angle = (i / wishes.length) * Math.PI * 2 + Math.random();
+                const r = 5 + Math.random() * 3;
+                // y=0 是树根，礼物放地上 y=0.6 (盒子一半高度)
+                const treePos = new THREE.Vector3(r*Math.cos(angle), 0.6, r*Math.sin(angle));
 
                 group.position.copy(treePos);
                 group.rotation.y = Math.random();
-                const s = 1 + Math.random()*0.5;
-                group.scale.set(s,s,s);
 
-                group.userData = {
-                    isGift: true,
-                    text: w.content,
-                    treePos: treePos,
+                group.userData = { isGift: true, text: w.content };
+
+                // 礼物也参与爆炸
+                photosData.push({
+                    mesh: group,
+                    homePos: treePos,
                     chaosPos: new THREE.Vector3((Math.random()-0.5)*50, -10, (Math.random()-0.5)*50)
-                };
+                });
 
                 giftsGroup.add(group);
             });
         }
 
-        // === [核心修复] 交互逻辑 ===
+        // === 交互 ===
         function setupInteractions() {
-            // A. 鼠标/触摸 状态监听
-            window.addEventListener('mousedown', () => { isDragging = false; mouseDownTime = Date.now(); });
-            window.addEventListener('mousemove', () => isDragging = true);
-            window.addEventListener('touchstart', () => { isDragging = false; mouseDownTime = Date.now(); });
-            window.addEventListener('touchmove', () => isDragging = true);
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            let isDrag = false; let downTime = 0;
 
-            // B. 鼠标/触摸 结束事件 (点击检测)
-            window.addEventListener('mouseup', handleMouseUp);
-            window.addEventListener('touchend', handleTouchEnd);
+            window.addEventListener('mousedown', ()=>{isDrag=false; downTime=Date.now()});
+            window.addEventListener('mousemove', ()=>{isDrag=true});
+            window.addEventListener('touchstart', ()=>{isDrag=false; downTime=Date.now()});
+            window.addEventListener('touchmove', ()=>{isDrag=true});
 
-            // C. 滚轮事件 (爆炸)
-            window.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                targetProgress += e.deltaY * 0.001;
-                targetProgress = Math.max(0, Math.min(1, targetProgress));
-            }, { passive: false });
+            const onClick = (x, y) => {
+                if(isDrag || Date.now()-downTime > 300) return;
 
-            // D. 双指事件 (爆炸)
-            let initialDist = 0;
-            window.addEventListener('touchstart', e => {
-                if(e.touches.length===2) {
-                    initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                }
-            }, { passive: false });
+                mouse.x = (x / window.innerWidth) * 2 - 1;
+                mouse.y = -(y / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
 
-            window.addEventListener('touchmove', e => {
-                if(e.touches.length===2) {
-                    e.preventDefault();
-                    const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                    const delta = dist - initialDist;
-                    if(delta > 0) targetProgress += 0.02;
-                    else targetProgress -= 0.02;
-                    targetProgress = Math.max(0, Math.min(1, targetProgress));
-                    initialDist = dist;
-                }
-            }, { passive: false });
+                const hits = raycaster.intersectObjects([...photosGroup.children, ...giftsGroup.children], true);
 
-            // E. 窗口大小调整
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth/window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
+                if (hits.length > 0) {
+                    let target = hits[0].object;
+                    while(target.parent !== photosGroup && target.parent !== giftsGroup) {
+                        if(!target.parent) break;
+                        target = target.parent;
+                    }
 
-        // 处理鼠标点击
-        function handleMouseUp(e) {
-            if (isDragging || (Date.now() - mouseDownTime > 300)) return;
-            checkIntersection(e.clientX, e.clientY);
-        }
-
-        // 处理触摸点击
-        function handleTouchEnd(e) {
-            if (isDragging || (Date.now() - mouseDownTime > 300)) return;
-            // touchend 没有 clientX，取 changedTouches
-            if(e.changedTouches.length > 0) {
-                const t = e.changedTouches[0];
-                checkIntersection(t.clientX, t.clientY);
-            }
-        }
-
-        // 射线检测
-        function checkIntersection(x, y) {
-            mouse.x = (x / window.innerWidth) * 2 - 1;
-            mouse.y = -(y / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-
-            // 检测照片和礼物
-            const objects = [...photosGroup.children, ...giftsGroup.children];
-            const hits = raycaster.intersectObjects(objects, true);
-
-            if (hits.length > 0) {
-                // 递归找父级，直到找到有 userData 的那个 Mesh/Group
-                let target = hits[0].object;
-                while(target && !target.userData.isPhoto && !target.userData.isGift) {
-                    target = target.parent;
-                    if(target === scene) break;
-                }
-
-                if (target) {
                     if (target.userData.isPhoto) {
                         showModal(target.userData.info);
                         controls.autoRotate = false;
@@ -442,73 +427,68 @@
                         document.getElementById('gift-content').innerText = target.userData.text;
                         document.getElementById('gift-alert').style.display = 'block';
                     }
+                } else {
+                    controls.autoRotate = true;
                 }
-            } else {
-                controls.autoRotate = true; // 点空白处恢复旋转
-            }
-        }
+            };
 
-        function checkIOSPermission() {
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                document.getElementById('ios-permission').style.display = 'flex';
-            } else {
-                setupShake();
-            }
-        }
+            window.addEventListener('mouseup', e => onClick(e.clientX, e.clientY));
+            window.addEventListener('touchend', e => {
+                if(e.changedTouches.length>0) onClick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            });
 
-        window.requestMotion = function() {
-            DeviceMotionEvent.requestPermission()
-                .then(res => {
-                    if (res === 'granted') {
-                        document.getElementById('ios-permission').style.display = 'none';
-                        setupShake();
-                    }
-                });
-        };
+            // 炸开逻辑
+            const handleProgress = (delta) => {
+                targetProgress += delta;
+                targetProgress = Math.max(0, Math.min(1, targetProgress));
+            };
+            window.addEventListener('wheel', e => {
+                e.preventDefault();
+                handleProgress(e.deltaY * 0.001);
+            }, {passive:false});
 
-        function setupShake() {
-            let lastX=0, lastY=0, lastZ=0;
-            window.addEventListener('devicemotion', (e) => {
-                const acc = e.accelerationIncludingGravity;
-                if(!acc) return;
-                const delta = Math.abs(acc.x+acc.y+acc.z - lastX-lastY-lastZ);
-                if(delta > 25) triggerExplosion();
-                lastX=acc.x; lastY=acc.y; lastZ=acc.z;
+            let startDist = 0;
+            window.addEventListener('touchstart', e => {
+                if(e.touches.length===2) startDist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
+            }, {passive:false});
+
+            window.addEventListener('touchmove', e => {
+                if(e.touches.length===2) {
+                    e.preventDefault();
+                    const dist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
+                    handleProgress((dist - startDist) * 0.005);
+                    startDist = dist;
+                }
+            }, {passive:false});
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth/window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
             });
         }
 
-        function triggerExplosion() {
-            targetProgress = 1;
-            if(navigator.vibrate) navigator.vibrate([50,50,50]);
-            setTimeout(() => targetProgress = 0, 3000);
+        function setupShake() {
+             let lastX=0, lastY=0, lastZ=0;
+             window.addEventListener('devicemotion', e => {
+                 const acc = e.accelerationIncludingGravity;
+                 if(!acc) return;
+                 const d = Math.abs(acc.x+acc.y+acc.z - lastX-lastY-lastZ);
+                 if(d > 25) { targetProgress = 1; setTimeout(()=>targetProgress=0, 3000); }
+                 lastX=acc.x; lastY=acc.y; lastZ=acc.z;
+             });
         }
 
         function showModal(info) {
             document.getElementById('modal-img').src = info.url;
             document.getElementById('modal-text').innerText = info.text || "美好回忆";
-            document.getElementById('modal-date').innerText = info.date || "";
             document.getElementById('photo-modal').style.display = 'flex';
-            setTimeout(() => document.getElementById('polaroid-card').classList.add('show'), 10);
+            setTimeout(()=>document.querySelector('.polaroid-card').classList.add('show'), 10);
         }
-
-        window.closeModal = function() {
-            document.getElementById('polaroid-card').classList.remove('show');
-            setTimeout(() => document.getElementById('photo-modal').style.display = 'none', 300);
+        window.closeModal = () => {
+            document.querySelector('.polaroid-card').classList.remove('show');
+            setTimeout(()=>document.getElementById('photo-modal').style.display='none', 300);
             controls.autoRotate = true;
-        }
-
-        function getSprite() {
-            const c = document.createElement('canvas');
-            c.width=32; c.height=32;
-            const ctx = c.getContext('2d');
-            const g = ctx.createRadialGradient(16,16,0, 16,16,16);
-            g.addColorStop(0, 'rgba(255,255,255,1)');
-            g.addColorStop(0.2, 'rgba(255,255,255,0.8)');
-            g.addColorStop(0.5, 'rgba(255,255,255,0.2)');
-            g.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = g;
-            ctx.fillRect(0,0,32,32);
-            return new THREE.CanvasTexture(c);
         }
 
         function animate(time) {
@@ -518,27 +498,43 @@
 
             explosionProgress += (targetProgress - explosionProgress) * 0.05;
 
-            const pos = particles.geometry.attributes.position.array;
-            for(let i=0; i<particlesData.length; i++) {
-                const d = particlesData[i];
-                pos[i*3] = d.home.x + (d.chaos.x - d.home.x) * explosionProgress;
-                pos[i*3+1] = d.home.y + (d.chaos.y - d.home.y) * explosionProgress;
-                pos[i*3+2] = d.home.z + (d.chaos.z - d.home.z) * explosionProgress;
-            }
-            particles.geometry.attributes.position.needsUpdate = true;
+            const isExploding = explosionProgress > 0.01;
 
-            const updateObj = (obj) => {
-                if(obj.userData.treePos) {
-                    obj.position.lerpVectors(obj.userData.treePos, obj.userData.chaosPos, explosionProgress);
-                    if(explosionProgress > 0.1) {
-                        obj.rotation.x += 0.02; obj.rotation.y += 0.03;
-                    }
+            if(isExploding) {
+                // 粒子动画
+                const pos = particles.geometry.attributes.position.array;
+                for(let i=0; i<leavesData.length; i++) {
+                    const d = leavesData[i];
+                    pos[i*3] = d.homePos.x + (d.chaosPos.x - d.homePos.x) * explosionProgress;
+                    pos[i*3+1] = d.homePos.y + (d.chaosPos.y - d.homePos.y) * explosionProgress;
+                    pos[i*3+2] = d.homePos.z + (d.chaosPos.z - d.homePos.z) * explosionProgress;
                 }
-            };
-            photosGroup.children.forEach(updateObj);
-            giftsGroup.children.forEach(updateObj);
+                particles.geometry.attributes.position.needsUpdate = true;
 
-            renderer.render(scene, camera);
+                // 灯球动画
+                for(let i=0; i<lightsData.length; i++) {
+                    const d = lightsData[i];
+                    dummy.position.lerpVectors(d.homePos, d.chaosPos, explosionProgress);
+                    dummy.scale.setScalar(1);
+                    dummy.updateMatrix();
+                    lightsMesh.setMatrixAt(i, dummy.matrix);
+                }
+                lightsMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            // 照片/礼物动画
+            photosData.forEach(p => {
+                p.mesh.position.lerpVectors(p.homePos, p.chaosPos, explosionProgress);
+                if(explosionProgress > 0.1) {
+                    p.mesh.rotation.x += 0.01; p.mesh.rotation.y += 0.01;
+                } else {
+                    // [核心修复] 归位时，必须背对中心，面向相机
+                    p.mesh.lookAt(0, p.mesh.position.y, 0);
+                    p.mesh.rotateY(Math.PI);
+                }
+            });
+
+            composer.render();
         }
     </script>
 </body>
