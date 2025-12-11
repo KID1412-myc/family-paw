@@ -9,7 +9,7 @@ from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
 from werkzeug.middleware.proxy_fix import ProxyFix
 # 引入 Flask 相关组件
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 # 引入 CSRF 保护
 from flask_wtf.csrf import CSRFProtect
 # Supabase 客户端
@@ -2040,6 +2040,106 @@ def delete_family_event():
     return redirect(url_for('home'))
 
 
+# ================= 🎄 圣诞彩蛋数据接口 =================
+
+@app.route('/api/christmas_data')
+@login_required
+def christmas_data():
+    """获取圣诞树所需的素材：照片 + 愿望"""
+    db = get_db()
+    current_user_id = session.get('user')
+
+    data_payload = {
+        'photos': [],  # 挂在树上的照片
+        'wishes': []  # 树下的礼物盒
+    }
+
+    try:
+        # 1. 获取我的家庭列表
+        members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
+        my_fam_ids = [m['family_id'] for m in members_res.data] if members_res.data else []
+
+        if not my_fam_ids:
+            return jsonify(data_payload)  # 没家庭就返回空
+
+        # -------------------------------------------
+        # 2. 获取照片素材 (限制 50 张，防止手机卡死)
+        # -------------------------------------------
+
+        # A. 宠物照片 (Logs)
+        # 先查出这些家庭里的宠物 ID
+        pets_res = db.table('pets').select('id, name').in_('family_id', my_fam_ids).execute()
+        pet_ids = [p['id'] for p in pets_res.data] if pets_res.data else []
+
+        if pet_ids:
+            logs_res = db.table('logs').select('image_path, created_at, pets(name)') \
+                .in_('pet_id', pet_ids) \
+                .eq('action', 'photo') \
+                .order('created_at', desc=True) \
+                .limit(30) \
+                .execute()
+
+            for log in (logs_res.data or []):
+                if log.get('image_path'):
+                    data_payload['photos'].append({
+                        'type': 'pet',
+                        'url': f"{url}/storage/v1/object/public/family_photos/{log['image_path']}",
+                        'text': f"{log['pets']['name']} 的照片",
+                        'date': log['created_at'][:10]
+                    })
+
+        # B. 动态照片 (Moments)
+        # 查找家庭内成员发的动态
+        co_members = db.table('family_members').select('user_id').in_('family_id', my_fam_ids).execute()
+        member_ids = list(set([m['user_id'] for m in co_members.data])) if co_members.data else []
+
+        if member_ids:
+            mom_res = db.table('moments').select('image_path, created_at, content') \
+                .in_('user_id', member_ids) \
+                .neq('image_path', 'null') \
+                .order('created_at', desc=True) \
+                .limit(20) \
+                .execute()
+
+            for m in (mom_res.data or []):
+                data_payload['photos'].append({
+                    'type': 'moment',
+                    'url': f"{url}/storage/v1/object/public/family_photos/{m['image_path']}",
+                    'text': m['content'] or "美好瞬间",
+                    'date': m['created_at'][:10]
+                })
+
+        # -------------------------------------------
+        # 3. 获取愿望 (作为树下的礼物盒)
+        # -------------------------------------------
+        wish_res = db.table('family_wishes').select('*').in_('family_id', my_fam_ids).execute()
+        for w in (wish_res.data or []):
+            # 区分状态颜色：wanted(红), bought(金), eaten(绿)
+            color = "#ff6b6b"  # 默认红
+            if w['status'] == 'bought':
+                color = "#feca57"  # 金
+            elif w['status'] == 'eaten':
+                color = "#1dd1a1"  # 绿
+
+            data_payload['wishes'].append({
+                'content': w['content'],
+                'status': w['status'],
+                'color': color
+            })
+
+    except Exception as e:
+        print(f"Christmas Data Error: {e}")
+
+    # 打乱照片顺序，让宠物和生活照混在一起更自然
+    random.shuffle(data_payload['photos'])
+
+    return jsonify(data_payload)
+
+@app.route('/christmas')
+@login_required
+def christmas_page():
+    """渲染圣诞树页面"""
+    return render_template('christmas.html')
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

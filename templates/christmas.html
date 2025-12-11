@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>🎄 专属记忆圣诞树</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+
+        /* 加载页 */
+        #loading {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a1a;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #ffd700; z-index: 999; transition: opacity 1s;
+        }
+
+        /* 退出按钮 */
+        #exit-btn {
+            position: absolute; top: 20px; left: 20px;
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; text-decoration: none; font-size: 20px;
+            z-index: 100; border: 1px solid rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- 退出按钮 -->
+    <a href="/" id="exit-btn">×</a>
+
+    <!-- 加载动画 -->
+    <div id="loading">
+        <div style="font-size: 40px; margin-bottom: 20px;">🎄</div>
+        <div>正在收集这一年的回忆...</div>
+    </div>
+
+    <!-- 3D 画布容器 -->
+    <div id="scene-container"></div>
+
+    <!-- 引入 Three.js (使用 CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入轨道控制器 (用于旋转视角) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- 引入 TWEEN (用于动画) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script>
+        // 1. 获取数据
+        fetch('/api/christmas_data')
+            .then(response => response.json())
+            .then(data => {
+                console.log("收到的礼物:", data);
+                // 这里是下一步要写的 3D 代码入口
+                init3D(data);
+            })
+            .catch(err => {
+                console.error("数据获取失败", err);
+                alert("加载失败，请回首页重试");
+            });
+
+        function init3D(data) {
+            const loading = document.getElementById('loading');
+
+            // 模拟加载过程...
+            setTimeout(() => {
+                loading.style.opacity = 0;
+                setTimeout(() => loading.style.display = 'none', 1000);
+            }, 1000);
+
+            // 下次我们在这里写 Three.js 代码!
+        }
+    </script>
+</body>
+</html>
