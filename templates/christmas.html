@@ -5,74 +5,356 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>🎄 专属记忆圣诞树</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #050510; font-family: sans-serif; }
+
+        /* 退出按钮 */
+        #exit-btn {
+            position: absolute; top: 20px; right: 20px;
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; text-decoration: none; font-size: 24px;
+            z-index: 100; border: 1px solid rgba(255,255,255,0.2);
+        }
 
         /* 加载页 */
         #loading {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #1a1a1a;
+            background: #050510;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             color: #ffd700; z-index: 999; transition: opacity 1s;
         }
+        .loader-text { margin-top: 20px; font-size: 14px; opacity: 0.8; letter-spacing: 2px; }
 
-        /* 退出按钮 */
-        #exit-btn {
-            position: absolute; top: 20px; left: 20px;
-            width: 40px; height: 40px;
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: white; text-decoration: none; font-size: 20px;
-            z-index: 100; border: 1px solid rgba(255,255,255,0.3);
+        /* 点击照片后的弹窗 */
+        #photo-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center; flex-direction: column;
+            z-index: 200; backdrop-filter: blur(10px);
         }
+        #modal-img { max-width: 85%; max-height: 60%; border: 5px solid white; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #modal-text { color: white; margin-top: 20px; font-size: 16px; font-weight: bold; text-align: center; max-width: 80%; }
+        #modal-date { color: #aaa; font-size: 12px; margin-top: 5px; }
+        #modal-close { margin-top: 30px; color: white; border: 1px solid white; padding: 5px 20px; border-radius: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <!-- 退出按钮 -->
     <a href="/" id="exit-btn">×</a>
 
-    <!-- 加载动画 -->
     <div id="loading">
-        <div style="font-size: 40px; margin-bottom: 20px;">🎄</div>
-        <div>正在收集这一年的回忆...</div>
+        <div style="font-size: 50px; animation: bounce 1s infinite;">🎄</div>
+        <div class="loader-text">正在编织这一年的回忆...</div>
     </div>
 
-    <!-- 3D 画布容器 -->
+    <!-- 照片详情弹窗 -->
+    <div id="photo-modal">
+        <img id="modal-img" src="">
+        <div id="modal-text"></div>
+        <div id="modal-date"></div>
+        <div id="modal-close" onclick="closeModal()">关闭</div>
+    </div>
+
     <div id="scene-container"></div>
 
-    <!-- 引入 Three.js (使用 CDN) -->
+    <!-- 引入 Three.js 全家桶 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- 引入轨道控制器 (用于旋转视角) -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- 引入 TWEEN (用于动画) -->
+    <!-- TWEEN 用于平滑动画 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 
     <script>
+        let scene, camera, renderer, controls;
+        let photosGroup = new THREE.Group();
+        let mouse = new THREE.Vector2();
+        let raycaster = new THREE.Raycaster();
+
         // 1. 获取数据
         fetch('/api/christmas_data')
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                console.log("收到的礼物:", data);
-                // 这里是下一步要写的 3D 代码入口
                 init3D(data);
+                animate();
             })
             .catch(err => {
-                console.error("数据获取失败", err);
-                alert("加载失败，请回首页重试");
+                console.error(err);
+                document.querySelector('.loader-text').innerText = "加载失败，请刷新重试";
             });
 
         function init3D(data) {
-            const loading = document.getElementById('loading');
+            // === 场景初始化 ===
+            const container = document.getElementById('scene-container');
+            scene = new THREE.Scene();
+            // 雾效，制造深邃感
+            scene.fog = new THREE.FogExp2(0x050510, 0.02);
 
-            // 模拟加载过程...
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 10, 25); // 初始相机位置
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true; // 自动旋转，展示全貌
+            controls.autoRotateSpeed = 1.0;
+
+            // === 灯光 ===
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffd700, 1, 50);
+            pointLight.position.set(0, 10, 10);
+            scene.add(pointLight);
+
+            // === A. 树的主体 (粒子系统) ===
+            createParticleTree();
+
+            // === B. 挂照片 (Polaroids) ===
+            if (data.photos && data.photos.length > 0) {
+                data.photos.forEach((photo, index) => {
+                    createPolaroid(photo, index, data.photos.length);
+                });
+                scene.add(photosGroup);
+            }
+
+            // === C. 堆礼物 (Wishes) ===
+            if (data.wishes) {
+                data.wishes.forEach((wish, index) => {
+                    createGiftBox(wish, index, data.wishes.length);
+                });
+            }
+
+            // === D. 地面反射 (营造氛围) ===
+            const groundGeo = new THREE.PlaneGeometry(100, 100);
+            const groundMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -2;
+            scene.add(ground);
+
+            // 交互监听
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('click', onMouseClick, false);
+            window.addEventListener('touchstart', onTouchStart, false); // 手机触摸兼容
+
+            // 隐藏加载层
             setTimeout(() => {
+                const loading = document.getElementById('loading');
                 loading.style.opacity = 0;
                 setTimeout(() => loading.style.display = 'none', 1000);
-            }, 1000);
+            }, 1500);
+        }
 
-            // 下次我们在这里写 Three.js 代码!
+        // 创建粒子树 (数学魔法)
+        function createParticleTree() {
+            const particleCount = 1500;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            const colorGreen = new THREE.Color(0x2ecc71);
+            const colorGold = new THREE.Color(0xffd700);
+
+            for (let i = 0; i < particleCount; i++) {
+                // 树高 20，底部半径 8
+                const y = Math.random() * 20;
+                const radius = 8 * (1 - y / 20); // 越高越窄
+                const angle = Math.random() * Math.PI * 2;
+
+                // 加上一点随机抖动，让树看起来自然蓬松
+                const r = radius + (Math.random() - 0.5) * 2;
+                const x = r * Math.cos(angle);
+                const z = r * Math.sin(angle);
+
+                positions.push(x, y, z);
+
+                // 90% 绿色，10% 金色灯光
+                const color = Math.random() > 0.9 ? colorGold : colorGreen;
+                colors.push(color.r, color.g, color.b);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.3,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const tree = new THREE.Points(geometry, material);
+            scene.add(tree);
+
+            // 树顶星星
+            const starGeo = new THREE.SphereGeometry(0.5, 8, 8);
+            const starMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const star = new THREE.Mesh(starGeo, starMat);
+            star.position.set(0, 20.5, 0);
+            scene.add(star);
+
+            // 星星闪烁动画
+            new TWEEN.Tween(star.scale)
+                .to({ x: 1.5, y: 1.5, z: 1.5 }, 1000)
+                .yoyo(true).repeat(Infinity).start();
+        }
+
+        // 创建拍立得照片
+        function createPolaroid(photoData, index, total) {
+            const loader = new THREE.TextureLoader();
+            // 允许跨域加载图片
+            loader.setCrossOrigin('anonymous');
+
+            loader.load(photoData.url, (texture) => {
+                // 拍立得相纸 (白底)
+                const frameGeo = new THREE.PlaneGeometry(1.2, 1.5);
+                const frameMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+                const frame = new THREE.Mesh(frameGeo, frameMat);
+
+                // 照片内容
+                const imgGeo = new THREE.PlaneGeometry(1, 1);
+                const imgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+                const img = new THREE.Mesh(imgGeo, imgMat);
+                img.position.z = 0.01; // 稍微突起一点，防止重叠闪烁
+                img.position.y = 0.15; // 放在相纸上部
+
+                frame.add(img);
+
+                // 绑定数据用于点击事件
+                frame.userData = { isPhoto: true, info: photoData };
+
+                // 螺旋排布算法
+                const y = 2 + (index / total) * 16; // 分布在高度 2~18 之间
+                const radius = 8 * (1 - y / 20) + 0.5; // 贴在树表面
+                const angle = index * 1.5; // 螺旋角度
+
+                frame.position.set(
+                    radius * Math.cos(angle),
+                    y,
+                    radius * Math.sin(angle)
+                );
+
+                // 让照片始终面向圆心（或者稍微随机一点）
+                frame.lookAt(0, y, 0);
+                // 再随机歪一点，更自然
+                frame.rotateZ((Math.random() - 0.5) * 0.5);
+
+                photosGroup.add(frame);
+            });
+        }
+
+        // 创建礼物盒
+        function createGiftBox(wish, index, total) {
+            const size = 0.8 + Math.random() * 0.5;
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshStandardMaterial({ color: wish.color });
+            const box = new THREE.Mesh(geometry, material);
+
+            // 随机散落在树底下 (半径 3~7 之间)
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 3 + Math.random() * 4;
+
+            box.position.set(
+                radius * Math.cos(angle),
+                size / 2 - 2, // 放在地面上
+                radius * Math.sin(angle)
+            );
+
+            box.rotation.y = Math.random() * Math.PI;
+
+            // 点击数据
+            box.userData = { isGift: true, text: wish.content };
+
+            scene.add(box);
+        }
+
+        // === 交互逻辑 ===
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onTouchStart(event) {
+            // 简单的触摸点击兼容
+            if (event.touches.length === 1) {
+                event.preventDefault(); // 防止滚动
+                mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+                checkIntersection();
+            }
+        }
+
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            checkIntersection();
+        }
+
+        function checkIntersection() {
+            raycaster.setFromCamera(mouse, camera);
+
+            // 检测照片
+            const intersectsPhotos = raycaster.intersectObjects(photosGroup.children, true);
+            if (intersectsPhotos.length > 0) {
+                // 找到最近的那个
+                let target = intersectsPhotos[0].object;
+                // 如果点到的是里面的图片，取父级(相框)
+                if (!target.userData.isPhoto && target.parent && target.parent.userData.isPhoto) {
+                    target = target.parent;
+                }
+
+                if (target.userData.isPhoto) {
+                    showModal(target.userData.info);
+                    // 暂停旋转方便看图
+                    controls.autoRotate = false;
+                }
+                return;
+            }
+
+            // 检测礼物
+            const intersectsScene = raycaster.intersectObjects(scene.children);
+            for (let i = 0; i < intersectsScene.length; i++) {
+                if (intersectsScene[i].object.userData.isGift) {
+                    alert("🎁 愿望盒子：\n" + intersectsScene[i].object.userData.text);
+                    return;
+                }
+            }
+
+            // 如果点到空白处，恢复旋转
+            controls.autoRotate = true;
+        }
+
+        function showModal(info) {
+            const modal = document.getElementById('photo-modal');
+            const img = document.getElementById('modal-img');
+            const text = document.getElementById('modal-text');
+            const date = document.getElementById('modal-date');
+
+            img.src = info.url;
+            text.innerText = info.text || "美好瞬间";
+            date.innerText = info.date || "";
+
+            modal.style.display = 'flex';
+        }
+
+        window.closeModal = function() {
+            document.getElementById('photo-modal').style.display = 'none';
+            controls.autoRotate = true; // 恢复旋转
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            controls.update();
+            renderer.render(scene, camera);
         }
     </script>
 </body>
