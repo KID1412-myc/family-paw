@@ -3,46 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>加入全家圈</title>
+    <title>TEST LAB · REGISTER</title>
     <link rel="manifest" href="/static/manifest.json?v={{ app_version }}">
     <link rel="apple-touch-icon" href="/static/icon.png">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="全家牵挂">
+    <meta name="apple-mobile-web-app-title" content="REGISTER">
 
     <!-- 防止 iOS 识别数字为电话号码 -->
     <meta name="format-detection" content="telephone=no">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-
-        .card-custom {
-            width: 100%;
-            max-width: 400px;
-            padding: 30px;
-            border-radius: 20px;
-            border: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-            background: white;
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            /* 科技感渐变背景 */
+            /* 科技感渐变背景 (固定背景，不随滚动条走) */
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
             background-size: 400% 400%;
+            background-attachment: fixed; /* [关键] 背景固定，防晕 */
             animation: gradient 15s ease infinite;
-            height: 100vh;
+
+            /* [核心修复] 使用 Flex 布局，但允许内部滚动 */
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+
+            /* [关键] 适配刘海屏和底部横条 */
+            padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)) 20px;
+
+            /* [关键] 允许内容溢出时滚动，同时保留禁止下拉刷新的手感 */
+            overflow-y: auto;
+            overscroll-behavior-y: none;
+
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
@@ -62,17 +59,24 @@
         .login-card {
             width: 100%;
             max-width: 420px;
-            padding: 40px 30px;
+            padding: 30px 25px; /* 稍微减小内边距，省空间 */
             border-radius: 20px;
 
-            /* 玻璃质感核心 */
+            /* [核心修复] 智能居中大法 */
+            /* 如果屏幕够大，它会垂直居中；如果屏幕小，它会顶格显示并允许滚动 */
+            margin: auto;
+
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+
+            /* 防止内容太拥挤 */
+            flex-shrink: 0;
         }
 
+        /* ... (下面的样式保持不变) ... */
         .logo {
             font-size: 50px;
             text-align: center;
@@ -92,8 +96,8 @@
             color: #666;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 30px;
-            font-family: monospace; /* 代码字体，呼应 Lab */
+            margin-bottom: 25px;
+            font-family: monospace;
         }
 
         .form-control {
@@ -101,7 +105,7 @@
             border: 1px solid #eee;
             border-radius: 10px;
             padding: 12px;
-            font-size: 16px; /* 大字号，方便老人 */
+            font-size: 16px;
         }
 
         .form-control:focus {
@@ -125,10 +129,9 @@
             transform: scale(0.98);
         }
 
-        /* 底部备案号样式 */
         .footer-info {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 25px;
             font-size: 10px;
             color: #999;
         }
