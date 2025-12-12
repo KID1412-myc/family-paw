@@ -1,0 +1,42 @@
+name: Deploy to Aliyun
+
+# 触发条件：当 main 分支有推送到 GitHub 时执行
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          # 读取 GitHub Secrets 里的配置
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          port: 22
+          # 遇到错误立即停止
+          script_stop: true
+          script: |
+            # 1. 进入项目目录 (根据你的实际路径，通常是这个)
+            cd /home/family-paw
+            
+            # 2. 拉取最新代码
+            echo "🚀 Starting Git Pull..."
+            git pull origin main
+            
+            # 3. [标配] 激活虚拟环境并更新依赖
+            # 哪怕依赖没变，pip 也会快速检查一遍，不会浪费太多时间
+            echo "📦 Checking Dependencies..."
+            source venv/bin/activate
+            pip install -r requirements.txt
+            
+            # 4. 重启 Gunicorn 服务
+            echo "🔄 Restarting Service..."
+            systemctl restart familypaw
+            
+            # 5. 检查服务状态 (只看最后几行日志，确认没挂)
+            echo "✅ Deployment Finished!"
+            systemctl status familypaw --no-pager
