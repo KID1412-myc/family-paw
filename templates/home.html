@@ -1093,6 +1093,8 @@
             cursor: pointer;
         }
     </style>
+    <!-- [新增] 放在 <head> 里 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
 
@@ -1913,6 +1915,28 @@
                 </div>
             </div>
         </div>
+        <!-- [新增] 🔮 赛博老黄历 -->
+        <div class="card-box p-3 mb-3" style="background: #fffbf0; border: 1px solid #ffeaa7;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0 fw-bold text-dark"><i class="fas fa-calendar-alt text-warning me-2"></i>今日运势</h6>
+                <small class="text-muted" id="almanac-date">Loading...</small>
+            </div>
+            <div class="row text-center g-2">
+                <div class="col-6">
+                    <div class="p-2 rounded" style="background:rgba(255, 71, 87, 0.1);">
+                        <div class="text-danger fw-bold small mb-1">宜</div>
+                        <div class="fw-bold" id="almanac-good">...</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded" style="background:rgba(47, 53, 66, 0.1);">
+                        <div class="text-dark fw-bold small mb-1">忌</div>
+                        <div class="fw-bold" id="almanac-bad">...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2 text-center small text-muted fst-italic" id="almanac-tips"></div>
+        </div>
         <!-- [新增] 关怀模式开关 -->
         <div class="card-box p-3 mb-3">
             <form action="/update_profile" method="POST" id="elderModeForm">
@@ -2299,6 +2323,29 @@
     <div class="merit-counter">功德: <span id="merit-count">0</span></div>
     <div class="small text-muted mt-2">点击积累期末好运</div>
 </div>
+<!-- [新增] 🐍 摸鱼贪吃蛇弹窗 -->
+    <div id="snake-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center;">
+        <div style="color:white; margin-bottom:10px; font-weight:bold;">🐍 摸鱼时间</div>
+        <canvas id="snake-game" width="300" height="300" style="background:#2d3436; border:2px solid #555; border-radius:4px;"></canvas>
+        <div class="text-white small mt-2">得分: <span id="snake-score">0</span></div>
+
+        <!-- 手机端方向键 -->
+        <div class="mt-4 d-grid gap-2" style="grid-template-columns: 1fr 1fr 1fr; width: 200px;">
+            <div></div>
+            <button class="btn btn-outline-light" onclick="snakeDir('up')">⬆️</button>
+            <div></div>
+            <button class="btn btn-outline-light" onclick="snakeDir('left')">⬅️</button>
+            <button class="btn btn-outline-light" onclick="snakeDir('down')">⬇️</button>
+            <button class="btn btn-outline-light" onclick="snakeDir('right')">➡️</button>
+        </div>
+
+        <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
+    </div>
+
+    <!-- [新增] 页脚隐藏入口 (放在 bottom-nav 上面一点点) -->
+    <div class="text-center py-4 mb-5" onclick="triggerSnake()" style="opacity: 0.1;">
+        <small>v{{ app_version }} · Python ❤️ Family</small>
+    </div>
 <!-- 引入 Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -2629,6 +2676,9 @@
         form.appendChild(i3);
         form.appendChild(i4);
         document.body.appendChild(form);
+        if (currentStatus === 'bought' || currentStatus === 'wanted') {
+        fireConfetti(); // 🎉 喷射吧！
+    }
         form.submit();
     }
 
@@ -2917,6 +2967,174 @@
     function toggleZenMode() {
         const panel = document.getElementById('zen-mode');
         panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+    }
+    // ================== 🎉 1. 全屏彩带特效 ==================
+    function fireConfetti() {
+        var count = 200;
+        var defaults = { origin: { y: 0.7 } };
+
+        function fire(particleRatio, opts) {
+            confetti(Object.assign({}, defaults, opts, {
+                particleCount: Math.floor(count * particleRatio)
+            }));
+        }
+
+        fire(0.25, { spread: 26, startVelocity: 55, });
+        fire(0.2, { spread: 60, });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45, });
+    }
+
+    // [挂载特效] 修改之前的函数，加上彩带触发
+    // 1. 拍一拍时触发
+    const originalNudge = window.handleMemberClick; // 假如你之前的函数叫这个
+    // 如果找不到引用，就在原来的 handleMemberClick 里加一行 fireConfetti(); 即可
+
+    // 2. 许愿达成时触发 (修改 changeWishStatus 函数)
+    // 找到之前的 changeWishStatus，在 form.submit() 之前加入：
+    // if(currentStatus === 'bought') fireConfetti();
+
+
+    // ================== 🔮 2. 赛博老黄历 ==================
+    document.addEventListener('DOMContentLoaded', function() {
+        // 基础数据池
+        const goods = ['写代码', 'AC', '喝奶茶', '睡懒觉', '给家里打电话', '吃红烧肉', '撸猫', '遛狗', '表白', '加薪', '不挂科'];
+        const bads = ['改需求', '写Bug', '通宵', '吃外卖', '吵架', '丢钥匙', '断网', '忘记保存', '迟到'];
+        const tips = ['今日运势仅供娱乐，爱咋咋地', '代码写得好，下班回家早', '多喝热水，重启试试', '记得按时吃饭'];
+
+        // 随机数生成器 (基于日期+用户ID，保证每天固定)
+        const dateStr = new Date().toISOString().slice(0,10);
+        const seedStr = dateStr + '{{ current_user_id }}';
+        let hash = 0;
+        for (let i = 0; i < seedStr.length; i++) {
+            hash = ((hash << 5) - hash) + seedStr.charCodeAt(i);
+            hash |= 0;
+        }
+        const random = () => {
+            const x = Math.sin(hash++) * 10000;
+            return x - Math.floor(x);
+        };
+
+        // 随机取值
+        const todayGood = goods[Math.floor(random() * goods.length)];
+        const todayBad = bads[Math.floor(random() * bads.length)];
+        const todayTip = tips[Math.floor(random() * tips.length)];
+
+        // 渲染
+        const dateEl = document.getElementById('almanac-date');
+        if(dateEl) {
+            dateEl.innerText = dateStr;
+            document.getElementById('almanac-good').innerText = todayGood;
+            document.getElementById('almanac-bad').innerText = todayBad;
+            document.getElementById('almanac-tips').innerText = todayTip;
+        }
+    });
+
+
+    // ================== 🐍 3. 摸鱼贪吃蛇 ==================
+    let snakeClickCount = 0;
+    let snakeTimer;
+    let gameInterval;
+    let snake = [{x: 10, y: 10}];
+    let food = {x: 15, y: 15};
+    let dx = 0; let dy = 0;
+    let score = 0;
+    const gridSize = 15; // 20x20格
+    const canvas = document.getElementById('snake-game');
+    const ctx = canvas ? canvas.getContext('2d') : null;
+
+    // 触发器：连点页脚 5 次
+    function triggerSnake() {
+        snakeClickCount++;
+        if (snakeClickCount >= 5) {
+            startSnakeGame();
+            snakeClickCount = 0;
+        }
+        clearTimeout(snakeTimer);
+        snakeTimer = setTimeout(() => snakeClickCount=0, 1000);
+    }
+
+    function startSnakeGame() {
+        document.getElementById('snake-modal').style.display = 'flex';
+        // 重置游戏
+        snake = [{x: 10, y: 10}];
+        dx = 0; dy = 0;
+        score = 0;
+        document.getElementById('snake-score').innerText = 0;
+
+        if (gameInterval) clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, 150); // 游戏速度
+
+        // 键盘监听
+        window.addEventListener('keydown', handleKey);
+    }
+
+    function closeSnakeGame() {
+        document.getElementById('snake-modal').style.display = 'none';
+        clearInterval(gameInterval);
+        window.removeEventListener('keydown', handleKey);
+    }
+
+    function handleKey(e) {
+        if(e.key === 'ArrowUp') snakeDir('up');
+        if(e.key === 'ArrowDown') snakeDir('down');
+        if(e.key === 'ArrowLeft') snakeDir('left');
+        if(e.key === 'ArrowRight') snakeDir('right');
+    }
+
+    function snakeDir(dir) {
+        if (dir === 'up' && dy === 0) { dx=0; dy=-1; }
+        if (dir === 'down' && dy === 0) { dx=0; dy=1; }
+        if (dir === 'left' && dx === 0) { dx=-1; dy=0; }
+        if (dir === 'right' && dx === 0) { dx=1; dy=0; }
+    }
+
+    function gameLoop() {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // 动起来才判断
+        if (dx === 0 && dy === 0) { drawSnake(); return; }
+
+        // 撞墙或撞自己
+        if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || snake.some(s => s.x === head.x && s.y === head.y)) {
+            alert('Game Over! 得分: ' + score);
+            startSnakeGame(); // 重开
+            return;
+        }
+
+        snake.unshift(head);
+
+        // 吃食物
+        if (head.x === food.x && head.y === food.y) {
+            score++;
+            document.getElementById('snake-score').innerText = score;
+            food = {
+                x: Math.floor(Math.random() * 20),
+                y: Math.floor(Math.random() * 20)
+            };
+            fireConfetti(); // 吃到了也放彩带！
+        } else {
+            snake.pop();
+        }
+
+        drawSnake();
+    }
+
+    function drawSnake() {
+        // 清空
+        ctx.fillStyle = '#2d3436';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 画蛇 (绿色)
+        ctx.fillStyle = '#00b894';
+        snake.forEach(part => {
+            ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize-2, gridSize-2);
+        });
+
+        // 画食物 (红色)
+        ctx.fillStyle = '#ff7675';
+        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize-2, gridSize-2);
     }
 
 </script>
