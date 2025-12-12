@@ -5,6 +5,8 @@ import string
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 import requests
+import redis # 导入 redis
+from flask_session import Session # 导入 Session 扩展
 from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -57,6 +59,17 @@ else:
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax'
     )
+# ================= Redis Session 配置 (新增) =================
+# 告诉 Flask：别把数据存 Cookie 了，存 Redis！
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'family:' # 给 Key 加个前缀，方便你看
+# 连接本地 Redis
+app.config['SESSION_REDIS'] = redis.from_url('redis://127.0.0.1:6379')
+
+# 初始化 Session
+Session(app) # <--- 这句会替代 Flask 默认的 session 机制
 
 # 初始化 CSRF 保护
 csrf = CSRFProtect(app)
