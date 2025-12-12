@@ -1045,9 +1045,14 @@
             font-size: 120px;
             cursor: pointer;
             transition: transform 0.1s;
-            user-select: none;
-            -webkit-user-select: none;
             filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+
+            /* [新增] 手机端防误触核心代码 */
+            -webkit-user-select: none; /* 禁止选中文字 (Safari/Chrome) */
+            -moz-user-select: none; /* 禁止选中文字 (Firefox) */
+            user-select: none; /* 禁止选中文字 (标准) */
+            -webkit-touch-callout: none; /* 禁止 iOS 长按弹出菜单 */
+            -webkit-tap-highlight-color: transparent; /* 去除点击时的灰色背景块 */
         }
 
         .muyu-icon:active {
@@ -1828,8 +1833,15 @@
                 <i class="fas fa-pen text-muted" style="font-size: 12px;"></i>
             </form>
 
-            <div class="text-muted small mb-3 opacity-50 font-monospace" onclick="triggerSecret()"
-                 style="user-select: none;">
+            <!-- [修改] ID 显示区域 (加满防误触 BUFF) -->
+            <div class="text-muted small mb-3 opacity-50 font-monospace"
+                 onclick="triggerSecret()"
+                 style="cursor: pointer;
+                        -webkit-user-select: none;    /* 禁止选中 */
+                        -moz-user-select: none;
+                        user-select: none;
+                        -webkit-touch-callout: none;  /* 禁止长按菜单 */
+                        -webkit-tap-highlight-color: transparent;"> <!-- 禁止点击高亮块 -->
                 ID: {{ my_profile.id|truncate(8, True) }}
             </div>
 
@@ -2324,28 +2336,38 @@
     <div class="small text-muted mt-2">点击积累期末好运</div>
 </div>
 <!-- [新增] 🐍 摸鱼贪吃蛇弹窗 -->
-    <div id="snake-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center;">
-        <div style="color:white; margin-bottom:10px; font-weight:bold;">🐍 摸鱼时间</div>
-        <canvas id="snake-game" width="300" height="300" style="background:#2d3436; border:2px solid #555; border-radius:4px;"></canvas>
-        <div class="text-white small mt-2">得分: <span id="snake-score">0</span></div>
+<div id="snake-modal"
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center;">
+    <div style="color:white; margin-bottom:10px; font-weight:bold;">🐍 摸鱼时间</div>
+    <canvas id="snake-game" width="300" height="300"
+            style="background:#2d3436; border:2px solid #555; border-radius:4px;"></canvas>
+    <div class="text-white small mt-2">得分: <span id="snake-score">0</span></div>
 
-        <!-- 手机端方向键 -->
-        <div class="mt-4 d-grid gap-2" style="grid-template-columns: 1fr 1fr 1fr; width: 200px;">
-            <div></div>
-            <button class="btn btn-outline-light" onclick="snakeDir('up')">⬆️</button>
-            <div></div>
-            <button class="btn btn-outline-light" onclick="snakeDir('left')">⬅️</button>
-            <button class="btn btn-outline-light" onclick="snakeDir('down')">⬇️</button>
-            <button class="btn btn-outline-light" onclick="snakeDir('right')">➡️</button>
-        </div>
-
-        <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
+    <!-- 手机端方向键 -->
+    <div class="mt-4 d-grid gap-2" style="grid-template-columns: 1fr 1fr 1fr; width: 200px;">
+        <div></div>
+        <button class="btn btn-outline-light" onclick="snakeDir('up')">⬆️</button>
+        <div></div>
+        <button class="btn btn-outline-light" onclick="snakeDir('left')">⬅️</button>
+        <button class="btn btn-outline-light" onclick="snakeDir('down')">⬇️</button>
+        <button class="btn btn-outline-light" onclick="snakeDir('right')">➡️</button>
     </div>
 
-    <!-- [新增] 页脚隐藏入口 (放在 bottom-nav 上面一点点) -->
-    <div class="text-center py-4 mb-5" onclick="triggerSnake()" style="opacity: 0.1;">
-        <small>v{{ app_version }} · Python ❤️ Family</small>
-    </div>
+    <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
+</div>
+
+<!-- [新增] 页脚隐藏入口 (放在 bottom-nav 上面一点点) -->
+<!-- [修改] 页脚隐藏入口 (加了防误触样式) -->
+<div class="text-center py-4 mb-5"
+     onclick="triggerSnake()"
+     style="opacity: 0.1;
+                cursor: pointer;
+                -webkit-user-select: none; /* 禁止选中文字 (Safari/Chrome) */
+                -moz-user-select: none;    /* 禁止选中文字 (Firefox) */
+                user-select: none;         /* 禁止选中文字 (标准) */
+                -webkit-touch-callout: none; /* 禁用 iOS 长按弹出菜单 */">
+    <small>v{{ app_version }} · Python ❤️ Family</small>
+</div>
 <!-- 引入 Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -2677,8 +2699,8 @@
         form.appendChild(i4);
         document.body.appendChild(form);
         if (currentStatus === 'bought' || currentStatus === 'wanted') {
-        fireConfetti(); // 🎉 喷射吧！
-    }
+            fireConfetti(); // 🎉 喷射吧！
+        }
         form.submit();
     }
 
@@ -2968,10 +2990,11 @@
         const panel = document.getElementById('zen-mode');
         panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
+
     // ================== 🎉 1. 全屏彩带特效 ==================
     function fireConfetti() {
         var count = 200;
-        var defaults = { origin: { y: 0.7 } };
+        var defaults = {origin: {y: 0.7}};
 
         function fire(particleRatio, opts) {
             confetti(Object.assign({}, defaults, opts, {
@@ -2979,11 +3002,11 @@
             }));
         }
 
-        fire(0.25, { spread: 26, startVelocity: 55, });
-        fire(0.2, { spread: 60, });
-        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
-        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
-        fire(0.1, { spread: 120, startVelocity: 45, });
+        fire(0.25, {spread: 26, startVelocity: 55,});
+        fire(0.2, {spread: 60,});
+        fire(0.35, {spread: 100, decay: 0.91, scalar: 0.8});
+        fire(0.1, {spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2});
+        fire(0.1, {spread: 120, startVelocity: 45,});
     }
 
     // [挂载特效] 修改之前的函数，加上彩带触发
@@ -2997,14 +3020,14 @@
 
 
     // ================== 🔮 2. 赛博老黄历 ==================
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // 基础数据池
         const goods = ['写代码', 'AC', '喝奶茶', '睡懒觉', '给家里打电话', '吃红烧肉', '撸猫', '遛狗', '表白', '加薪', '不挂科'];
         const bads = ['改需求', '写Bug', '通宵', '吃外卖', '吵架', '丢钥匙', '断网', '忘记保存', '迟到'];
         const tips = ['今日运势仅供娱乐，爱咋咋地', '代码写得好，下班回家早', '多喝热水，重启试试', '记得按时吃饭'];
 
         // 随机数生成器 (基于日期+用户ID，保证每天固定)
-        const dateStr = new Date().toISOString().slice(0,10);
+        const dateStr = new Date().toISOString().slice(0, 10);
         const seedStr = dateStr + '{{ current_user_id }}';
         let hash = 0;
         for (let i = 0; i < seedStr.length; i++) {
@@ -3023,7 +3046,7 @@
 
         // 渲染
         const dateEl = document.getElementById('almanac-date');
-        if(dateEl) {
+        if (dateEl) {
             dateEl.innerText = dateStr;
             document.getElementById('almanac-good').innerText = todayGood;
             document.getElementById('almanac-bad').innerText = todayBad;
@@ -3038,7 +3061,8 @@
     let gameInterval;
     let snake = [{x: 10, y: 10}];
     let food = {x: 15, y: 15};
-    let dx = 0; let dy = 0;
+    let dx = 0;
+    let dy = 0;
     let score = 0;
     const gridSize = 15; // 20x20格
     const canvas = document.getElementById('snake-game');
@@ -3052,14 +3076,15 @@
             snakeClickCount = 0;
         }
         clearTimeout(snakeTimer);
-        snakeTimer = setTimeout(() => snakeClickCount=0, 1000);
+        snakeTimer = setTimeout(() => snakeClickCount = 0, 1000);
     }
 
     function startSnakeGame() {
         document.getElementById('snake-modal').style.display = 'flex';
         // 重置游戏
         snake = [{x: 10, y: 10}];
-        dx = 0; dy = 0;
+        dx = 0;
+        dy = 0;
         score = 0;
         document.getElementById('snake-score').innerText = 0;
 
@@ -3077,24 +3102,39 @@
     }
 
     function handleKey(e) {
-        if(e.key === 'ArrowUp') snakeDir('up');
-        if(e.key === 'ArrowDown') snakeDir('down');
-        if(e.key === 'ArrowLeft') snakeDir('left');
-        if(e.key === 'ArrowRight') snakeDir('right');
+        if (e.key === 'ArrowUp') snakeDir('up');
+        if (e.key === 'ArrowDown') snakeDir('down');
+        if (e.key === 'ArrowLeft') snakeDir('left');
+        if (e.key === 'ArrowRight') snakeDir('right');
     }
 
     function snakeDir(dir) {
-        if (dir === 'up' && dy === 0) { dx=0; dy=-1; }
-        if (dir === 'down' && dy === 0) { dx=0; dy=1; }
-        if (dir === 'left' && dx === 0) { dx=-1; dy=0; }
-        if (dir === 'right' && dx === 0) { dx=1; dy=0; }
+        if (dir === 'up' && dy === 0) {
+            dx = 0;
+            dy = -1;
+        }
+        if (dir === 'down' && dy === 0) {
+            dx = 0;
+            dy = 1;
+        }
+        if (dir === 'left' && dx === 0) {
+            dx = -1;
+            dy = 0;
+        }
+        if (dir === 'right' && dx === 0) {
+            dx = 1;
+            dy = 0;
+        }
     }
 
     function gameLoop() {
-        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
 
         // 动起来才判断
-        if (dx === 0 && dy === 0) { drawSnake(); return; }
+        if (dx === 0 && dy === 0) {
+            drawSnake();
+            return;
+        }
 
         // 撞墙或撞自己
         if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || snake.some(s => s.x === head.x && s.y === head.y)) {
@@ -3129,12 +3169,12 @@
         // 画蛇 (绿色)
         ctx.fillStyle = '#00b894';
         snake.forEach(part => {
-            ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize-2, gridSize-2);
+            ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
         });
 
         // 画食物 (红色)
         ctx.fillStyle = '#ff7675';
-        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize-2, gridSize-2);
+        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
     }
 
 </script>
