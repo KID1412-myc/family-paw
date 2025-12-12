@@ -5,3 +5,5 @@ werkzeug
 flask-WTF
 requests
 zhdate
+redis
+flask-session
