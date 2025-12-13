@@ -25,7 +25,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '3.1.0'
+CURRENT_APP_VERSION = '3.1.1'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -2051,7 +2051,13 @@ def delete_family_event():
     except:
         pass
     return redirect(url_for('home'))
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
 
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

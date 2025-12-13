@@ -1104,10 +1104,45 @@
 <body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
 
 <!-- 全屏加载动画 -->
-<div id="loading-overlay">
-    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
-    <div class="mt-3 fw-bold text-secondary" style="letter-spacing: 1px;">处理中，请稍候...</div>
+<!-- [全能加载层] 开机 + 数据处理都用它 -->
+<div id="global-loader"
+     style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:99999; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.3s;">
+    <!-- 心跳动画 -->
+    <div style="font-size:48px; animation: heartbeat 1.2s infinite ease-in-out;">❤️</div>
+    <!-- 文字提示 -->
+    <div style="color:#999; font-size:12px; margin-top:15px; letter-spacing:2px; font-weight:bold;">
+        全家牵挂
+    </div>
 </div>
+
+<!-- 配套 CSS -->
+<style>
+    @keyframes heartbeat {
+        0% {
+            transform: scale(1);
+        }
+        15% {
+            transform: scale(1.25);
+        }
+        /* 噗 */
+        30% {
+            transform: scale(1);
+        }
+        /* 通 */
+        45% {
+            transform: scale(1.15);
+        }
+        /* 噗 */
+        60% {
+            transform: scale(1);
+        }
+        /* 通 */
+        100% {
+            transform: scale(1);
+        }
+        /* (休息) */
+    }
+</style>
 
 <!-- 顶部导航栏 -->
 <div class="navbar-custom">
@@ -2535,6 +2570,15 @@
                 box.classList.add('d-none'); // 既然看过了，就隐藏
             }
         });
+        // 延迟 300ms 消失，让动画稍微展示一下，避免闪烁
+        setTimeout(() => {
+            const loader = document.getElementById('global-loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                // 等淡出动画播完再移除占位，或者隐藏
+                setTimeout(() => loader.style.display = 'none', 300);
+            }
+        }, 300);
     });
 
     function dismissReminder(id) {
@@ -3177,6 +3221,18 @@
         ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
     }
 
+    // 2. [修改] 统一的 showLoading 函数
+    // 以后上传图片、发布动态，都调这个函数
+    function showLoading() {
+        const loader = document.getElementById('global-loader');
+        if (loader) {
+            loader.style.display = 'flex';
+            // 强制重绘，确保透明度变回 1
+            requestAnimationFrame(() => {
+                loader.style.opacity = '1';
+            });
+        }
+    }
 </script>
 </body>
 </html>
