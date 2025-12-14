@@ -26,7 +26,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '3.2.2'
+CURRENT_APP_VERSION = '3.3.1'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -1235,34 +1235,40 @@ def send_family_reminder():
     if not content: return redirect(url_for('home'))
 
     try:
-        # [新增] 频率限制逻辑
-        # 1. 查该家庭最新的一条提醒
+        current_user_id = session['user']
+
+        # [修改] 频率限制逻辑：只查“我自己”在这个家庭发的最新一条
         last_rem = db.table('family_reminders') \
             .select('created_at') \
             .eq('family_id', family_id) \
+            .eq('created_by', current_user_id) \
             .order('created_at', desc=True) \
             .limit(1) \
             .execute()
 
         if last_rem.data:
-            # 2. 转换时间并比对日期
+            # 转换时间并比对日期
             last_time = datetime.fromisoformat(last_rem.data[0]['created_at'].replace('Z', '+00:00'))
             last_date = last_time.astimezone(timezone(timedelta(hours=8))).date()
             today_date = datetime.now(timezone(timedelta(hours=8))).date()
 
-            # 3. 如果今天是同一天，拦截
+            # 如果我自己今天已经发过了，才拦截
             if last_date == today_date:
-                flash("今天已经提醒过啦，不用太唠叨哦~ (每天限1条)", "info")
+                flash("你今天在这个家已经发过提醒啦 (每人每天限1条)", "info")
                 return redirect(url_for('home'))
 
-        # ... (后续的插入逻辑保持不变) ...
+        # ... (插入逻辑) ...
         sender_name = session.get('display_name', '家人')
+
+        # [修改] 插入时带上 created_by
         db.table('family_reminders').insert({
             'family_id': family_id,
             'content': content,
-            'sender_name': sender_name
+            'sender_name': sender_name,
+            'created_by': current_user_id  # <--- 关键：记录是谁发的
         }).execute()
-        # [新增] 微信推送
+
+        # 微信推送
         send_wechat_push(
             family_id=family_id,
             summary=f"🔔 {sender_name} 发了一条提醒",
