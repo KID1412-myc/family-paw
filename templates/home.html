@@ -1867,31 +1867,7 @@
                        onblur="this.form.submit()">
                 <i class="fas fa-pen text-muted" style="font-size: 12px;"></i>
             </form>
-            <!-- [新增] 微信通知绑定 -->
-            <div class="card-box p-3 mb-3">
-                <h6 class="fw-bold mb-3"><i class="fab fa-weixin text-success me-2"></i>微信通知</h6>
 
-                <form action="/update_profile" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                    <div class="mb-2">
-                        <label class="small text-muted">我的微信 UID</label>
-                        <input type="text" name="wx_uid" class="form-control form-control-sm"
-                               value="{{ my_profile.wx_uid or '' }}"
-                               placeholder="关注公众号获取 UID 填入此处">
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <!-- 这里的链接换成你 WxPusher 后台的关注二维码链接 -->
-                        <a href="https://wxpusher.zjiecode.com/wxuser/?type=1&id=116564#/follow" target="_blank"
-                           class="btn btn-sm btn-outline-success w-50">
-                            1. 去关注获取
-                        </a>
-                        <button type="submit" class="btn btn-sm btn-success w-50">2. 保存绑定</button>
-                    </div>
-                    <div class="form-text small mt-1">绑定后，家人发的提醒、点菜消息会推送到你微信。</div>
-                </form>
-            </div>
             <!-- [终极防误触版] ID 显示区域 -->
             <div class="text-muted small mb-3 opacity-50 font-monospace"
                  onclick="triggerSecret()"
@@ -1904,7 +1880,38 @@
                         touch-action: manipulation;"> <!-- 禁止双击缩放 -->
                 ID: {{ my_profile.id|truncate(8, True) }}
             </div>
+            <!-- [新版] 消息通知绑定 -->
+            <div class="card-box p-3 mb-3">
+                <h6 class="fw-bold mb-3 d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-bell text-warning me-2"></i>消息通知</span>
+                    <!-- 帮助按钮 -->
+                    <button class="btn btn-sm btn-light text-primary small rounded-pill px-2"
+                            onclick="new bootstrap.Modal(document.getElementById('wxGuideModal')).show()">
+                        <i class="fas fa-book-open"></i> 看教程
+                    </button>
+                </h6>
 
+                <form action="/update_profile" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                    <div class="input-group mb-2">
+                        <input type="text" name="wx_uid" class="form-control form-control-sm"
+                               value="{{ my_profile.wx_uid or '' }}"
+                               placeholder="粘贴 WxPusher 的 UID">
+                        <button type="submit" class="btn btn-sm btn-dark">保存</button>
+                    </div>
+
+                    {% if my_profile.wx_uid %}
+                        <div class="text-success small d-flex align-items-center">
+                            <i class="fas fa-check-circle me-1"></i> 状态正常：已绑定
+                        </div>
+                    {% else %}
+                        <div class="text-muted small d-flex align-items-center">
+                            <i class="fas fa-info-circle me-1"></i> 绑定后可接收许愿、提醒等消息通知
+                        </div>
+                    {% endif %}
+                </form>
+            </div>
             <!-- 家庭状态逻辑 -->
             <div class="mt-4 text-start">
                 <h6 class="fw-bold mb-3"><i class="fas fa-users me-2 text-primary"></i>我的家庭列表</h6>
@@ -2381,6 +2388,88 @@
                 <div class="list-group list-group-flush" id="eventListBody">
                     <!-- JS 动态填充 -->
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 消息绑定教程弹窗 (App流程版) -->
+<div class="modal fade" id="wxGuideModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📲 如何开启推送？</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center pt-2">
+
+                <p class="small text-muted mb-4">
+                    为了更稳定地接收消息，我们需要借助<br><strong>WxPusher</strong> (一款免费推送服务)
+                </p>
+
+                <!-- 步骤 1 -->
+                <div class="d-flex align-items-start mb-3 text-start">
+                    <span class="badge bg-light text-dark border me-3 mt-1">1</span>
+                    <div>
+                        <div class="fw-bold">下载客户端</div>
+                        <div class="small text-muted mb-2">点击下方按钮，或在应用商店搜 "WxPusher"</div>
+                        <!-- [修改] 这里填那个不变的链接，或者直接跳官网 -->
+                        <a href="https://wxpusher.zjiecode.com/docs/download.html"
+                           target="_blank" class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="fas fa-download"></i> 去下载
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 步骤 2 -->
+                <div class="d-flex align-items-start mb-3 text-start">
+                    <span class="badge bg-light text-dark border me-3 mt-1">2</span>
+                    <div>
+                        <div class="fw-bold">获取绑定码</div>
+                        <div class="small text-muted">打开App登录 -> 复制显示的 <code>BIND_xxx</code> 绑定码 ->
+                            发送给它的微信公众号。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-start mb-3 text-start">
+                    <span class="badge bg-primary text-white me-3 mt-1">3</span>
+                    <div class="w-100">
+                        <div class="fw-bold">关注接收通道</div>
+                        <div class="small text-muted mb-2">
+                            点击下方按钮，获取二维码以关注【全家牵挂】推送服务，保存二维码后使用微信扫码关注
+                        </div>
+
+                        <!-- [重点] 把 href 换成你那个"不变的链接" -->
+                        <a href="https://wxpusher.zjiecode.com/api/qrcode/1b4KA4hXqZ6ffWVLpnG6npiRmUvS91wgyXuHFUE2KKythSBI7JRxklq3gfwxSQxG.jpg"
+                           target="_blank" class="btn btn-warning w-100 rounded-pill fw-bold text-dark">
+                            <i class="fas fa-qrcode"></i> 点我获取二维码
+                        </a>
+                    </div>
+                </div>
+                <!-- 步骤 3 -->
+                <div class="d-flex align-items-start mb-3 text-start">
+                    <span class="badge bg-light text-dark border me-3 mt-1">4</span>
+                    <div>
+                        <div class="fw-bold">回填 UID</div>
+                        <div class="small text-muted">使用绑定码绑定成功后，在App里找到
+                            <strong>我的</strong>，找到第一行<strong>UID</strong>复制并粘贴到本网页的输入框里保存。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-secondary small text-start mb-0">
+                    <i class="fas fa-lightbulb text-warning"></i> <strong>提示：</strong><br>
+                    以上步骤仅用于开启消息提醒功能，不开启不会影响其他任何功能的使用。
+                </div>
+                <div class="alert alert-warning small text-start mb-0">
+                    <strong>⚠️ 注意：</strong><br>
+                    记得在手机设置里，给 WxPusher 开启<strong>“通知权限”</strong>，否则收不到消息哦！
+                </div>
+
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary w-100 rounded-pill" data-bs-dismiss="modal">懂了，我去试试
+                </button>
             </div>
         </div>
     </div>
