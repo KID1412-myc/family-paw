@@ -5,6 +5,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 import requests
+import threading
 import redis # 导入 redis
 from flask_session import Session # 导入 Session 扩展
 from zhdate import ZhDate
@@ -332,7 +333,60 @@ def calculate_event_details(event):
     except Exception as e:
         print(f"Calc Error: {e}")
         return None
+# ================= 微信推送服务 (WxPusher) =================
 
+# 从环境变量读取配置 (也可以直接填字符串)
+wx_app_token = os.environ.get("WX_APP_TOKEN")
+wx_topic_id = os.environ.get("WX_TOPIC_ID")
+
+
+def send_wechat_push(family_id, summary, content):
+    """
+    [平台版] 微信推送
+    family_id: 目标家庭 ID
+    """
+    if not wx_app_token or not family_id: return
+
+    def _do_push():
+        try:
+            # 1. 既然是给家庭发，先找出这个家庭里的所有成员
+            # 这里需要管理员权限(admin_supabase)或者确保 RLS 允许读取成员的 profile
+            # 为了稳妥，我们用 get_db()，依赖 "同家庭可见" 的 RLS 策略
+            # 注意：这需要确保当前操作者属于该家庭，或者是系统自动触发
+
+            client = admin_supabase if admin_supabase else supabase
+
+            # A. 查出家庭成员 ID
+            mems = client.table('family_members').select('user_id').eq('family_id', family_id).execute()
+            user_ids = [m['user_id'] for m in mems.data] if mems.data else []
+
+            if not user_ids: return
+
+            # B. 查出这些成员的 wx_uid
+            # 过滤掉没有填 UID 的人
+            profiles = client.table('profiles').select('wx_uid').in_('id', user_ids).neq('wx_uid', 'null').execute()
+            uids = [p['wx_uid'] for p in profiles.data if p.get('wx_uid')]
+
+            if not uids:
+                print("该家庭无人绑定微信 UID，跳过推送")
+                return
+
+            # 2. 发送请求 (uids 列表)
+            url = "https://wxpusher.zjiecode.com/api/send/message"
+            payload = {
+                "appToken": wx_app_token,
+                "content": content,
+                "summary": summary,
+                "contentType": 1,
+                "uids": uids  # [修改] 这里变成了 uids 数组
+            }
+            requests.post(url, json=payload, timeout=5)
+            print(f"✅ 推送成功，接收人数: {len(uids)}")
+
+        except Exception as e:
+            print(f"Push Error: {e}")
+
+    threading.Thread(target=_do_push).start()
 
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
@@ -1208,7 +1262,12 @@ def send_family_reminder():
             'content': content,
             'sender_name': sender_name
         }).execute()
-
+        # [新增] 微信推送
+        send_wechat_push(
+            family_id=family_id,
+            summary=f"🔔 {sender_name} 发了一条提醒",
+            content=f"来自 {sender_name} 的叮嘱：\n\n{content}\n\n(点击详情打开App查看)"
+        )
         flash("提醒已发送", "success")
     except Exception as e:
         flash(f"发送失败: {e}", "danger")
@@ -1319,6 +1378,7 @@ def update_profile():
     """更新个人资料 (含关怀模式)"""
     db = get_db()
     display_name = request.form.get('display_name')
+    wx_uid = request.form.get('wx_uid')  # [新增] 获取前端填写的 UID
     file = request.files.get('avatar')
     # [新增] 获取开关状态 (checkbox 选中发 'on'，没选中发 None)
     is_elder = request.form.get('is_elder_mode') == 'on'
@@ -1327,6 +1387,9 @@ def update_profile():
 
     if display_name:
         update_data['display_name'] = display_name
+    # [新增] 更新 UID (允许为空，即取消关注)
+    if wx_uid is not None:
+        update_data['wx_uid'] = wx_uid.strip()
 
     if file and file.filename:
         try:
@@ -1933,6 +1996,13 @@ def add_wish():
                 'content': content,
                 'created_by': session['user']
             }).execute()
+            # [新增] 微信推送
+            who = session.get('display_name', '家人')
+            send_wechat_push(
+                family_id=family_id,  # 直接传当前操作的 family_id
+                summary=f"🍽️ {who} 想吃：{content}",
+                content=f"{who} 点菜啦..."
+            )
             flash("许愿成功！坐等开饭~", "success")
         except Exception as e:
             flash(f"许愿失败: {e}", "danger")
@@ -1946,7 +2016,7 @@ def operate_wish():
     """操作菜单: 变状态 / 删除"""
     db = get_db()
     wish_id = request.form.get('wish_id')
-    action = request.form.get('action')  # 'next_status' 或 'delete'
+    action = request.form.get('action')
     current_status = request.form.get('current_status')
 
     try:
@@ -1955,7 +2025,7 @@ def operate_wish():
             flash("已删除该菜品", "info")
 
         elif action == 'next_status':
-            # 状态流转: wanted -> bought -> eaten -> wanted (循环)
+            # 状态流转: wanted -> bought -> eaten -> wanted
             new_status = 'bought'
             if current_status == 'bought':
                 new_status = 'eaten'
@@ -1963,6 +2033,25 @@ def operate_wish():
                 new_status = 'wanted'
 
             db.table('family_wishes').update({'status': new_status}).eq('id', wish_id).execute()
+
+            # [修改] 微信推送逻辑
+            if new_status == 'bought':
+                who = session.get('display_name', '家人')
+
+                # 1. [关键修改] 查询菜名的同时，把 family_id 也查出来
+                wish_res = db.table('family_wishes').select('content, family_id').eq('id', wish_id).single().execute()
+
+                if wish_res.data:
+                    dish_name = wish_res.data['content']
+                    target_family_id = wish_res.data['family_id']  # 拿到家庭ID了！
+
+                    # 2. 发送推送
+                    send_wechat_push(
+                        family_id=target_family_id,
+                        summary=f"🛒 {who} 接单了：{dish_name}",
+                        content=f"好消息！{who} 已经把【{dish_name}】安排上了！\n坐等开饭吧~"
+                    )
+
     except Exception as e:
         flash(f"操作失败: {e}", "danger")
 
@@ -2008,7 +2097,11 @@ def nudge_member():
             'content': msg,
             'sender_name': '系统'
         }).execute()
-
+        send_wechat_push(
+            family_id=family_id,
+            summary=f"👋 {my_name} 拍了拍 {target_name}",
+            content=f"家庭里的互动：\n{my_name} 刚刚拍了拍 {target_name} 的脑袋。\n快去App看看吧！"
+        )
         flash(f"你拍了拍 {target_name}", "success")
     except Exception as e:
         print(f"Nudge Error: {e}")
