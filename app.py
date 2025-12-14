@@ -1272,7 +1272,7 @@ def send_family_reminder():
         send_wechat_push(
             family_id=family_id,
             summary=f"🔔 {sender_name} 发了一条提醒",
-            content=f"来自 {sender_name} 的叮嘱：\n\n{content}\n\n(点击详情打开App查看)"
+            content=f"来自 {sender_name} 的叮嘱：\n\n{content}\n\n快去App看看吧！"
         )
         flash("提醒已发送", "success")
     except Exception as e:
