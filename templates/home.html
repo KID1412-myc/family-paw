@@ -3381,12 +3381,13 @@
         e.preventDefault(); // 阻止浏览器默认行为(缩放)
         e.target.click();   // 手动触发点击
     }
-    // PWA Service Worker 注册
+    // 注册 Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/static/sw.js')
-                .then(() => console.log('SW 注册成功'))
-                .catch(err => console.log('SW 注册失败', err));
+            // 注册在根目录
+            navigator.serviceWorker.register('/sw.js')
+                .then(() => console.log('SW Registered'))
+                .catch(err => console.log('SW Failed', err));
         });
     }
 </script>

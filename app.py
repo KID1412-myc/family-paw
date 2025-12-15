@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 import requests
 import threading
-import redis # 导入 redis
-from flask_session import Session # 导入 Session 扩展
+import redis  # 导入 redis
+from flask_session import Session  # 导入 Session 扩展
 from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -22,11 +22,69 @@ from dotenv import load_dotenv
 # 文件名安全处理
 from werkzeug.utils import secure_filename
 
+LAB_CODE = "testuser8888"
 # 加载 .env 文件
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '3.3.2'
+
+@app.route('/sw.js')
+def service_worker():
+    return app.send_static_file('sw.js')
+@app.before_request
+def gatekeeper():
+    # 1. 白名单：静态资源、门禁页接口、PWA相关文件
+    # [关键] 加上 sw.js 和 manifest.json，确保 PWA 安装不受影响
+    if request.endpoint in ['static', 'lab_entry', 'verify_lab_entry'] or request.path in ['/sw.js',
+                                                                                           '/static/manifest.json']:
+        return
+
+    # 2. 检查通行证 (Cookie)
+    if request.cookies.get('lab_pass') != 'granted':
+        return redirect(url_for('lab_entry'))
+
+
+@app.route('/lab_entry')
+def lab_entry():
+    # 极简页面，没有任何多余信息，专门糊弄爬虫
+    return '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <title>System Access</title>
+        <style>
+            body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; display: flex; height: 100vh; justify-content: center; align-items: center; margin: 0; flex-direction: column; }
+            input { border: 1px solid #00ff00; background: transparent; color: #00ff00; padding: 10px; outline: none; text-align: center; font-size: 20px; letter-spacing: 5px; width: 200px; }
+            button { margin-top: 20px; border: 1px solid #00ff00; background: #00ff00; color: #000; padding: 10px 40px; font-weight: bold; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <div style="font-size: 40px; margin-bottom: 20px;">🔒</div>
+        <form action="/verify_lab_entry" method="POST">
+            <input type="hidden" name="csrf_token" value="''' + csrf.generate_csrf() + '''">
+            <input type="tel" name="code" placeholder="CODE" autofocus>
+            <br>
+            <button>UNLOCK</button>
+        </form>
+    </body>
+    </html>
+    '''
+
+
+@app.route('/verify_lab_entry', methods=['POST'])
+def verify_lab_entry():
+    if request.form.get('code') == LAB_CODE:
+        resp = redirect(url_for('login'))
+        # [核心] 设置 10 年有效期的 Cookie
+        resp.set_cookie('lab_pass', 'granted', max_age=60 * 60 * 24 * 365 * 10, httponly=True)
+        return resp
+    else:
+        return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
+
+
+CURRENT_APP_VERSION = '3.3.3'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -75,7 +133,7 @@ else:
     )
     # 2. 文件系统 Session 配置 (无需安装 Redis)
     app.config['SESSION_TYPE'] = 'filesystem'
-    app.config['SESSION_FILE_DIR'] = './flask_session_data' # 在当前目录下生成文件夹存 Session
+    app.config['SESSION_FILE_DIR'] = './flask_session_data'  # 在当前目录下生成文件夹存 Session
     app.config['SESSION_PERMANENT'] = True
 # ---------------------------------------------------------
 
@@ -99,6 +157,7 @@ supabase: Client = create_client(url, key)
 
 # 2. 管理员客户端 (Service Key，拥有上帝权限，用于后台管理和代登录)
 admin_supabase: Client = create_client(url, service_key) if service_key else None
+
 
 # ================= 辅助函数 =================
 
@@ -342,6 +401,8 @@ def calculate_event_details(event):
     except Exception as e:
         print(f"Calc Error: {e}")
         return None
+
+
 # ================= 微信推送服务 (WxPusher) =================
 
 # 从环境变量读取配置 (也可以直接填字符串)
@@ -396,6 +457,7 @@ def send_wechat_push(family_id, summary, content):
             print(f"Push Error: {e}")
 
     threading.Thread(target=_do_push).start()
+
 
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
@@ -2188,13 +2250,18 @@ def delete_family_event():
     except:
         pass
     return redirect(url_for('home'))
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
 
+
 @app.errorhandler(500)
 def internal_server_error(e):
     return render_template('500.html'), 500
+
+
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)
