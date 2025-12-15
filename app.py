@@ -91,7 +91,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.3.3'
+CURRENT_APP_VERSION = '3.3.4'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -2269,6 +2269,65 @@ def internal_server_error(e):
     return render_template('500.html'), 500
 
 
+# ================= 🐍 贪吃蛇排行榜接口 =================
+
+@app.route('/api/snake/update', methods=['POST'])
+@login_required
+def update_snake_score():
+    """更新最高分"""
+    db = get_db()
+    try:
+        new_score = int(request.json.get('score', 0))
+        user_id = session['user']
+
+        # 1. 先查旧分数
+        # 使用 maybe_single 防止报错
+        res = db.table('profiles').select('snake_high_score').eq('id', user_id).maybe_single().execute()
+
+        old_score = 0
+        if res.data and res.data.get('snake_high_score'):
+            old_score = res.data['snake_high_score']
+
+        # 2. 只有破纪录才更新
+        if new_score > old_score:
+            db.table('profiles').update({'snake_high_score': new_score}).eq('id', user_id).execute()
+            return jsonify({'success': True, 'new_record': True})
+
+        return jsonify({'success': True, 'new_record': False})
+
+    except Exception as e:
+        print(f"Score Update Error: {e}")
+        return jsonify({'success': False})
+
+
+@app.route('/api/snake/leaderboard')
+def get_snake_leaderboard():
+    """获取全局排行榜 (前20名)"""
+    # ⚠️ 关键点：使用 admin_supabase (上帝权限)
+    # 因为 RLS 限制了普通用户只能看家人的资料，但排行榜我们想看全员的
+    # 我们只取头像、名字、分数，不泄露隐私
+    client = admin_supabase if admin_supabase else supabase
+
+    try:
+        res = client.table('profiles') \
+            .select('display_name, avatar_url, snake_high_score') \
+            .gt('snake_high_score', 0) \
+            .order('snake_high_score', desc=True) \
+            .limit(20) \
+            .execute()
+
+        # 处理头像链接
+        data = res.data or []
+        for p in data:
+            if p.get('avatar_url'):
+                p['avatar_url'] = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
+            else:
+                p['avatar_url'] = None  # 前端处理默认图
+
+        return jsonify(data)
+    except Exception as e:
+        print(f"Leaderboard Error: {e}")
+        return jsonify([])
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

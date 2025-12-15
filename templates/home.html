@@ -1609,8 +1609,9 @@
                         {% if pet.is_owner %}
                             <!-- [修改] 增加了第4个参数: pet.owner_ids | tojson -->
                             <!-- 注意：onclick= 后面用的是单引号 ' -->
+                            <!-- [核心修复] 加上 event.stopPropagation(); 阻止点击事件传给父容器 -->
                             <button class="btn btn-sm btn-link text-muted p-0"
-                                    onclick='openEditPetModal("{{ pet.id }}", "{{ pet.name }}", "{{ pet.family_id }}", {{ pet.owner_ids | tojson }})'>
+                                    onclick='event.stopPropagation(); openEditPetModal("{{ pet.id }}", "{{ pet.name }}", "{{ pet.family_id }}", {{ pet.owner_ids | tojson }})'>
                                 <i class="fas fa-cog"></i>
                             </button>
                         {% endif %}
@@ -2485,21 +2486,48 @@
     <div class="small text-muted mt-2">点击积累期末好运</div>
 </div>
 <!-- [新增] 🐍 摸鱼贪吃蛇弹窗 -->
+<!-- [升级版] 🐍 贪吃蛇 + 排行榜 弹窗 -->
 <div id="snake-modal"
-     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center;">
-    <div style="color:white; margin-bottom:10px; font-weight:bold;">🐍 摸鱼时间</div>
-    <canvas id="snake-game" width="300" height="300"
-            style="background:#2d3436; border:2px solid #555; border-radius:4px;"></canvas>
-    <div class="text-white small mt-2">得分: <span id="snake-score">0</span></div>
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; flex-direction:column; align-items:center; justify-content:center;">
 
-    <!-- 手机端方向键 -->
-    <div class="mt-4 d-grid gap-2" style="grid-template-columns: 1fr 1fr 1fr; width: 200px;">
-        <div></div>
-        <button class="btn btn-outline-light" onclick="snakeDir('up')">⬆️</button>
-        <div></div>
-        <button class="btn btn-outline-light" onclick="snakeDir('left')">⬅️</button>
-        <button class="btn btn-outline-light" onclick="snakeDir('down')">⬇️</button>
-        <button class="btn btn-outline-light" onclick="snakeDir('right')">➡️</button>
+    <!-- 顶部切换栏 -->
+    <div class="mb-3 d-flex gap-3">
+        <button class="btn btn-sm btn-outline-light active" id="btn-game-view" onclick="switchSnakeView('game')">🎮
+            游戏
+        </button>
+        <button class="btn btn-sm btn-outline-warning" id="btn-rank-view" onclick="switchSnakeView('rank')">🏆 排行榜
+        </button>
+    </div>
+
+    <!-- A. 游戏区域 -->
+    <div id="snake-game-area" style="text-align: center;">
+        <canvas id="snake-game" width="300" height="300"
+                style="background:#2d3436; border:2px solid #555; border-radius:8px; display:block;"></canvas>
+
+        <div class="text-white mt-3 d-flex justify-content-between px-2">
+            <span>得分: <span id="snake-score" class="fw-bold text-success">0</span></span>
+            <span class="small text-muted">历史最高: <span id="my-high-score">--</span></span>
+        </div>
+
+        <!-- 手机端方向键 -->
+        <div class="mt-4 d-grid gap-2 mx-auto" style="grid-template-columns: 1fr 1fr 1fr; width: 180px;">
+            <div></div>
+            <button class="btn btn-secondary py-3" onclick="snakeDir('up')">⬆️</button>
+            <div></div>
+            <button class="btn btn-secondary py-3" onclick="snakeDir('left')">⬅️</button>
+            <button class="btn btn-secondary py-3" onclick="snakeDir('down')">⬇️</button>
+            <button class="btn btn-secondary py-3" onclick="snakeDir('right')">➡️</button>
+        </div>
+    </div>
+
+    <!-- B. 排行榜区域 (默认隐藏) -->
+    <div id="snake-rank-area"
+         style="display:none; width: 300px; height: 400px; background: #fff; border-radius: 12px; overflow: hidden; color: #333;">
+        <div class="p-3 bg-warning text-dark fw-bold text-center">🏆 贪吃蛇争霸赛</div>
+        <div id="rank-list" style="overflow-y: auto; height: 340px; padding: 0;">
+            <!-- JS 填充 -->
+            <div class="text-center py-5 text-muted">加载中...</div>
+        </div>
     </div>
 
     <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
@@ -2696,32 +2724,32 @@
         }, 300);
         const muyu = document.getElementById('muyu');
         if (muyu) {
-            muyu.addEventListener('touchend', function(e) {
+            muyu.addEventListener('touchend', function (e) {
                 // 拦截浏览器行为 (缩放/菜单)
                 if (e.cancelable) e.preventDefault();
                 // 手动触发敲击
                 knockMuyu();
-            }, { passive: false });
+            }, {passive: false});
         }
 
         // 2. 给页脚贪吃蛇入口加锁
         // 自动找到那个绑定了 triggerSnake 的 div
         const footer = document.querySelector('div[onclick="triggerSnake()"]');
         if (footer) {
-            footer.addEventListener('touchend', function(e) {
+            footer.addEventListener('touchend', function (e) {
                 if (e.cancelable) e.preventDefault();
                 triggerSnake();
-            }, { passive: false });
+            }, {passive: false});
         }
 
         // 3. 给 ID 彩蛋入口加锁
         // 自动找到那个绑定了 triggerSecret 的 div
         const idArea = document.querySelector('div[onclick="triggerSecret()"]');
         if (idArea) {
-            idArea.addEventListener('touchend', function(e) {
+            idArea.addEventListener('touchend', function (e) {
                 if (e.cancelable) e.preventDefault();
                 triggerSecret();
-            }, { passive: false });
+            }, {passive: false});
         }
     });
 
@@ -3243,20 +3271,19 @@
     });
 
 
-    // ================== 🐍 3. 摸鱼贪吃蛇 ==================
-    let snakeClickCount = 0;
-    let snakeTimer;
-    let gameInterval;
+    // ================== 🐍 贪吃蛇 + 排行榜完整逻辑 ==================
+    let snakeInterval;
     let snake = [{x: 10, y: 10}];
     let food = {x: 15, y: 15};
     let dx = 0;
     let dy = 0;
     let score = 0;
-    const gridSize = 15; // 20x20格
+    let isGameRunning = false;
+    const gridSize = 15;
     const canvas = document.getElementById('snake-game');
     const ctx = canvas ? canvas.getContext('2d') : null;
 
-    // 触发器：连点页脚 5 次
+    // 触发入口
     function triggerSnake() {
         snakeClickCount++;
         if (snakeClickCount >= 5) {
@@ -3269,27 +3296,146 @@
 
     function startSnakeGame() {
         document.getElementById('snake-modal').style.display = 'flex';
-        // 重置游戏
+        switchSnakeView('game');
+        resetGame();
+        window.addEventListener('keydown', handleKey);
+        // 获取一下当前的最高分展示
+        fetchLeaderboard(false);
+    }
+
+    function closeSnakeGame() {
+        document.getElementById('snake-modal').style.display = 'none';
+        stopGame();
+        window.removeEventListener('keydown', handleKey);
+    }
+
+    function resetGame() {
         snake = [{x: 10, y: 10}];
         dx = 0;
         dy = 0;
         score = 0;
         document.getElementById('snake-score').innerText = 0;
-
-        if (gameInterval) clearInterval(gameInterval);
-        gameInterval = setInterval(gameLoop, 150); // 游戏速度
-
-        // 键盘监听
-        window.addEventListener('keydown', handleKey);
+        isGameRunning = true;
+        if (snakeInterval) clearInterval(snakeInterval);
+        snakeInterval = setInterval(gameLoop, 150);
+        drawSnake();
     }
 
-    function closeSnakeGame() {
-        document.getElementById('snake-modal').style.display = 'none';
-        clearInterval(gameInterval);
-        window.removeEventListener('keydown', handleKey);
+    function stopGame() {
+        isGameRunning = false;
+        if (snakeInterval) clearInterval(snakeInterval);
+    }
+
+    // 游戏主循环
+    function gameLoop() {
+        if (!isGameRunning) return;
+        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+        if (dx === 0 && dy === 0) return; // 还没开始动
+
+        // 撞墙或撞自己 -> 游戏结束
+        if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || snake.some(s => s.x === head.x && s.y === head.y)) {
+            gameOver();
+            return;
+        }
+
+        snake.unshift(head);
+
+        // 吃食物
+        if (head.x === food.x && head.y === food.y) {
+            score++;
+            document.getElementById('snake-score').innerText = score;
+            food = {x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 20)};
+            if (window.fireConfetti) fireConfetti(); // 庆祝
+        } else {
+            snake.pop();
+        }
+        drawSnake();
+    }
+
+    // 游戏结束处理
+    function gameOver() {
+        stopGame();
+
+        // 1. 上传分数
+        fetch('/api/snake/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+            body: JSON.stringify({score: score})
+        })
+            .then(res => res.json())
+            .then(data => {
+                let msg = `Game Over! 本局得分: ${score}`;
+                if (data.new_record) msg += "\n🎉 恭喜！打破个人纪录！";
+                alert(msg);
+                // 自动切到排行榜看看
+                switchSnakeView('rank');
+            });
+    }
+
+    // 视图切换
+    function switchSnakeView(view) {
+        if (view === 'game') {
+            document.getElementById('snake-game-area').style.display = 'block';
+            document.getElementById('snake-rank-area').style.display = 'none';
+            document.getElementById('btn-game-view').classList.add('active');
+            document.getElementById('btn-rank-view').classList.remove('active');
+            // 如果游戏暂停了，重置
+            if (!isGameRunning && score === 0) resetGame();
+        } else {
+            document.getElementById('snake-game-area').style.display = 'none';
+            document.getElementById('snake-rank-area').style.display = 'block';
+            document.getElementById('btn-game-view').classList.remove('active');
+            document.getElementById('btn-rank-view').classList.add('active');
+            stopGame(); // 看榜单时暂停游戏
+            fetchLeaderboard(true); // 加载数据
+        }
+    }
+
+    // 拉取排行榜
+    function fetchLeaderboard(renderHtml) {
+        fetch('/api/snake/leaderboard')
+            .then(res => res.json())
+            .then(list => {
+                // 更新我的最高分 (遍历找自己)
+                const me = list.find(u => u.display_name === '{{ user_name }}'); // 简单匹配，严谨可用ID
+                if (me) document.getElementById('my-high-score').innerText = me.snake_high_score;
+
+                if (renderHtml) {
+                    const el = document.getElementById('rank-list');
+                    let html = '';
+                    list.forEach((u, index) => {
+                        const medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : index + 1));
+                        const avatar = u.avatar_url ? `<img src="${u.avatar_url}" style="width:30px;height:30px;border-radius:50%">` : `<span class="badge bg-secondary rounded-circle" style="width:30px;height:30px;line-height:24px">${u.display_name[0]}</span>`;
+
+                        html += `
+                        <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="fw-bold text-muted" style="width:20px">${medal}</div>
+                                ${avatar}
+                                <div class="fw-bold" style="font-size:14px">${u.display_name}</div>
+                            </div>
+                            <div class="fw-bold text-warning" style="font-size:18px">${u.snake_high_score}</div>
+                        </div>`;
+                    });
+                    el.innerHTML = html || '<div class="text-center py-5 text-muted">暂无数据，快来争第一！</div>';
+                }
+            });
+    }
+
+    // 绘图与按键 (保持不变)
+    function drawSnake() {
+        if (!ctx) return;
+        ctx.fillStyle = '#2d3436';
+        ctx.fillRect(0, 0, 300, 300);
+        ctx.fillStyle = '#00b894';
+        snake.forEach(p => ctx.fillRect(p.x * 15, p.y * 15, 13, 13));
+        ctx.fillStyle = '#ff7675';
+        ctx.fillRect(food.x * 15, food.y * 15, 13, 13);
     }
 
     function handleKey(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
         if (e.key === 'ArrowUp') snakeDir('up');
         if (e.key === 'ArrowDown') snakeDir('down');
         if (e.key === 'ArrowLeft') snakeDir('left');
@@ -3315,56 +3461,6 @@
         }
     }
 
-    function gameLoop() {
-        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
-
-        // 动起来才判断
-        if (dx === 0 && dy === 0) {
-            drawSnake();
-            return;
-        }
-
-        // 撞墙或撞自己
-        if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || snake.some(s => s.x === head.x && s.y === head.y)) {
-            alert('Game Over! 得分: ' + score);
-            startSnakeGame(); // 重开
-            return;
-        }
-
-        snake.unshift(head);
-
-        // 吃食物
-        if (head.x === food.x && head.y === food.y) {
-            score++;
-            document.getElementById('snake-score').innerText = score;
-            food = {
-                x: Math.floor(Math.random() * 20),
-                y: Math.floor(Math.random() * 20)
-            };
-            fireConfetti(); // 吃到了也放彩带！
-        } else {
-            snake.pop();
-        }
-
-        drawSnake();
-    }
-
-    function drawSnake() {
-        // 清空
-        ctx.fillStyle = '#2d3436';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // 画蛇 (绿色)
-        ctx.fillStyle = '#00b894';
-        snake.forEach(part => {
-            ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
-        });
-
-        // 画食物 (红色)
-        ctx.fillStyle = '#ff7675';
-        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
-    }
-
     // 2. [修改] 统一的 showLoading 函数
     // 以后上传图片、发布动态，都调这个函数
     function showLoading() {
@@ -3377,10 +3473,12 @@
             });
         }
     }
+
     function preventZoom(e) {
         e.preventDefault(); // 阻止浏览器默认行为(缩放)
         e.target.click();   // 手动触发点击
     }
+
     // 注册 Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
