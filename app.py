@@ -21,6 +21,8 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 # 文件名安全处理
 from werkzeug.utils import secure_filename
+# [修改] 多导入一个 generate_csrf
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 LAB_CODE = "testuser8888"
 # 加载 .env 文件
@@ -28,9 +30,12 @@ load_dotenv()
 
 app = Flask(__name__)
 
+
 @app.route('/sw.js')
 def service_worker():
     return app.send_static_file('sw.js')
+
+
 @app.before_request
 def gatekeeper():
     # 1. 白名单：静态资源、门禁页接口、PWA相关文件
@@ -46,8 +51,10 @@ def gatekeeper():
 
 @app.route('/lab_entry')
 def lab_entry():
-    # 极简页面，没有任何多余信息，专门糊弄爬虫
-    return '''
+    # [修复] 生成 CSRF Token
+    token = generate_csrf()
+
+    return f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -55,15 +62,15 @@ def lab_entry():
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
         <title>System Access</title>
         <style>
-            body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; display: flex; height: 100vh; justify-content: center; align-items: center; margin: 0; flex-direction: column; }
-            input { border: 1px solid #00ff00; background: transparent; color: #00ff00; padding: 10px; outline: none; text-align: center; font-size: 20px; letter-spacing: 5px; width: 200px; }
-            button { margin-top: 20px; border: 1px solid #00ff00; background: #00ff00; color: #000; padding: 10px 40px; font-weight: bold; cursor: pointer; }
+            body {{ background: #000; color: #00ff00; font-family: 'Courier New', monospace; display: flex; height: 100vh; justify-content: center; align-items: center; margin: 0; flex-direction: column; }}
+            input {{ border: 1px solid #00ff00; background: transparent; color: #00ff00; padding: 10px; outline: none; text-align: center; font-size: 20px; letter-spacing: 5px; width: 200px; }}
+            button {{ margin-top: 20px; border: 1px solid #00ff00; background: #00ff00; color: #000; padding: 10px 40px; font-weight: bold; cursor: pointer; }}
         </style>
     </head>
     <body>
         <div style="font-size: 40px; margin-bottom: 20px;">🔒</div>
         <form action="/verify_lab_entry" method="POST">
-            <input type="hidden" name="csrf_token" value="''' + csrf.generate_csrf() + '''">
+            <input type="hidden" name="csrf_token" value="{token}">
             <input type="tel" name="code" placeholder="CODE" autofocus>
             <br>
             <button>UNLOCK</button>
