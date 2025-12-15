@@ -17,6 +17,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon.png",
+      "sizes": "1127x1127",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
