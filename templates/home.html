@@ -1047,12 +1047,12 @@
             transition: transform 0.1s;
             filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
 
-            /* [新增] 手机端防误触核心代码 */
-            -webkit-user-select: none; /* 禁止选中文字 (Safari/Chrome) */
-            -moz-user-select: none; /* 禁止选中文字 (Firefox) */
-            user-select: none; /* 禁止选中文字 (标准) */
-            -webkit-touch-callout: none; /* 禁止 iOS 长按弹出菜单 */
-            -webkit-tap-highlight-color: transparent; /* 去除点击时的灰色背景块 */
+            /* [核心] iOS 完美适配 */
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .muyu-icon:active {
@@ -1869,15 +1869,15 @@
             </form>
 
             <!-- [终极防误触版] ID 显示区域 -->
+            <!-- [终极适配] ID 显示区域 -->
             <div class="text-muted small mb-3 opacity-50 font-monospace"
                  onclick="triggerSecret()"
-                 oncontextmenu="return false;"
-                 onselectstart="return false;"
                  style="cursor: pointer;
-                        -webkit-user-select: none;
+                        touch-action: none;           /* [核心] 禁止缩放/滚动/长按菜单 */
+                        -webkit-touch-callout: none;  /* iOS 禁止长按菜单 */
+                        -webkit-user-select: none;    /* 禁止选中文字 */
                         user-select: none;
-                        -webkit-touch-callout: none;
-                        touch-action: manipulation;"> <!-- 禁止双击缩放 -->
+                        -webkit-tap-highlight-color: transparent;"> <!-- 禁止点击高亮色块 -->
                 ID: {{ my_profile.id|truncate(8, True) }}
             </div>
             <!-- [新版] 消息通知绑定 -->
@@ -2506,16 +2506,16 @@
 </div>
 
 <!-- [终极防误触版] 页脚隐藏入口 -->
+<!-- [终极适配] 页脚隐藏入口 -->
 <div class="text-center py-4 mb-5"
      onclick="triggerSnake()"
-     oncontextmenu="return false;"
-     onselectstart="return false;"
      style="opacity: 0.1;
                 cursor: pointer;
+                touch-action: none;           /* [核心] 禁止缩放/滚动 */
+                -webkit-touch-callout: none;
                 -webkit-user-select: none;
                 user-select: none;
-                -webkit-touch-callout: none;
-                touch-action: manipulation;">
+                -webkit-tap-highlight-color: transparent;">
     <small>v{{ app_version }} · Python ❤️ Family</small>
 </div>
 <!-- 引入 Bootstrap JS -->
@@ -2694,6 +2694,35 @@
                 setTimeout(() => loader.style.display = 'none', 300);
             }
         }, 300);
+        const muyu = document.getElementById('muyu');
+        if (muyu) {
+            muyu.addEventListener('touchend', function(e) {
+                // 拦截浏览器行为 (缩放/菜单)
+                if (e.cancelable) e.preventDefault();
+                // 手动触发敲击
+                knockMuyu();
+            }, { passive: false });
+        }
+
+        // 2. 给页脚贪吃蛇入口加锁
+        // 自动找到那个绑定了 triggerSnake 的 div
+        const footer = document.querySelector('div[onclick="triggerSnake()"]');
+        if (footer) {
+            footer.addEventListener('touchend', function(e) {
+                if (e.cancelable) e.preventDefault();
+                triggerSnake();
+            }, { passive: false });
+        }
+
+        // 3. 给 ID 彩蛋入口加锁
+        // 自动找到那个绑定了 triggerSecret 的 div
+        const idArea = document.querySelector('div[onclick="triggerSecret()"]');
+        if (idArea) {
+            idArea.addEventListener('touchend', function(e) {
+                if (e.cancelable) e.preventDefault();
+                triggerSecret();
+            }, { passive: false });
+        }
     });
 
     function dismissReminder(id) {
@@ -3347,6 +3376,10 @@
                 loader.style.opacity = '1';
             });
         }
+    }
+    function preventZoom(e) {
+        e.preventDefault(); // 阻止浏览器默认行为(缩放)
+        e.target.click();   // 手动触发点击
     }
 </script>
 </body>

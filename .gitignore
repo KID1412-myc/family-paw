@@ -35,3 +35,7 @@ __pycache__/
 Thumbs.db
 
 rescue.py
+flask_session_data/
+fix_csv_ids.py
+migrate_storage.py
+debug_storage.py

@@ -26,7 +26,7 @@ from werkzeug.utils import secure_filename
 load_dotenv()
 
 app = Flask(__name__)
-CURRENT_APP_VERSION = '3.3.1'
+CURRENT_APP_VERSION = '3.3.2'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -35,42 +35,52 @@ ENABLE_GOD_MODE = False
 # 适配 Vercel/Render 等代理环境，防止 HTTPS 变 HTTP
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Secret Key 必须设置，用于 Session 加密和 CSRF
+# Secret Key 必须设置
 app.secret_key = os.environ.get("SECRET_KEY", "dev_key_must_change_to_something_complex")
 
 # Session 有效期 30 天
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-
 # 限制上传文件最大为 16MB
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-if os.environ.get('VERCEL') == '1' or os.environ.get('FLASK_ENV') == 'production':
+# ---------------------------------------------------------
+# [智能环境判断]
+# 只要设置了 FLASK_ENV=production 或者在 Vercel 环境，就视为生产环境
+is_production = os.environ.get('FLASK_ENV') == 'production' or os.environ.get('VERCEL') == '1'
+
+if is_production:
+    print("🚀 生产环境 (阿里云/Vercel): 启用 Redis & HTTPS 安全策略")
+    # 1. Cookie 安全配置 (HTTPS)
     app.config.update(
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        # [修改] 改回 Lax，兼容性最好，手机不容易报错
         SESSION_COOKIE_SAMESITE='Lax',
-        # [修改] 保持 False，防止手机端 Referer 丢失问题
         WTF_CSRF_SSL_STRICT=False
     )
+    # 2. Redis Session 配置
+    app.config['SESSION_TYPE'] = 'redis'
+    app.config['SESSION_PERMANENT'] = True
+    app.config['SESSION_USE_SIGNER'] = True
+    app.config['SESSION_KEY_PREFIX'] = 'family:'
+    # 服务器上 Redis 就在本地，直接连
+    app.config['SESSION_REDIS'] = redis.from_url('redis://127.0.0.1:6379')
+
 else:
-    # 本地开发环境配置
+    print("💻 本地开发环境: 使用文件系统存储 & HTTP")
+    # 1. Cookie 安全配置 (HTTP)
     app.config.update(
         SESSION_COOKIE_SECURE=False,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax'
     )
-# ================= Redis Session 配置 (新增) =================
-# 告诉 Flask：别把数据存 Cookie 了，存 Redis！
-app.config['SESSION_TYPE'] = 'redis'
-app.config['SESSION_PERMANENT'] = True
-app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_KEY_PREFIX'] = 'family:' # 给 Key 加个前缀，方便你看
-# 连接本地 Redis
-app.config['SESSION_REDIS'] = redis.from_url('redis://127.0.0.1:6379')
+    # 2. 文件系统 Session 配置 (无需安装 Redis)
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = './flask_session_data' # 在当前目录下生成文件夹存 Session
+    app.config['SESSION_PERMANENT'] = True
+# ---------------------------------------------------------
 
-# 初始化 Session
-Session(app) # <--- 这句会替代 Flask 默认的 session 机制
+# 初始化 Session (必须在配置之后)
+Session(app)
 
 # 初始化 CSRF 保护
 csrf = CSRFProtect(app)
@@ -89,7 +99,6 @@ supabase: Client = create_client(url, key)
 
 # 2. 管理员客户端 (Service Key，拥有上帝权限，用于后台管理和代登录)
 admin_supabase: Client = create_client(url, service_key) if service_key else None
-
 
 # ================= 辅助函数 =================
 
@@ -1543,13 +1552,42 @@ def admin_dashboard():
                 if u.get('avatar_url'): file_owner[u['avatar_url']] = u['display_name'] + " (头像)"
 
             # 遍历文件列表
-            files = client.storage.from_("family_photos").list()
+            # [修改] 显式指定路径为根目录 '/'，并忽略空文件夹占位符
+
+            # [调试代码] 打印一下看看发生了什么
+            print("正在尝试列出文件...")
+            files = client.storage.from_("family_photos").list(path="")
+            print(f"DEBUG: 找到了 {len(files)} 个文件")
+            print(f"DEBUG: 文件列表: {files}")
             for f in files:
                 name = f['name']
                 if name == '.emptyFolderPlaceholder': continue
 
-                size = f.get('metadata', {}).get('size', 0)
+                # [修复] 强制把大小转为整数，防止 MemFire 返回字符串导致报错
+                try:
+                    size = int(f.get('metadata', {}).get('size', 0))
+                except:
+                    size = 0
+
                 total_size += size
+                raw_time = f.get('created_at', '')
+                fmt_time = raw_time
+                try:
+                    if raw_time:
+                        # 1. 解析字符串为时间对象 (处理结尾的 Z)
+                        if raw_time.endswith('Z'):
+                            dt_utc = datetime.fromisoformat(raw_time.replace('Z', '+00:00'))
+                        else:
+                            dt_utc = datetime.fromisoformat(raw_time)
+
+                        # 2. 转为北京时间 (UTC+8)
+                        dt_bj = dt_utc.astimezone(timezone(timedelta(hours=8)))
+
+                        # 3. 格式化为字符串
+                        fmt_time = dt_bj.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception as e:
+                    # 如果解析失败，回退到简单截取
+                    fmt_time = raw_time[:19].replace('T', ' ')
 
                 uploader = file_owner.get(name)
                 uploader_str = f"✅ {uploader}" if uploader else '⚠️ 无记录'
@@ -1557,13 +1595,13 @@ def admin_dashboard():
                 storage_files.append({
                     "name": name,
                     "size_kb": round(size / 1024, 2),
-                    "created_at_fmt": f.get('created_at', '')[:19].replace('T', ' '),
+                    "created_at_fmt": fmt_time,
                     "url": client.storage.from_("family_photos").get_public_url(name),
                     "uploader": uploader_str
                 })
             storage_files.sort(key=lambda x: x['created_at_fmt'], reverse=True)
         except Exception as e:
-            print(f"Storage Error: {e}")
+            print(f"❌ 存储查询报错: {e}")
 
     # 7. Auth 用户 (Supabase 底层账户)
     auth_users = []
