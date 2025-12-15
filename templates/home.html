@@ -2520,15 +2520,22 @@
         </div>
     </div>
 
-    <!-- B. 排行榜区域 (默认隐藏) -->
-    <div id="snake-rank-area"
-         style="display:none; width: 300px; height: 400px; background: #fff; border-radius: 12px; overflow: hidden; color: #333;">
-        <div class="p-3 bg-warning text-dark fw-bold text-center">🏆 贪吃蛇争霸赛</div>
-        <div id="rank-list" style="overflow-y: auto; height: 340px; padding: 0;">
-            <!-- JS 填充 -->
-            <div class="text-center py-5 text-muted">加载中...</div>
+    <!-- B. 排行榜区域 -->
+        <div id="snake-rank-area" style="display:none; width: 300px; height: 400px; background: #fff; border-radius: 12px; overflow: hidden; color: #333; position: relative;">
+            <div class="p-3 bg-warning text-dark fw-bold text-center">🏆 贪吃蛇争霸赛</div>
+
+            <div id="rank-list" style="overflow-y: auto; height: 280px; padding: 0;">
+                <!-- JS 填充 -->
+                <div class="text-center py-5 text-muted">加载中...</div>
+            </div>
+
+            <!-- [新增] 底部按钮区 -->
+            <div class="p-2 border-top bg-light d-flex justify-content-center">
+                <button class="btn btn-success w-75 fw-bold rounded-pill shadow-sm" onclick="restartSnake()">
+                    🔄 再来一局
+                </button>
+            </div>
         </div>
-    </div>
 
     <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
 </div>
@@ -3466,7 +3473,13 @@
         if (dir === 'left' && dx === 0) { dx=-1; dy=0; }
         if (dir === 'right' && dx === 0) { dx=1; dy=0; }
     }
-
+    // [新增] 重新开始游戏
+    function restartSnake() {
+        // 切换回游戏视图
+        switchSnakeView('game');
+        // 重置数据并开始
+        resetGame();
+    }
     // 2. [修改] 统一的 showLoading 函数
     // 以后上传图片、发布动态，都调这个函数
     function showLoading() {
