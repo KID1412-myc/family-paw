@@ -1618,18 +1618,25 @@
                     </div>
                 </div>
 
-                <!-- (中间的照片、喂食、遛狗代码保持不变，直接复制原来的即可) -->
+                <!-- [修改] 宠物照片区域：支持多图角标 + 点击跳转详情 -->
                 {% if pet.latest_photo %}
-                    <div class="pet-photo-wrapper">
-                        <img src="{{ pet.latest_photo }}" onclick="window.open(this.src)">
-                        <div class="uploader-badge"><i class="fas fa-camera"></i> {{ pet.photo_uploader }}</div>
-                        {% if pet.latest_user_id == current_user_id %}
-                            <form action="/delete_log/{{ pet.latest_log_id }}" method="POST"
-                                  onsubmit="return confirm('确定删照片？')">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                            </form>
+                    <div class="pet-photo-wrapper" onclick="location.href='/pet/{{ pet.id }}'" style="cursor: pointer;">
+                        <img src="{{ pet.latest_photo }}">
+
+                        <!-- 上传者标签 -->
+                        <div class="uploader-badge">
+                            <i class="fas fa-camera"></i> {{ pet.photo_uploader }}
+                        </div>
+
+                        <!-- [新增] 多图计数角标 (如果大于1张) -->
+                        {% if pet.photo_count > 1 %}
+                            <div class="position-absolute top-0 end-0 m-2 badge bg-dark bg-opacity-75 rounded-pill border border-light border-opacity-50 shadow-sm"
+                                 style="font-size: 12px; backdrop-filter: blur(2px);">
+                                <i class="fas fa-images me-1"></i> 今日 {{ pet.photo_count }} 张
+                            </div>
                         {% endif %}
+
+                        <!-- [删除] 原来的删除按钮已移除，去详情页删更安全 -->
                     </div>
                 {% endif %}
 
@@ -2521,21 +2528,22 @@
     </div>
 
     <!-- B. 排行榜区域 -->
-        <div id="snake-rank-area" style="display:none; width: 300px; height: 400px; background: #fff; border-radius: 12px; overflow: hidden; color: #333; position: relative;">
-            <div class="p-3 bg-warning text-dark fw-bold text-center">🏆 贪吃蛇争霸赛</div>
+    <div id="snake-rank-area"
+         style="display:none; width: 300px; height: 400px; background: #fff; border-radius: 12px; overflow: hidden; color: #333; position: relative;">
+        <div class="p-3 bg-warning text-dark fw-bold text-center">🏆 贪吃蛇争霸赛</div>
 
-            <div id="rank-list" style="overflow-y: auto; height: 280px; padding: 0;">
-                <!-- JS 填充 -->
-                <div class="text-center py-5 text-muted">加载中...</div>
-            </div>
-
-            <!-- [新增] 底部按钮区 -->
-            <div class="p-2 border-top bg-light d-flex justify-content-center">
-                <button class="btn btn-success w-75 fw-bold rounded-pill shadow-sm" onclick="restartSnake()">
-                    🔄 再来一局
-                </button>
-            </div>
+        <div id="rank-list" style="overflow-y: auto; height: 280px; padding: 0;">
+            <!-- JS 填充 -->
+            <div class="text-center py-5 text-muted">加载中...</div>
         </div>
+
+        <!-- [新增] 底部按钮区 -->
+        <div class="p-2 border-top bg-light d-flex justify-content-center">
+            <button class="btn btn-success w-75 fw-bold rounded-pill shadow-sm" onclick="restartSnake()">
+                🔄 再来一局
+            </button>
+        </div>
+    </div>
 
     <button class="btn btn-danger mt-4 rounded-pill px-4" onclick="closeSnakeGame()">不玩了</button>
 </div>
@@ -3288,7 +3296,8 @@
     let snakeInterval;
     let snake = [{x: 10, y: 10}];
     let food = {x: 15, y: 15};
-    let dx = 0; let dy = 0;
+    let dx = 0;
+    let dy = 0;
     let score = 0;
     let isGameRunning = false;
     const gridSize = 15;
@@ -3304,7 +3313,7 @@
             startSnakeGame();
             snakeClickCount = 0;
             // 震动提示
-            if(navigator.vibrate) navigator.vibrate(100);
+            if (navigator.vibrate) navigator.vibrate(100);
         }
 
         // 重置计时器 (1秒内没点够就清零)
@@ -3316,7 +3325,7 @@
 
     function startSnakeGame() {
         const modal = document.getElementById('snake-modal');
-        if(modal) {
+        if (modal) {
             modal.style.display = 'flex';
             switchSnakeView('game');
             resetGame();
@@ -3336,7 +3345,8 @@
 
     function resetGame() {
         snake = [{x: 10, y: 10}];
-        dx = 0; dy = 0;
+        dx = 0;
+        dy = 0;
         score = 0;
         document.getElementById('snake-score').innerText = 0;
         isGameRunning = true;
@@ -3353,7 +3363,7 @@
     // 游戏主循环
     function gameLoop() {
         if (!isGameRunning) return;
-        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
 
         if (dx === 0 && dy === 0) return; // 还没开始动
 
@@ -3369,8 +3379,8 @@
         if (head.x === food.x && head.y === food.y) {
             score++;
             document.getElementById('snake-score').innerText = score;
-            food = { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 20) };
-            if(window.fireConfetti) fireConfetti(); // 庆祝
+            food = {x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 20)};
+            if (window.fireConfetti) fireConfetti(); // 庆祝
         } else {
             snake.pop();
         }
@@ -3387,15 +3397,15 @@
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
             body: JSON.stringify({score: score})
         })
-        .then(res => res.json())
-        .then(data => {
-            let msg = `Game Over! 本局得分: ${score}`;
-            if (data.new_record) msg += "\n🎉 恭喜！打破个人纪录！";
-            alert(msg);
-            // 自动切到排行榜看看
-            switchSnakeView('rank');
-        })
-        .catch(err => console.error("上传分数失败", err));
+            .then(res => res.json())
+            .then(data => {
+                let msg = `Game Over! 本局得分: ${score}`;
+                if (data.new_record) msg += "\n🎉 恭喜！打破个人纪录！";
+                alert(msg);
+                // 自动切到排行榜看看
+                switchSnakeView('rank');
+            })
+            .catch(err => console.error("上传分数失败", err));
     }
 
     // 视图切换
@@ -3453,26 +3463,42 @@
 
     // 绘图与按键 (保持不变)
     function drawSnake() {
-        if(!ctx) return;
-        ctx.fillStyle = '#2d3436'; ctx.fillRect(0, 0, 300, 300);
+        if (!ctx) return;
+        ctx.fillStyle = '#2d3436';
+        ctx.fillRect(0, 0, 300, 300);
         ctx.fillStyle = '#00b894';
         snake.forEach(p => ctx.fillRect(p.x * 15, p.y * 15, 13, 13));
         ctx.fillStyle = '#ff7675';
         ctx.fillRect(food.x * 15, food.y * 15, 13, 13);
     }
+
     function handleKey(e) {
-        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-        if(e.key === 'ArrowUp') snakeDir('up');
-        if(e.key === 'ArrowDown') snakeDir('down');
-        if(e.key === 'ArrowLeft') snakeDir('left');
-        if(e.key === 'ArrowRight') snakeDir('right');
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+        if (e.key === 'ArrowUp') snakeDir('up');
+        if (e.key === 'ArrowDown') snakeDir('down');
+        if (e.key === 'ArrowLeft') snakeDir('left');
+        if (e.key === 'ArrowRight') snakeDir('right');
     }
+
     function snakeDir(dir) {
-        if (dir === 'up' && dy === 0) { dx=0; dy=-1; }
-        if (dir === 'down' && dy === 0) { dx=0; dy=1; }
-        if (dir === 'left' && dx === 0) { dx=-1; dy=0; }
-        if (dir === 'right' && dx === 0) { dx=1; dy=0; }
+        if (dir === 'up' && dy === 0) {
+            dx = 0;
+            dy = -1;
+        }
+        if (dir === 'down' && dy === 0) {
+            dx = 0;
+            dy = 1;
+        }
+        if (dir === 'left' && dx === 0) {
+            dx = -1;
+            dy = 0;
+        }
+        if (dir === 'right' && dx === 0) {
+            dx = 1;
+            dy = 0;
+        }
     }
+
     // [新增] 重新开始游戏
     function restartSnake() {
         // 切换回游戏视图
@@ -3480,6 +3506,7 @@
         // 重置数据并开始
         resetGame();
     }
+
     // 2. [修改] 统一的 showLoading 函数
     // 以后上传图片、发布动态，都调这个函数
     function showLoading() {

@@ -910,8 +910,20 @@ def home():
 
             # 日志
             if all_pet_ids:
-                logs = db.table('logs').select("*").in_('pet_id', all_pet_ids).gte('created_at', today_str).order(
-                    'created_at', desc=True).execute().data or []
+                # [核心修复] 计算"北京时间今天0点"对应的 UTC 时间
+                # 1. 获取当前北京时间
+                now_bj = datetime.now(timezone(timedelta(hours=8)))
+                # 2. 拿到今天 00:00:00 的时间点
+                today_start_bj = now_bj.replace(hour=0, minute=0, second=0, microsecond=0)
+                # 3. 转回 UTC 时间 (这才是数据库能看懂的"今天开始")
+                # 比如北京 16日 00:00 -> UTC 15日 16:00
+                filter_time_utc = today_start_bj.astimezone(timezone.utc).isoformat()
+
+                logs = db.table('logs').select("*") \
+                           .in_('pet_id', all_pet_ids) \
+                           .gte('created_at', filter_time_utc) \
+                           .order('created_at', desc=True) \
+                           .execute().data or []
 
             # 动态
             visible_uids = list(user_map.keys())
@@ -930,9 +942,9 @@ def home():
         pet['walk_info'] = ""
         pet['latest_photo'] = None;
         pet['photo_uploader'] = ""
-        pet['latest_log_id'] = None;
-        pet['latest_user_id'] = None
-
+        # pet['latest_log_id'] = None;
+        # pet['latest_user_id'] = None
+        pet['photo_count'] = 0
         pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
         pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
 
@@ -943,18 +955,23 @@ def home():
             if log['pet_id'] == pet['id']:
                 who = user_map.get(log['user_id'], {}).get('name', '家人')
                 time_str = format_time_friendly(log['created_at'])
+
                 if log['action'] == 'feed':
                     pet['today_feed'] = True
                     if not pet['feed_info']: pet['feed_info'] = f"{who} ({time_str})"
+
                 elif log['action'] == 'walk':
                     pet['today_walk'] = True
                     if not pet['walk_info']: pet['walk_info'] = f"{who} ({time_str})"
-                elif log['action'] == 'photo' and not pet['latest_photo']:
-                    if log.get('image_path'):
+
+
+                elif log['action'] == 'photo':
+                    # [新增] 只要是照片，计数器就+1
+                    pet['photo_count'] += 1
+                    # [保留] 如果是第一张(最新的)，设为封面
+                    if not pet['latest_photo'] and log.get('image_path'):
                         pet['latest_photo'] = f"{url}/storage/v1/object/public/family_photos/{log['image_path']}"
                         pet['photo_uploader'] = who
-                        pet['latest_log_id'] = log['id']
-                        pet['latest_user_id'] = log['user_id']
 
     moments = []
     for m in moments_data:
@@ -1019,10 +1036,23 @@ def pet_detail(pet_id):
 
             photos = logs_res.data or []
 
-            # 补全图片URL
+            # 补全图片URL + [新增] 转换显示时间
             for p in photos:
                 if p.get('image_path'):
                     p['url'] = f"{url}/storage/v1/object/public/family_photos/{p['image_path']}"
+                # [新增] UTC -> 北京时间
+                try:
+                    # 解析数据库时间
+                    dt_utc = datetime.fromisoformat(p['created_at'].replace('Z', '+00:00'))
+                    # 转北京时间
+                    dt_bj = dt_utc.astimezone(timezone(timedelta(hours=8)))
+                    # 存一个新的字段用于显示 (格式: 2025-12-16 10:30)
+                    p['display_time'] = dt_bj.strftime('%Y-%m-%d %H:%M')
+                    # 也可以只存日期用于拍立得底部
+                    p['display_date'] = dt_bj.strftime('%Y-%m-%d')
+                except:
+                    p['display_time'] = "时间未知"
+                    p['display_date'] = "Unknown"
 
             # 智能决定封面：有设定用设定，没设定用最新照片
             if cover_path:
@@ -1031,7 +1061,7 @@ def pet_detail(pet_id):
                 pet['cover_url'] = photos[0]['url']
             else:
                 # 默认封面 (可以是网图或者本地图)
-                pet['cover_url'] = "/static/default_cover.jpg"  # 暂时用个占位，或者前端CSS处理
+                pet['cover_url'] = "/static/default_cover.png"  # 暂时用个占位，或者前端CSS处理
 
             pet['photos'] = photos
 
@@ -1048,7 +1078,9 @@ def pet_detail(pet_id):
         print(f"Pet Detail Error: {e}")
         return redirect(url_for('home'))
 
-    return render_template('pet_detail.html', pet=pet)
+    return render_template('pet_detail.html',
+                            pet=pet,
+                            current_user_id=session['user'])  # <--- [新增] 传入当前用户ID
 
 
 @app.route('/update_pet_detail', methods=['POST'])
@@ -2328,6 +2360,41 @@ def get_snake_leaderboard():
     except Exception as e:
         print(f"Leaderboard Error: {e}")
         return jsonify([])
+
+
+@app.route('/delete_pet_photo', methods=['POST'])
+@login_required
+def delete_pet_photo():
+    """删除宠物照片 (仅限上传者)"""
+    db = get_db()
+    log_id = request.form.get('log_id')
+    pet_id = request.form.get('pet_id')
+
+    try:
+        # 1. 先查询照片信息 (为了拿路径和验证上传者)
+        # RLS 策略虽然有保障，但我们在代码里再做一次校验更稳妥
+        log_res = db.table('logs').select('*').eq('id', log_id).single().execute()
+
+        if log_res.data:
+            record = log_res.data
+            # 校验：只有上传者本人可以删
+            if record['user_id'] == session['user']:
+                # A. 删文件
+                if record.get('image_path'):
+                    db.storage.from_("family_photos").remove(record['image_path'])
+
+                # B. 删记录
+                db.table('logs').delete().eq('id', log_id).execute()
+                flash("照片已删除", "success")
+            else:
+                flash("你不能删除别人上传的照片哦", "warning")
+        else:
+            flash("照片不存在或已被删除", "info")
+
+    except Exception as e:
+        flash(f"删除失败: {e}", "danger")
+
+    return redirect(url_for('pet_detail', pet_id=pet_id))
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)
