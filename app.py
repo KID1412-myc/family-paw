@@ -1357,15 +1357,32 @@ def send_family_reminder():
             .execute()
 
         if last_rem.data:
-            # 转换时间并比对日期
-            last_time = datetime.fromisoformat(last_rem.data[0]['created_at'].replace('Z', '+00:00'))
-            last_date = last_time.astimezone(timezone(timedelta(hours=8))).date()
-            today_date = datetime.now(timezone(timedelta(hours=8))).date()
+            # [核心修复] 手动解析时间，防止毫秒位数不对导致报错
+            try:
+                raw_time = last_rem.data[0]['created_at']
+                # 1. 简单粗暴：只截取前19位 (YYYY-MM-DDTHH:MM:SS)
+                # 这样就丢掉了 ".63411+00:00" 这种可能导致报错的尾巴
+                clean_time = raw_time[:19]
+                # 2. 解析为时间对象
+                dt_obj = datetime.strptime(clean_time, '%Y-%m-%dT%H:%M:%S')
 
-            # 如果我自己今天已经发过了，才拦截
-            if last_date == today_date:
-                flash("你今天在这个家已经发过提醒啦 (每人每天限1条)", "info")
-                return redirect(url_for('home'))
+                # 3. 补上 UTC 时区 (因为数据库存的是 UTC)
+                dt_utc = dt_obj.replace(tzinfo=timezone.utc)
+
+                # 4. 转为北京时间
+                last_date = dt_utc.astimezone(timezone(timedelta(hours=8))).date()
+
+                # 5. 获取今天日期
+                today_date = datetime.now(timezone(timedelta(hours=8))).date()
+
+                # 6. 比对
+                if last_date == today_date:
+                    flash("你今天在这个家已经发过提醒啦 (每人每天限1条)", "info")
+                    return redirect(url_for('home'))
+
+            except Exception as e:
+                print(f"Time Parse Error: {e}")
+                pass
 
         # ... (插入逻辑) ...
         sender_name = session.get('display_name', '家人')
