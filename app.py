@@ -7,6 +7,7 @@ from functools import wraps
 import requests
 import threading
 import redis  # 导入 redis
+import psutil  # [新增] 用于监控服务器状态
 from flask_session import Session  # 导入 Session 扩展
 from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
@@ -91,7 +92,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.6.1'
+CURRENT_APP_VERSION = '3.7.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -1718,6 +1719,7 @@ def admin_dashboard():
     # 6. 文件存储分析 (查找上传者)
     storage_files = []
     total_size = 0
+    storage_breakdown = {'pet': 0, 'moment': 0, 'avatar': 0, 'other': 0}
     if admin_supabase:
         try:
             file_owner = {}
@@ -1752,6 +1754,16 @@ def admin_dashboard():
                     size = 0
 
                 total_size += size
+                # [新增] 分类统计逻辑
+                if name.startswith('pet_'):
+                    storage_breakdown['pet'] += size
+                elif name.startswith('moment_'):
+                    storage_breakdown['moment'] += size
+                elif name.startswith('avatar_'):
+                    storage_breakdown['avatar'] += size
+                else:
+                    storage_breakdown['other'] += size
+
                 raw_time = f.get('created_at', '')
                 fmt_time = raw_time
                 try:
@@ -1806,7 +1818,8 @@ def admin_dashboard():
         "pets": len(pets),
         "families": len(families),
         "storage_mb": round(total_size / 1048576, 2),
-        "file_count": len(storage_files)
+        "file_count": len(storage_files),
+        "storage_breakdown": {k: round(v / 1048576, 2) for k, v in storage_breakdown.items()}
     }
 
     return render_template('admin.html',
@@ -1820,6 +1833,22 @@ def admin_dashboard():
                            reg_codes=reg_codes,  # [新增] 注册暗号列表
                            user_name=session.get('display_name'))
 
+# 3. 新增 API: 获取服务器实时状态
+@app.route('/api/server_stats')
+@admin_required
+def api_server_stats():
+    """实时 CPU 和 内存"""
+    try:
+        cpu = psutil.cpu_percent(interval=None) # 获取当前CPU百分比
+        memory = psutil.virtual_memory()
+        return jsonify({
+            'cpu': cpu,
+            'memory': memory.percent,
+            'memory_used': round(memory.used / 1024 / 1024, 1), # MB
+            'memory_total': round(memory.total / 1024 / 1024, 1) # MB
+        })
+    except:
+        return jsonify({'cpu': 0, 'memory': 0})
 
 @app.route('/admin/login_as/<uid>')
 @admin_required

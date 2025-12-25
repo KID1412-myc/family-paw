@@ -18,6 +18,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         body {
             background-color: #f8f9fa;
@@ -113,7 +114,35 @@
 </div>
 
 <div class="container">
+    <!-- 数据指挥舱 -->
+    <div class="row g-3 mb-4">
+        <!-- 左侧：服务器实时监控 -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 fw-bold pt-3 pb-0">
+                    <i class="fas fa-microchip text-primary me-2"></i>实时负载
+                </div>
+                <div class="card-body d-flex justify-content-around align-items-center">
+                    <!-- [修改] 去掉 width:150px，改用 flex 自适应，高度加大到 200px -->
+                    <div style="flex: 1; height: 200px;" id="chart-cpu"></div>
+                    <div style="flex: 1; height: 200px;" id="chart-mem"></div>
+                </div>
+            </div>
+        </div>
 
+        <!-- 右侧：存储透视 -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 fw-bold pt-3 pb-0">
+                    <i class="fas fa-hdd text-success me-2"></i>存储空间分布
+                </div>
+                <div class="card-body">
+                    <!-- [修改] 高度加大 -->
+                    <div id="chart-storage" style="width: 100%; height: 240px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="card p-3 text-center h-100 justify-content-center">
@@ -635,28 +664,121 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // 使用 JSON.parse 安全解析后端传来的数据
-    // | tojson 过滤器由 Flask 提供，| safe 防止被 HTML 转义
     const authData = JSON.parse('{{ auth_users | tojson | safe }}');
+    const storageData = {{ stats.storage_breakdown | tojson | safe }} || {pet: 0, moment: 0, avatar: 0, other: 0};
 
     function toggleRawData(uid) {
         const box = document.getElementById('raw-' + uid);
-
-        // 切换显示/隐藏
+        box.style.display = (box.style.display === 'block') ? 'none' : 'block';
         if (box.style.display === 'block') {
-            box.style.display = 'none';
-        } else {
-            // 查找对应数据
             const userData = authData.find(u => u.id === uid);
-
-            if (userData) {
-                box.innerText = JSON.stringify(userData, null, 2); // 格式化 JSON
-            } else {
-                box.innerText = "未找到 Auth 元数据 (可能是脏数据或未加载)";
-            }
-            box.style.display = 'block';
+            box.innerText = userData ? JSON.stringify(userData, null, 2) : "无数据";
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const chartCpu = echarts.init(document.getElementById('chart-cpu'));
+        const chartMem = echarts.init(document.getElementById('chart-mem'));
+        const chartStorage = echarts.init(document.getElementById('chart-storage'));
+
+        // === 1. 仪表盘：Apple Watch 风格渐变环 ===
+        function getRingOption(title, colorStart, colorEnd) {
+            return {
+                series: [{
+                    type: 'gauge',
+                    startAngle: 90, endAngle: -270,
+                    pointer: {show: false}, // 不要指针
+                    progress: {
+                        show: true,
+                        overlap: false,
+                        roundCap: true, // 圆角端点 (高级感来源)
+                        clip: false,
+                        itemStyle: {
+                            // 渐变色
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                {offset: 0, color: colorStart},
+                                {offset: 1, color: colorEnd}
+                            ])
+                        }
+                    },
+                    axisLine: {lineStyle: {width: 15, color: [[1, '#f0f2f5']]}}, // 底色淡灰
+                    splitLine: {show: false},
+                    axisTick: {show: false},
+                    axisLabel: {show: false},
+                    data: [{
+                        value: 0,
+                        name: title,
+                        title: {offsetCenter: ['0%', '120%'], fontSize: 14, color: '#999'}, // 标题在下面
+                        detail: {
+                            offsetCenter: ['0%', '0%'], // 数字居中
+                            fontSize: 30,
+                            fontWeight: 'bold',
+                            color: '#333',
+                            formatter: '{value}%'
+                        }
+                    }]
+                }]
+            };
+        }
+
+        let optCpu = getRingOption('CPU', '#4facfe', '#00f2fe'); // 蓝青渐变
+        let optMem = getRingOption('内存', '#43e97b', '#38f9d7'); // 绿青渐变
+
+        chartCpu.setOption(optCpu);
+        chartMem.setOption(optMem);
+
+        // === 2. 存储图：圆角甜甜圈 (莫兰迪色) ===
+        const storageOption = {
+            tooltip: {trigger: 'item', formatter: '{b}: {c}MB ({d}%)'},
+            legend: {top: 'middle', right: '0%', orient: 'vertical', icon: 'circle'},
+            series: [{
+                name: '存储',
+                type: 'pie',
+                radius: ['50%', '75%'], // 甜甜圈
+                center: ['35%', '50%'], // 往左移一点，给图例留位置
+                avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 8,
+                    borderColor: '#fff',
+                    borderWidth: 3
+                },
+                label: {show: false},
+                // 高级配色
+                color: ['#5470c6', '#91cc75', '#fac858', '#ee6666'],
+                data: [
+                    {value: storageData.pet, name: '宠物'},
+                    {value: storageData.moment, name: '动态'},
+                    {value: storageData.avatar, name: '头像'},
+                    {value: storageData.other, name: '其他'}
+                ]
+            }]
+        };
+        chartStorage.setOption(storageOption);
+
+        // === 3. 实时数据更新 ===
+        function fetchServerStats() {
+            fetch('/api/server_stats')
+                .then(res => res.json())
+                .then(data => {
+                    // 动态更新数据
+                    optCpu.series[0].data[0].value = Math.round(data.cpu);
+                    chartCpu.setOption(optCpu);
+
+                    optMem.series[0].data[0].value = Math.round(data.memory);
+                    chartMem.setOption(optMem);
+                })
+                .catch(err => console.error(err));
+        }
+
+        setInterval(fetchServerStats, 2000);
+        fetchServerStats();
+
+        window.addEventListener('resize', () => {
+            chartCpu.resize();
+            chartMem.resize();
+            chartStorage.resize();
+        });
+    });
 </script>
 </body>
 </html>
