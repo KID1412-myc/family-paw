@@ -93,7 +93,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.8.1'
+CURRENT_APP_VERSION = '3.8.2'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -2710,14 +2710,28 @@ def get_family_stats():
             if uid in stats: stats[uid]['care'] += 1
 
         # E. 元老值
-        today = datetime.now(timezone.utc)
+        now_bj = datetime.now(timezone(timedelta(hours=8))).date()
+
         for m in member_list:
             try:
-                join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
-                days = (today - join_date).days
-                if m['user_id'] in stats: stats[m['user_id']]['seniority'] = days
-            except:
-                pass
+                # 1. 直接截取前10位: "2025-12-05 15:xx..." -> "2025-12-05"
+                # 这种字符串处理方式绝对不会报错，无视任何时区格式
+                date_str = str(m['created_at'])[:10]
+
+                # 2. 转为日期对象
+                join_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+                # 3. 计算天数
+                days = (now_bj - join_date).days
+
+
+
+                if m['user_id'] in stats:
+                    stats[m['user_id']]['seniority'] = days
+
+            except Exception as e:
+                # 把错误打印出来，万一还有错能看到
+                print(f"Seniority Calc Error: {e} for {m['created_at']}")
 
         # 3. 组装返回
         result = []
@@ -2730,7 +2744,7 @@ def get_family_stats():
                 '📸 朋友圈战神': s['recorder'],
                 '😋 干饭王': s['foodie'],
                 '❤️ 贴心小棉袄': s['care'],
-                '🌟 一家之主': s['seniority'] / 10
+                '🌟 一家之主': s['seniority'] / 7
             }
             title = max(scores, key=scores.get)
             if all(v == 0 for v in scores.values()): title = "🌱 萌新成员"

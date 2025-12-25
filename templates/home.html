@@ -4552,43 +4552,69 @@
     function switchRole(index) {
         const user = roleDataCache[index];
 
-        // 1. 高亮头像
+        // 1. 高亮头像 & 更新文字
         const imgs = document.querySelectorAll('.role-avatar-item');
         imgs.forEach(img => img.classList.remove('active'));
         imgs[index].classList.add('active');
 
-        // 2. 更新文字
         document.getElementById('role-title').innerText = user.title;
         document.getElementById('role-name').innerText = user.name;
 
-        // 3. 渲染雷达图
+        // 2. 渲染雷达图
         if (!roleChart) roleChart = echarts.init(document.getElementById('role-chart'));
 
-        // 计算最大值，保证图表美观 (取所有数据的最大值，防止溢出)
-        const allValues = roleDataCache.flatMap(u => u.data);
-        const maxVal = Math.max(...allValues, 10); // 至少为10
+        const d = user.data; // [守护, 记录, 美食, 关怀, 元老]
+
+        // [核心逻辑升级]：分离计算最大值
+        // 动作类的最大值 (前4项)
+        const maxAction = Math.max(d[0], d[1], d[2], d[3], 5); // 保底为5，防止全是0的时候图很难看
+
+        // 天数类的最大值 (第5项)
+        const maxDays = Math.max(d[4], 30); // 保底为30天
 
         const option = {
             radar: {
                 indicator: [
-                    {name: '守护力\n(喂食)', max: maxVal},
-                    {name: '记录力\n(发图)', max: maxVal},
-                    {name: '美食魂\n(许愿)', max: maxVal},
-                    {name: '关怀力\n(提醒)', max: maxVal},
-                    {name: '元老值\n(天数)', max: maxVal}
+                    { name: '守护力', max: maxAction },
+                    { name: '记录力', max: maxAction },
+                    { name: '美食魂', max: maxAction },
+                    { name: '关怀力', max: maxAction },
+                    // [修改] 元老值单独使用 maxDays 作为刻度
+                    { name: '元老值', max: maxDays }
                 ],
                 shape: 'circle',
                 splitNumber: 4,
-                axisName: {color: '#666', fontSize: 11}
+                axisName: {
+                    color: '#666',
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    formatter: function (value, indicator) {
+                        // 给不同的维度加不同的Emoji，更生动
+                        const icons = {'守护力':'🛡️', '记录力':'📸', '美食魂':'😋', '关怀力':'❤️', '元老值':'🌟'};
+                        // 简单的换行处理，防止文字太长
+                        return (icons[value] || '') + '\n' + value;
+                    }
+                },
+                splitArea: {
+                    areaStyle: {
+                        color: ['rgba(255,255,255,0.9)', 'rgba(245,247,250,0.9)']
+                    }
+                }
             },
             series: [{
                 type: 'radar',
                 data: [{
                     value: user.data,
                     name: user.name,
-                    areaStyle: {color: 'rgba(102, 126, 234, 0.5)'}, // 半透明填充
-                    itemStyle: {color: '#667eea'},
-                    lineStyle: {width: 3}
+                    areaStyle: {
+                        color: new echarts.graphic.RadialGradient(0.1, 0.6, 1, [
+                            { color: 'rgba(102, 126, 234, 0.2)', offset: 0 },
+                            { color: 'rgba(118, 75, 162, 0.6)', offset: 1 }
+                        ])
+                    },
+                    itemStyle: { color: '#764ba2' },
+                    lineStyle: { width: 3, color: '#667eea' },
+                    symbolSize: 6
                 }]
             }]
         };
