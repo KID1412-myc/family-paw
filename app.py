@@ -91,7 +91,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.5.1'
+CURRENT_APP_VERSION = '3.5.2'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -534,21 +534,37 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session: return redirect(url_for('login'))
+        if 'user' not in session:
+            return redirect(url_for('login'))
 
-        # [核心修复] 如果处于上帝模式（已伪装），直接放行，允许进入后台
+        # 1. 上帝模式：直接放行
         if session.get('is_impersonator'):
             return f(*args, **kwargs)
 
+        # 2. [核心优化] 优先检查 Session 缓存
+        # 如果登录时已经确认是 admin，直接放行，不查数据库！
+        if session.get('role') == 'admin':
+            return f(*args, **kwargs)
+
+        # 3. 兜底：如果 Session 里没存 (比如旧登录状态)，再去查一次数据库
         try:
-            # 查权限时使用全局 supabase 即可
-            res = supabase.table('profiles').select('role').eq('id', session['user']).single().execute()
-            if not res.data or res.data['role'] != 'admin':
+            client = get_db() or supabase
+            res = client.table('profiles').select('role').eq('id', session['user']).single().execute()
+
+            if res.data and res.data['role'] == 'admin':
+                # 查到了，顺手补进 Session，下次就快了
+                session['role'] = 'admin'
+                return f(*args, **kwargs)
+            else:
+                # 确实不是管理员
                 flash("🚫 权限拒绝：你没有管理员权限！", "danger")
                 return redirect(url_for('home'))
-        except:
+
+        except Exception as e:
+            # 查库报错了 (网络抖动等)
+            print(f"Admin Check Error: {e}")
+            flash("⚠️ 权限验证超时，请重试或重新登录", "warning")
             return redirect(url_for('home'))
-        return f(*args, **kwargs)
 
     return decorated_function
 
@@ -628,6 +644,18 @@ def login():
             session['access_token'] = res.session.access_token
             session['refresh_token'] = res.session.refresh_token
 
+            # [核心修改] 3. 查一次 Profile，把 昵称 和 身份(role) 都存进 Session
+            # 这样以后就不用每次都查库了，极快且稳
+            try:
+                # 使用全局 supabase 查，因为刚登录 token 可能还没热乎
+                p = supabase.table('profiles').select("display_name, role").eq('id', res.user.id).single().execute()
+                if p.data:
+                    session['display_name'] = p.data.get('display_name', "家人")
+                    session['role'] = p.data.get('role', 'user')  # <--- 关键！存入 role
+            except Exception as e:
+                print(f"Profile Load Error: {e}")
+                session['display_name'] = "家人"
+                session['role'] = 'user'
             # [优化] 优先从 Auth Metadata 获取昵称，不查数据库，极大提升速度
             meta_name = res.user.user_metadata.get('display_name')
             session['display_name'] = meta_name if meta_name else "家人"
