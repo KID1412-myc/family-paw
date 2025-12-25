@@ -1209,28 +1209,30 @@
             transition: transform 4s cubic-bezier(0.15, 0.9, 0.35, 1.05); /* 更有弹性的刹车 */
         }
 
-        /* 顶部指针 (改成了红色) */
+        /* 顶部指针 (改为深灰色金属质感) */
         .wheel-pointer {
             position: absolute;
-            top: -25px;
+            top: -20px; /* 稍微调低一点 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 20;
-            width: 40px;
+            width: 36px; /* 稍微瘦一点更精致 */
             height: 50px;
-            background: #ff4757; /* [修改] 这里改成了红色 */
-            clip-path: polygon(50% 100%, 0 10%, 100% 10%);
-            filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3));
+            background: #2d3436; /* [修改] 深枪灰色，百搭且高级 */
+            clip-path: polygon(50% 100%, 0 0, 100% 0); /* 倒三角 */
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5)); /* 阴影加重，更立体 */
         }
 
-        /* 指针中心点 (改成了白色) */
+        /* 指针中心点 (改为银色铆钉) */
         .wheel-pointer::after {
             content: '';
             position: absolute;
-            top: 5px; left: 12px;
-            width: 16px; height: 16px;
-            background: #ffffff; /* [修改] 这里改成了白色 */
+            top: 6px; left: 50%;
+            transform: translateX(-50%);
+            width: 14px; height: 14px;
+            background: #dfe6e9; /* [修改] 银白色 */
             border-radius: 50%;
+            box-shadow: inset 0 -2px 2px rgba(0,0,0,0.1); /* 微弱的内阴影 */
         }
         /* 中心按钮 GO */
         .wheel-center {
