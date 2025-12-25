@@ -718,8 +718,7 @@
             color: #ff7675;
         }
 
-        /* === 升级版：家庭小剧场 (带Q弹特效) === */
-        /* === 升级版：温馨客厅风格 === */
+
         /* === 升级版：暖暖的小屋 === */
         .family-stage-card {
             /* 暖米色背景，不再是惨白 */
@@ -735,7 +734,8 @@
             box-shadow: 0 4px 15px rgba(139, 119, 101, 0.1);
 
             position: relative;
-            overflow: hidden;
+            overflow: visible !important;
+            z-index: 5;
             border: 1px solid #fcf4e6; /* 奶茶色边框 */
 
             /* [核心] 地板效果：加粗底部边框，用深木色 */
@@ -752,7 +752,9 @@
             height: 150px;
             background: radial-gradient(circle, #ffeaa7 0%, transparent 70%);
             opacity: 0.6;
+            z-index: -1;
             pointer-events: none;
+             display: none;
         }
 
         .stage-header {
@@ -1220,20 +1222,23 @@
             height: 50px;
             background: #2d3436; /* [修改] 深枪灰色，百搭且高级 */
             clip-path: polygon(50% 100%, 0 0, 100% 0); /* 倒三角 */
-            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5)); /* 阴影加重，更立体 */
+            filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.5)); /* 阴影加重，更立体 */
         }
 
         /* 指针中心点 (改为银色铆钉) */
         .wheel-pointer::after {
             content: '';
             position: absolute;
-            top: 6px; left: 50%;
+            top: 6px;
+            left: 50%;
             transform: translateX(-50%);
-            width: 14px; height: 14px;
+            width: 14px;
+            height: 14px;
             background: #dfe6e9; /* [修改] 银白色 */
             border-radius: 50%;
-            box-shadow: inset 0 -2px 2px rgba(0,0,0,0.1); /* 微弱的内阴影 */
+            box-shadow: inset 0 -2px 2px rgba(0, 0, 0, 0.1); /* 微弱的内阴影 */
         }
+
         /* 中心按钮 GO */
         .wheel-center {
             position: absolute;
@@ -1307,6 +1312,110 @@
             background: #eccc68;
             color: white;
             border-color: #eccc68;
+        }
+
+        /* === 角色卡样式 === */
+        .role-avatar-list {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .role-avatar-item {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            opacity: 0.6;
+            transition: all 0.2s;
+            cursor: pointer;
+            object-fit: cover;
+        }
+
+        .role-avatar-item.active {
+            border-color: #667eea;
+            opacity: 1;
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .role-title-badge {
+            background: linear-gradient(90deg, #f83600 0%, #f9d423 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            display: inline-block;
+            box-shadow: 0 4px 10px rgba(249, 212, 35, 0.4);
+            margin-bottom: 10px;
+        }
+
+        /* === 功能菜单 (工具箱) === */
+        .tools-dropdown-wrapper {
+            position: relative;
+        }
+
+        .tools-menu {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            padding: 10px;
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+            border: 1px solid #f0f0f0;
+            min-width: 140px;
+            animation: slideDown 0.2s ease-out;
+        }
+
+        .tools-menu.show {
+            display: flex;
+        }
+
+        .tool-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            color: #555;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .tool-item:active {
+            background: #f8f9fa;
+        }
+
+        /* 菜单里的小图标 */
+        .mini-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
     <!-- [新增] 放在 <head> 里 -->
@@ -1420,30 +1529,65 @@
             <div class="family-stage-card fam-item fam-{{ fam.id }}">
                 <!-- 顶部：家庭名 + 极简功能区 -->
                 <div class="stage-header">
-                    <!-- 左侧：家庭名 -->
-                    <div class="fw-bold text-dark d-flex align-items-center text-truncate" style="max-width: 55%;">
+                    <!-- 左侧：家庭名 (现在空间很大了) -->
+                    <div class="fw-bold text-dark d-flex align-items-center text-truncate" style="flex: 1;">
                         <i class="fas fa-home text-warning me-2"></i>{{ fam.name }}
                     </div>
 
-                    <!-- 右侧：图标 + 验证码 -->
+                    <!-- 右侧：邀请码 + 工具箱 -->
                     <div class="d-flex align-items-center gap-2">
-                        <!-- [新增] 足迹地图入口 -->
 
-                        <div class="btn-icon-circle"
-                             style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); box-shadow: 0 4px 10px rgba(161, 140, 209, 0.3);"
-                             onclick='openMapModal("{{ fam.id }}",
-                                     "{{ fam.location_home_name or "" }}", {{ fam.location_home_lat or 0 }}, {{ fam.location_home_lon or 0 }},
-                                     "{{ fam.location_away_name or "" }}", {{ fam.location_away_lat or 0 }}, {{ fam.location_away_lon or 0 }},
-                                     {{ fam.footprints | tojson | safe }})'>
-                            <i class="fas fa-map-marked-alt"></i>
-                        </div>
-                        <!-- [修改] 大转盘 (圆形图标) -->
-                        <div class="btn-icon-circle" onclick="openWheelModal('{{ fam.id }}')">
-                            <i class="fas fa-dharmachakra fa-lg"></i> <!-- 或者用 fa-dice -->
-                        </div>
-                        <!-- [修改] 邀请码 (胶囊样式) -->
+                        <!-- 邀请码 (保留) -->
                         <div class="code-pill" onclick="copyCode(this)" title="点击复制">
-                            <i class="fas fa-key"></i>{{ fam.invite_code }}
+                            <i class="fas fa-key"></i>邀请码:{{ fam.invite_code }}
+                        </div>
+
+                        <!-- [新增] 工具箱按钮 -->
+                        <div class="tools-dropdown-wrapper">
+                            <div class="btn-icon-circle" style="background: #f1f2f6; color: #666;"
+                                 onclick="toggleTools('{{ fam.id }}')">
+                                <i class="fas fa-grid-2"></i> <!-- 或者用 fa-th-large -->
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                                </svg>
+                            </div>
+
+                            <!-- 隐藏的菜单 -->
+                            <div class="tools-menu" id="tools-menu-{{ fam.id }}">
+
+                                <!-- 1. 角色卡 -->
+                                <div class="tool-item"
+                                     onclick="openRoleModal('{{ fam.id }}'); toggleTools('{{ fam.id }}')">
+                                    <div class="mini-icon"
+                                         style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                        <i class="fas fa-chart-pie"></i>
+                                    </div>
+                                    <span>家庭角色卡</span>
+                                </div>
+
+                                <!-- 2. 足迹地图 -->
+                                <div class="tool-item" onclick="openMapModal('{{ fam.id }}',
+                                        '{{ fam.location_home_name or '' }}', {{ fam.location_home_lat or 0 }}, {{ fam.location_home_lon or 0 }},
+                                        '{{ fam.location_away_name or '' }}', {{ fam.location_away_lat or 0 }}, {{ fam.location_away_lon or 0 }},
+                                        {{ fam.footprints | tojson | safe }}); toggleTools('{{ fam.id }}')">
+                                    <div class="mini-icon"
+                                         style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                                        <i class="fas fa-map-marked-alt"></i>
+                                    </div>
+                                    <span>足迹地图</span>
+                                </div>
+
+                                <!-- 3. 大转盘 -->
+                                <div class="tool-item"
+                                     onclick="openWheelModal('{{ fam.id }}'); toggleTools('{{ fam.id }}')">
+                                    <div class="mini-icon"
+                                         style="background: linear-gradient(135deg, #ff9f43 0%, #ff6b6b 100%);">
+                                        <i class="fas fa-dharmachakra"></i>
+                                    </div>
+                                    <span>决定转盘</span>
+                                </div>
+
+                            </div>
                         </div>
 
                     </div>
@@ -2865,6 +3009,35 @@
         </div>
     </div>
 </div>
+<!-- 角色卡弹窗 -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🦸 家庭角色卡</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+
+                <!-- 头像选择栏 -->
+                <div id="role-avatars" class="role-avatar-list">
+                    <!-- JS 填充 -->
+                </div>
+
+                <!-- 称号展示 -->
+                <div id="role-title" class="role-title-badge">加载中...</div>
+                <div id="role-name" class="fw-bold mb-3"></div>
+
+                <!-- 雷达图容器 -->
+                <div id="role-chart" style="width: 100%; height: 300px;"></div>
+
+                <div class="text-muted small mt-2">
+                    数据基于家庭互动统计 · 仅供娱乐
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -4190,6 +4363,7 @@
         showLoading();
         form.submit();
     }
+
     // ================= 🗺️ 足迹地图逻辑 =================
     let mapChart = null;
 
@@ -4262,14 +4436,14 @@
                 map: 'china',
                 roam: true, // 允许缩放平移
                 zoom: 1.2,
-                label: { show: false },
+                label: {show: false},
                 itemStyle: {
                     areaColor: '#f1f2f6', // 浅灰底图
                     borderColor: '#ced6e0', // 边框
                     borderWidth: 1
                 },
                 emphasis: {
-                    itemStyle: { areaColor: '#dfe4ea' }
+                    itemStyle: {areaColor: '#dfe4ea'}
                 }
             },
             series: [
@@ -4295,9 +4469,9 @@
                 {
                     type: 'effectScatter',
                     coordinateSystem: 'geo',
-                    rippleEffect: { brushType: 'stroke' },
-                    label: { show: true, position: 'right', formatter: '{b}', color: '#333', fontWeight: 'bold' },
-                    itemStyle: { color: '#ff4757' },
+                    rippleEffect: {brushType: 'stroke'},
+                    label: {show: true, position: 'right', formatter: '{b}', color: '#333', fontWeight: 'bold'},
+                    itemStyle: {color: '#ff4757'},
                     data: dataRes
                 },
                 // 3. 足迹 (金色实心点)
@@ -4306,10 +4480,10 @@
                     coordinateSystem: 'geo',
                     symbol: 'pin', // 大头针样式
                     symbolSize: 15,
-                    itemStyle: { color: '#ffa502' }, // 金色
-                    label: { show: false },
+                    itemStyle: {color: '#ffa502'}, // 金色
+                    label: {show: false},
                     data: goldPoints,
-                    tooltip: { formatter: '{b}' } // 悬停显示城市名
+                    tooltip: {formatter: '{b}'} // 悬停显示城市名
                 }
             ]
         };
@@ -4321,12 +4495,125 @@
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return Math.round(R * c);
     }
+
+    // ================= 📊 家庭角色卡逻辑 =================
+    let roleChart = null;
+    let roleDataCache = []; // 缓存当前家庭的数据
+
+    function openRoleModal(fid) {
+        // 1. 显示弹窗
+        new bootstrap.Modal(document.getElementById('roleModal')).show();
+
+        // 2. 显示加载状态
+        const avatarBox = document.getElementById('role-avatars');
+        avatarBox.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+
+        // 3. 请求数据
+        fetch('/api/family_stats', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+            body: JSON.stringify({family_id: fid})
+        })
+            .then(res => res.json())
+            .then(data => {
+                roleDataCache = data;
+                renderRoleUI();
+            });
+    }
+
+    function renderRoleUI() {
+        const avatarBox = document.getElementById('role-avatars');
+        avatarBox.innerHTML = '';
+
+        if (roleDataCache.length === 0) {
+            avatarBox.innerHTML = '暂无数据';
+            return;
+        }
+
+        // 渲染头像列表
+        roleDataCache.forEach((user, index) => {
+            const img = document.createElement('img');
+            img.className = `role-avatar-item ${index === 0 ? 'active' : ''}`; // 默认选中第一个
+            img.src = user.avatar || '/static/icon.png'; // 默认头像
+            img.onclick = () => switchRole(index);
+            avatarBox.appendChild(img);
+        });
+
+        // 默认显示第一个人的数据
+        switchRole(0);
+    }
+
+    function switchRole(index) {
+        const user = roleDataCache[index];
+
+        // 1. 高亮头像
+        const imgs = document.querySelectorAll('.role-avatar-item');
+        imgs.forEach(img => img.classList.remove('active'));
+        imgs[index].classList.add('active');
+
+        // 2. 更新文字
+        document.getElementById('role-title').innerText = user.title;
+        document.getElementById('role-name').innerText = user.name;
+
+        // 3. 渲染雷达图
+        if (!roleChart) roleChart = echarts.init(document.getElementById('role-chart'));
+
+        // 计算最大值，保证图表美观 (取所有数据的最大值，防止溢出)
+        const allValues = roleDataCache.flatMap(u => u.data);
+        const maxVal = Math.max(...allValues, 10); // 至少为10
+
+        const option = {
+            radar: {
+                indicator: [
+                    {name: '守护力\n(喂食)', max: maxVal},
+                    {name: '记录力\n(发图)', max: maxVal},
+                    {name: '美食魂\n(许愿)', max: maxVal},
+                    {name: '关怀力\n(提醒)', max: maxVal},
+                    {name: '元老值\n(天数)', max: maxVal}
+                ],
+                shape: 'circle',
+                splitNumber: 4,
+                axisName: {color: '#666', fontSize: 11}
+            },
+            series: [{
+                type: 'radar',
+                data: [{
+                    value: user.data,
+                    name: user.name,
+                    areaStyle: {color: 'rgba(102, 126, 234, 0.5)'}, // 半透明填充
+                    itemStyle: {color: '#667eea'},
+                    lineStyle: {width: 3}
+                }]
+            }]
+        };
+        roleChart.setOption(option);
+    }
+
+    // [新增] 切换工具箱显示
+    function toggleTools(fid) {
+        // 先关闭所有其他的菜单
+        document.querySelectorAll('.tools-menu').forEach(el => {
+            if (el.id !== 'tools-menu-' + fid) el.classList.remove('show');
+        });
+
+        // 切换当前菜单
+        const menu = document.getElementById('tools-menu-' + fid);
+        menu.classList.toggle('show');
+
+        // 阻止冒泡，防止触发 document 点击关闭
+        event.stopPropagation();
+    }
+
+    // 点击页面空白处关闭菜单
+    document.addEventListener('click', function () {
+        document.querySelectorAll('.tools-menu').forEach(el => el.classList.remove('show'));
+    });
 </script>
 </body>
 </html>

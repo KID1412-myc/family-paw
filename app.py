@@ -8,6 +8,7 @@ import requests
 import threading
 import redis  # 导入 redis
 import psutil  # [新增] 用于监控服务器状态
+from collections import Counter
 from flask_session import Session  # 导入 Session 扩展
 from zhdate import ZhDate
 # 引入 ProxyFix 修复云端/Nginx反代环境下的 Scheme 问题
@@ -92,7 +93,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.7.0'
+CURRENT_APP_VERSION = '3.8.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -2639,6 +2640,109 @@ def delete_footprint():
     except:
         pass
     return redirect(url_for('home'))
+
+
+# ================= 家庭角色卡数据接口 =================
+
+@app.route('/api/family_stats', methods=['POST'])
+@login_required
+def get_family_stats():
+    db = get_db()
+    family_id = request.json.get('family_id')
+
+    if not family_id: return jsonify({})
+
+    try:
+        # 1. 获取该家庭所有成员
+        mems = db.table('family_members').select('user_id, created_at').eq('family_id', family_id).execute()
+        member_list = mems.data or []
+        user_ids = [m['user_id'] for m in member_list]
+
+        # 获取成员详情 (名字/头像)
+        profiles = db.table('profiles').select('id, display_name, avatar_url').in_('id', user_ids).execute()
+        user_info_map = {p['id']: p for p in (profiles.data or [])}
+
+        # 2. 准备 5 维数据计数器
+        # 维度: [守护力, 记录力, 美食魂, 关怀力, 元老值]
+        stats = {uid: {'guardian': 0, 'recorder': 0, 'foodie': 0, 'care': 0, 'seniority': 0} for uid in user_ids}
+
+        # A. 守护力 (Logs: 喂食/遛狗)
+        # 先查出这个家庭的宠物
+        pets = db.table('pets').select('id').eq('family_id', family_id).execute()
+        pet_ids = [p['id'] for p in pets.data] if pets.data else []
+        if pet_ids:
+            logs = db.table('logs').select('user_id').in_('pet_id', pet_ids).execute()
+            for l in (logs.data or []):
+                if l['user_id'] in stats: stats[l['user_id']]['guardian'] += 1
+
+        # B. 记录力 (Moments: 发动态 + 传照片也算)
+        # 简单起见，统计 logs里action=photo 和 moments
+        # 这里只统计 moments 表
+        moms = db.table('moments').select('user_id') \
+            .or_(f"target_family_id.is.null,target_family_id.eq.{family_id}") \
+            .execute()
+
+        for m in (moms.data or []):
+            # 只有当这个发动态的人属于当前家庭成员列表时，才统计
+            # (防止统计到隔壁老王发的公开动态)
+            if m['user_id'] in stats:
+                stats[m['user_id']]['recorder'] += 1
+
+        # C. 美食魂 (Wishes: 许愿)
+        wishes = db.table('family_wishes').select('created_by').eq('family_id', family_id).execute()
+        for w in (wishes.data or []):
+            uid = w['created_by']
+            if uid in stats: stats[uid]['foodie'] += 1
+
+        # D. 关怀力 (Reminders: 提醒/拍一拍)
+        rems = db.table('family_reminders').select('created_by').eq('family_id', family_id).execute()
+        for r in (rems.data or []):
+            uid = r['created_by']
+            if uid in stats: stats[uid]['care'] += 1
+
+        # E. 元老值 (加入天数)
+        today = datetime.now(timezone.utc)
+        for m in member_list:
+            join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
+            days = (today - join_date).days
+            if m['user_id'] in stats: stats[m['user_id']]['seniority'] = days
+
+        # 3. 组装返回数据 (计算称号)
+        result = []
+        for uid, s in stats.items():
+            info = user_info_map.get(uid, {})
+
+            # 计算最高属性，决定称号
+            # 权重微调：元老值除以10，防止天数太多碾压其他属性
+            scores = {
+                '🛡️ 金牌铲屎官': s['guardian'],
+                '📸 朋友圈战神': s['recorder'],
+                '😋 干饭王': s['foodie'],
+                '❤️ 贴心小棉袄': s['care'],
+                '🌟 一家之主': s['seniority'] / 10
+            }
+            title = max(scores, key=scores.get)
+            # 如果全是0，给个新手称号
+            if all(v == 0 for v in scores.values()): title = "🌱 萌新成员"
+
+            # 处理头像
+            avatar = None
+            if info.get('avatar_url'):
+                avatar = f"{url}/storage/v1/object/public/family_photos/{info['avatar_url']}"
+
+            result.append({
+                'id': uid,
+                'name': info.get('display_name', '家人'),
+                'avatar': avatar,
+                'title': title,
+                'data': [s['guardian'], s['recorder'], s['foodie'], s['care'], s['seniority']]
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Stats Error: {e}")
+        return jsonify([])
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)
