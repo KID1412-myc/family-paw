@@ -91,7 +91,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.5.2'
+CURRENT_APP_VERSION = '3.6.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -825,6 +825,13 @@ def home():
                                 except Exception as e:
                                     print(f"Cache Write Error: {e}")
 
+                        # [新增] 获取足迹列表
+                        f['footprints'] = []
+                        try:
+                            fp_res = db.table('family_footprints').select('*').eq('family_id', f['id']).execute()
+                            f['footprints'] = fp_res.data or []
+                        except:
+                            pass
                         # [新增] 获取许愿菜单 (按状态排序: 想吃 -> 已买 -> 吃过)
                         f['wishes'] = []
                         try:
@@ -2559,6 +2566,49 @@ def send_game_result():
     except Exception as e:
         flash(f"公示失败: {e}", "danger")
 
+    return redirect(url_for('home'))
+
+
+@app.route('/add_footprint', methods=['POST'])
+@login_required
+def add_footprint():
+    """添加足迹"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    city_name = request.form.get('city_name')
+
+    if city_name:
+        # 复用之前写好的搜索函数，获取经纬度
+        cid, cname, lat, lon = search_city_qweather(city_name)
+
+        if lat and lon:
+            try:
+                db.table('family_footprints').insert({
+                    'family_id': family_id,
+                    'city_name': cname,
+                    'city_id': cid,
+                    'lat': lat,
+                    'lon': lon,
+                    'created_by': session['user']
+                }).execute()
+                flash(f"已点亮城市：{cname} ✨", "success")
+            except Exception as e:
+                flash(f"添加失败: {e}", "danger")
+        else:
+            flash("找不到该城市，请尝试输入标准名称 (如: 成都)", "warning")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/delete_footprint', methods=['POST'])
+@login_required
+def delete_footprint():
+    """删除足迹"""
+    try:
+        get_db().table('family_footprints').delete().eq('id', request.form.get('fp_id')).execute()
+        flash("已移除该足迹", "info")
+    except:
+        pass
     return redirect(url_for('home'))
 if __name__ == '__main__':
     # 开发环境启动

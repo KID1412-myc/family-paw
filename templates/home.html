@@ -1262,13 +1262,17 @@
         .wheel-center:active {
             transform: translate(-50%, -50%) scale(0.95);
         }
+
         /* === 顶部操作区极简风 === */
 
         /* 1. 大转盘图标按钮 */
         .btn-icon-circle {
-            width: 32px; height: 32px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             transition: transform 0.2s;
             border: none;
@@ -1276,11 +1280,15 @@
             color: white;
             box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
         }
-        .btn-icon-circle:active { transform: scale(0.9); }
+
+        .btn-icon-circle:active {
+            transform: scale(0.9);
+        }
 
         /* 2. 邀请码胶囊 */
         .code-pill {
-            display: flex; align-items: center;
+            display: flex;
+            align-items: center;
             background: #f1f2f6;
             color: #747d8c;
             padding: 4px 10px;
@@ -1290,11 +1298,25 @@
             cursor: pointer;
             border: 1px solid #e1e2e6; /* 实线边框，不再是虚线 */
         }
-        .code-pill i { font-size: 10px; margin-right: 4px; opacity: 0.7; }
-        .code-pill:active { background: #eccc68; color: white; border-color: #eccc68; }
+
+        .code-pill i {
+            font-size: 10px;
+            margin-right: 4px;
+            opacity: 0.7;
+        }
+
+        .code-pill:active {
+            background: #eccc68;
+            color: white;
+            border-color: #eccc68;
+        }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- ECharts 核心 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 中国地图数据 (这个CDN比较稳) -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js"></script>
 </head>
 <body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
 
@@ -1407,13 +1429,23 @@
 
                     <!-- 右侧：图标 + 验证码 -->
                     <div class="d-flex align-items-center gap-2">
+                        <!-- [新增] 足迹地图入口 -->
+
+                        <div class="btn-icon-circle"
+                             style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); box-shadow: 0 4px 10px rgba(161, 140, 209, 0.3);"
+                             onclick='openMapModal("{{ fam.id }}",
+                                     "{{ fam.location_home_name or "" }}", {{ fam.location_home_lat or 0 }}, {{ fam.location_home_lon or 0 }},
+                                     "{{ fam.location_away_name or "" }}", {{ fam.location_away_lat or 0 }}, {{ fam.location_away_lon or 0 }},
+                                     {{ fam.footprints | tojson | safe }})'>
+                            <i class="fas fa-map-marked-alt"></i>
+                        </div>
                         <!-- [修改] 大转盘 (圆形图标) -->
                         <div class="btn-icon-circle" onclick="openWheelModal('{{ fam.id }}')">
                             <i class="fas fa-dharmachakra fa-lg"></i> <!-- 或者用 fa-dice -->
                         </div>
                         <!-- [修改] 邀请码 (胶囊样式) -->
                         <div class="code-pill" onclick="copyCode(this)" title="点击复制">
-                            <i class="fas fa-key"></i>邀请码:{{ fam.invite_code }}
+                            <i class="fas fa-key"></i>{{ fam.invite_code }}
                         </div>
 
                     </div>
@@ -2784,6 +2816,57 @@
         </div>
     </div>
 </div>
+<!-- 足迹地图弹窗 -->
+<div class="modal fade" id="mapModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- 大弹窗 -->
+        <div class="modal-content rounded-4 border-0" style="overflow: hidden;">
+
+            <!-- 地图容器 -->
+            <div style="position: relative; height: 450px; background: #fdfdfd;">
+                <div id="china-map" style="width: 100%; height: 100%;"></div>
+
+                <!-- 顶部浮层：关闭按钮 -->
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"
+                        style="z-index: 10;"></button>
+
+                <!-- 底部浮层：浪漫距离 -->
+                <div id="distance-bar" class="position-absolute bottom-0 start-0 w-100 p-3 text-center"
+                     style="background: rgba(255,255,255,0.9); backdrop-filter: blur(5px); border-top: 1px solid #eee;">
+                    <div class="fw-bold text-dark" id="distance-text" style="font-family: cursive;">
+                        <!-- JS 填充距离 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制区 -->
+            <div class="modal-footer bg-light border-0 justify-content-between">
+                <div class="d-flex align-items-center gap-2 w-100">
+                    <form action="/add_footprint" method="POST" class="d-flex gap-2 w-100">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="family_id" id="map_fam_id">
+                        <input type="text" name="city_name" class="form-control form-control-sm rounded-pill"
+                               placeholder="输入去过的城市 (如: 杭州)" required>
+                        <button class="btn btn-sm btn-dark rounded-pill px-3" style="white-space: nowrap;">+ 点亮
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 已点亮列表开关 -->
+                <button class="btn btn-sm btn-link text-muted p-0" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#footprintList">
+                    查看列表 <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+
+            <!-- 折叠列表 -->
+            <div class="collapse bg-light px-3 pb-3" id="footprintList">
+                <div id="footprint-tags" class="d-flex flex-wrap gap-2">
+                    <!-- JS 填充 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -2872,6 +2955,7 @@
     const userMap = {{ user_map | tojson | safe }} || {};
     const currentUserId = '{{ current_user_id }}';
     const currentUserName = '{{ user_name }}';
+
     // 显示加载层
     function showLoading() {
         const overlay = document.getElementById('loading-overlay');
@@ -4061,9 +4145,17 @@
         form.method = 'POST';
         form.action = '/send_game_result';
 
-        const i1 = document.createElement('input'); i1.type='hidden'; i1.name='csrf_token'; i1.value='{{ csrf_token() }}';
-        const i2 = document.createElement('input'); i2.type='hidden'; i2.name='family_id'; i2.value=currentWheelFamId;
-        const i3 = document.createElement('input'); i3.type='hidden'; i3.name='content';
+        const i1 = document.createElement('input');
+        i1.type = 'hidden';
+        i1.name = 'csrf_token';
+        i1.value = '{{ csrf_token() }}';
+        const i2 = document.createElement('input');
+        i2.type = 'hidden';
+        i2.name = 'family_id';
+        i2.value = currentWheelFamId;
+        const i3 = document.createElement('input');
+        i3.type = 'hidden';
+        i3.name = 'content';
 
         // [核心修复] 名字转换：如果是"我"，换成真实昵称
         let finalName = winner;
@@ -4093,10 +4185,149 @@
 
         i3.value = msg;
 
-        form.appendChild(i1); form.appendChild(i2); form.appendChild(i3);
+        form.appendChild(i1);
+        form.appendChild(i2);
+        form.appendChild(i3);
         document.body.appendChild(form);
         showLoading();
         form.submit();
+    }
+    // ================= 🗺️ 足迹地图逻辑 =================
+    let mapChart = null;
+
+    function openMapModal(fid, homeName, homeLat, homeLon, awayName, awayLat, awayLon, footprints) {
+        document.getElementById('map_fam_id').value = fid;
+
+        // 1. 初始化弹窗
+        const modal = new bootstrap.Modal(document.getElementById('mapModal'));
+        modal.show();
+
+        // 2. 渲染已点亮列表
+        const tagsBox = document.getElementById('footprint-tags');
+        tagsBox.innerHTML = '';
+        if (footprints.length === 0) tagsBox.innerHTML = '<small class="text-muted">还没去过别的地方~</small>';
+
+        footprints.forEach(fp => {
+            const tag = document.createElement('div');
+            tag.className = 'badge bg-white text-dark border d-flex align-items-center p-2';
+            tag.innerHTML = `
+                <span class="text-warning me-1">★</span> ${fp.city_name}
+                <form action="/delete_footprint" method="POST" class="ms-2 mb-0" onsubmit="return confirm('移除这个足迹？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="fp_id" value="${fp.id}">
+                    <button class="btn btn-link text-danger p-0 small" style="line-height:1">×</button>
+                </form>
+            `;
+            tagsBox.appendChild(tag);
+        });
+
+        // 3. 准备地图数据
+        // 必须延迟一点渲染，否则 Modal 动画会导致 ECharts 宽高计算错误
+        setTimeout(() => {
+            if (!mapChart) mapChart = echarts.init(document.getElementById('china-map'));
+            renderMap(homeName, homeLat, homeLon, awayName, awayLat, awayLon, footprints);
+        }, 300);
+    }
+
+    function renderMap(hName, hLat, hLon, aName, aLat, aLon, footprints) {
+        // 基础点数据
+        const dataRes = []; // 呼吸红点 (家)
+        const linesData = []; // 连线
+        const goldPoints = []; // 金色足迹
+
+        // 处理双城
+        if (hName && hLat) dataRes.push({name: hName, value: [hLon, hLat, 100]});
+        if (aName && aLat) dataRes.push({name: aName, value: [aLon, aLat, 100]});
+
+        // 处理连线
+        if (hName && aName && hLat && aLat) {
+            linesData.push({
+                coords: [[hLon, hLat], [aLon, aLat]]
+            });
+            // 计算距离 (Haversine 公式)
+            const dist = getDistance(hLat, hLon, aLat, aLon);
+            document.getElementById('distance-text').innerHTML =
+                `❤️ 相距 <span class="text-danger fs-5">${dist}</span> km，但心在一起`;
+        } else {
+            document.getElementById('distance-text').innerText = "请先在首页设置好双城，才能显示连线哦~";
+        }
+
+        // 处理足迹
+        footprints.forEach(fp => {
+            goldPoints.push({name: fp.city_name, value: [fp.lon, fp.lat, 50]});
+        });
+
+        // ECharts 配置 (精致版)
+        const option = {
+            backgroundColor: '#fdfdfd',
+            geo: {
+                map: 'china',
+                roam: true, // 允许缩放平移
+                zoom: 1.2,
+                label: { show: false },
+                itemStyle: {
+                    areaColor: '#f1f2f6', // 浅灰底图
+                    borderColor: '#ced6e0', // 边框
+                    borderWidth: 1
+                },
+                emphasis: {
+                    itemStyle: { areaColor: '#dfe4ea' }
+                }
+            },
+            series: [
+                // 1. 连线 (飞线)
+                {
+                    type: 'lines',
+                    coordinateSystem: 'geo',
+                    effect: {
+                        show: true,
+                        period: 6,
+                        trailLength: 0.7,
+                        color: '#ff6b6b', // 红色轨迹
+                        symbolSize: 3
+                    },
+                    lineStyle: {
+                        color: '#ff6b6b',
+                        width: 1,
+                        curveness: 0.2
+                    },
+                    data: linesData
+                },
+                // 2. 双城 (红色呼吸点)
+                {
+                    type: 'effectScatter',
+                    coordinateSystem: 'geo',
+                    rippleEffect: { brushType: 'stroke' },
+                    label: { show: true, position: 'right', formatter: '{b}', color: '#333', fontWeight: 'bold' },
+                    itemStyle: { color: '#ff4757' },
+                    data: dataRes
+                },
+                // 3. 足迹 (金色实心点)
+                {
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    symbol: 'pin', // 大头针样式
+                    symbolSize: 15,
+                    itemStyle: { color: '#ffa502' }, // 金色
+                    label: { show: false },
+                    data: goldPoints,
+                    tooltip: { formatter: '{b}' } // 悬停显示城市名
+                }
+            ]
+        };
+        mapChart.setOption(option);
+    }
+
+    // 计算地球两点距离 (km)
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return Math.round(R * c);
     }
 </script>
 </body>
