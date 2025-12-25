@@ -2491,6 +2491,47 @@ def toggle_like():
     except Exception as e:
         print(f"Like Error: {e}")
         return jsonify({'success': False})
+
+
+@app.route('/send_game_result', methods=['POST'])
+@login_required
+def send_game_result():
+    """游戏结果通知 (无频率限制)"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    content = request.form.get('content')
+
+    if not content: return redirect(url_for('home'))
+
+    try:
+        # 发送者名字改成 "命运之轮" 或者 "系统" 更有趣
+        sender_name = "🎡 命运之轮"
+
+        # 1. 直接插入提醒表 (不查今日是否发过)
+        db.table('family_reminders').insert({
+            'family_id': family_id,
+            'content': content,
+            'sender_name': sender_name,
+            # created_by 依然记你，但我们不查这个字段做限制
+            'created_by': session['user']
+        }).execute()
+
+        # 2. 微信推送
+        # 先查推送ID
+        fam_res = db.table('families').select('wx_topic_id').eq('id', family_id).single().execute()
+        # 注意：如果你已经改成了 UID 模式，这里直接调用 send_wechat_push(family_id, ...) 即可
+        # 下面按 UID 模式写：
+        send_wechat_push(
+            family_id=family_id,
+            summary=f"🎡 命运大转盘出结果啦！",
+            content=f"{content}\n\n(点击查看详情)"
+        )
+
+        flash("结果已公示给全家！", "success")
+    except Exception as e:
+        flash(f"公示失败: {e}", "danger")
+
+    return redirect(url_for('home'))
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

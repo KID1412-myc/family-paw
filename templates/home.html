@@ -1138,30 +1138,130 @@
             color: #555;
             position: relative;
         }
+
         /* 那个指向上面操作栏的小三角 */
         .likes-area::before {
             content: '';
             position: absolute;
-            top: -6px; left: 20px;
-            width: 0; height: 0;
+            top: -6px;
+            left: 20px;
+            width: 0;
+            height: 0;
             border-left: 6px solid transparent;
             border-right: 6px solid transparent;
             border-bottom: 6px solid #f7f7f7;
         }
 
-        .like-heart-icon { color: #576b95; margin-top: 2px; align-self: flex-start; }
+        .like-heart-icon {
+            color: #576b95;
+            margin-top: 2px;
+            align-self: flex-start;
+        }
 
         .liker-list {
-            display: flex; flex-wrap: wrap; gap: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
         }
 
         .liker-avatar {
-            width: 24px; height: 24px;
+            width: 24px;
+            height: 24px;
             border-radius: 4px; /* 微信风格是圆角矩形 */
             object-fit: cover;
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
-        .liker-name { display: none; } /* 既然看头像就不显示名字了，省空间 */
+
+        .liker-name {
+            display: none;
+        }
+
+        /* 既然看头像就不显示名字了，省空间 */
+        /* === 🎡 幸运大转盘 (豪华版) === */
+        .wheel-wrapper {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto 20px auto;
+            /* 外层底座：红色带阴影 */
+            background: #e55039;
+            border-radius: 50%;
+            padding: 10px;
+            box-shadow: 0 10px 0 #c0392b, 0 15px 20px rgba(0, 0, 0, 0.2);
+            /* 装饰灯圈 (用虚线模拟) */
+            border: 4px dashed #f6b93b;
+        }
+
+        .wheel-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            border: 4px solid #fff; /* 内圈白边 */
+            box-sizing: border-box;
+        }
+
+        #wheel-canvas {
+            width: 100%;
+            height: 100%;
+            transform: rotate(0deg);
+            transition: transform 4s cubic-bezier(0.15, 0.9, 0.35, 1.05); /* 更有弹性的刹车 */
+        }
+
+        /* 顶部指针 */
+        .wheel-pointer {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            width: 40px;
+            height: 50px;
+            /* 倒三角 SVG 或者 CSS画 */
+            background: #fff;
+            clip-path: polygon(50% 100%, 0 10%, 100% 10%);
+            filter: drop-shadow(0 4px 2px rgba(0, 0, 0, 0.3));
+        }
+
+        /* 指针中心点 */
+        .wheel-pointer::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 12px;
+            width: 16px;
+            height: 16px;
+            background: #e74c3c;
+            border-radius: 50%;
+        }
+
+        /* 中心按钮 GO */
+        .wheel-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle at 30% 30%, #fff, #f1c40f);
+            border-radius: 50%;
+            border: 4px solid #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 900;
+            color: #e67e22;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .wheel-center:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1269,13 +1369,23 @@
         {% for fam in my_families %}
             <div class="family-stage-card fam-item fam-{{ fam.id }}">
 
-                <!-- 顶部：家庭名 + 邀请码 -->
+                <!-- 顶部：家庭名 + 功能区 -->
                 <div class="stage-header">
-                    <div class="fw-bold text-dark">
+                    <div class="fw-bold text-dark d-flex align-items-center">
                         <i class="fas fa-home text-warning me-2"></i>{{ fam.name }}
                     </div>
-                    <div class="invite-btn" onclick="copyCode(this)">
-                        <i class="fas fa-key me-1"></i>邀请码: {{ fam.invite_code }}
+
+                    <div class="d-flex gap-2">
+                        <!-- [新增] 幸运大转盘入口 -->
+                        <div class="invite-btn text-primary border-primary bg-primary bg-opacity-10"
+                             onclick="openWheelModal('{{ fam.id }}')">
+                            <i class="fas fa-dharmachakra"></i> 大转盘
+                        </div>
+
+                        <!-- 原有的邀请码 -->
+                        <div class="invite-btn" onclick="copyCode(this)">
+                            <i class="fas fa-key me-1"></i>邀请码: {{ fam.invite_code }}
+                        </div>
                     </div>
                 </div>
 
@@ -1892,17 +2002,19 @@
 
                         <!-- 删除按钮 (保持不变) -->
                         {% if moment.user_id == current_user_id %}
-                        <form action="/delete_moment/{{ moment.id }}" method="POST" onsubmit="return confirm('确定删除这条动态吗？')">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm text-secondary p-0">
-                                <i class="far fa-trash-alt"></i>
-                            </button>
-                        </form>
+                            <form action="/delete_moment/{{ moment.id }}" method="POST"
+                                  onsubmit="return confirm('确定删除这条动态吗？')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm text-secondary p-0">
+                                    <i class="far fa-trash-alt"></i>
+                                </button>
+                            </form>
                         {% endif %}
                     </div>
 
                     <!-- 4. [新增] 朋友圈点赞列表 (如果有赞才显示) -->
-                    <div class="likes-area" id="likes-area-{{ moment.id }}" style="display: {{ 'flex' if moment.likers else 'none' }};">
+                    <div class="likes-area" id="likes-area-{{ moment.id }}"
+                         style="display: {{ 'flex' if moment.likers else 'none' }};">
                         <i class="far fa-heart like-heart-icon"></i>
                         <div class="liker-list" id="liker-list-{{ moment.id }}">
                             {% for liker in moment.likers %}
@@ -2571,6 +2683,77 @@
         </div>
     </div>
 </div>
+<!-- 幸运大转盘弹窗 -->
+<div class="modal fade" id="wheelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🎡 命运的齿轮</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+
+                <!-- 转盘主体 -->
+                <div class="wheel-wrapper">
+                    <div class="wheel-pointer"></div>
+                    <div class="wheel-container">
+                        <canvas id="wheel-canvas" width="600" height="600"></canvas>
+                    </div>
+                    <div class="wheel-center" onclick="spinWheel()">GO</div>
+                </div>
+
+                <!-- 控制台 -->
+                <ul class="nav nav-pills nav-fill mb-3 gap-2" id="wheelTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active btn-sm border" id="mode-member-tab" data-bs-toggle="pill"
+                                data-bs-target="#mode-member" type="button" onclick="setWheelMode('member')">
+                            👥 选人 (家庭成员)
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link btn-sm border" id="mode-custom-tab" data-bs-toggle="pill"
+                                data-bs-target="#mode-custom" type="button" onclick="setWheelMode('custom')">
+                            📝 自定义 (做啥/吃啥)
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- 选人模式：自动加载 -->
+                    <div class="tab-pane fade show active" id="mode-member">
+                        <div class="mb-3">
+                            <label class="small text-muted mb-1">这把转盘是为了决定谁去...</label>
+                            <input type="text" id="member-task-input" class="form-control"
+                                   placeholder="输入任务 (如: 洗碗 / 拿外卖 / 倒垃圾)">
+                        </div>
+                        <div class="text-muted small mb-3">
+                            <i class="fas fa-users"></i> 将从当前家庭成员中随机抽取
+                        </div>
+                    </div>
+
+                    <!-- 自定义模式：手动输入 -->
+                    <div class="tab-pane fade" id="mode-custom">
+                        <textarea id="custom-items" class="form-control mb-2" rows="3"
+                                  placeholder="输入选项，用换行隔开&#10;例如：&#10;洗碗&#10;拖地&#10;拿快递"
+                                  oninput="updateCustomWheel()"></textarea>
+                        <div class="text-muted small mb-3">输入变动会自动更新转盘</div>
+                    </div>
+                </div>
+
+                <!-- 启动按钮 -->
+                <button id="spin-btn" class="btn btn-warning w-100 fw-bold text-white rounded-pill py-2 shadow-sm"
+                        onclick="spinWheel()">
+                    开始转动！
+                </button>
+
+                <div class="form-check form-switch d-flex justify-content-center mt-3">
+                    <input class="form-check-input me-2" type="checkbox" id="auto-notify" checked>
+                    <label class="form-check-label small text-muted" for="auto-notify">结果自动发送到家庭提醒</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -2658,7 +2841,7 @@
     const familyMembersMap = {{ family_members_dict | tojson | safe }} || {};
     const userMap = {{ user_map | tojson | safe }} || {};
     const currentUserId = '{{ current_user_id }}';
-
+    const currentUserName = '{{ user_name }}';
     // 显示加载层
     function showLoading() {
         const overlay = document.getElementById('loading-overlay');
@@ -3633,47 +3816,257 @@
         const isLiked = btn.classList.contains('liked');
         btn.classList.toggle('liked');
         if (isLiked) {
-            icon.classList.remove('fas'); icon.classList.add('far');
+            icon.classList.remove('fas');
+            icon.classList.add('far');
             text.innerText = '点赞';
         } else {
-            icon.classList.remove('far'); icon.classList.add('fas');
+            icon.classList.remove('far');
+            icon.classList.add('fas');
             text.innerText = '取消';
-            if(window.fireConfetti) fireConfetti();
-            if(navigator.vibrate) navigator.vibrate(50);
+            if (window.fireConfetti) fireConfetti();
+            if (navigator.vibrate) navigator.vibrate(50);
         }
 
         // 2. 请求后端
         fetch('/api/toggle_like', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
-            body: JSON.stringify({ moment_id: momentId })
+            body: JSON.stringify({moment_id: momentId})
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // 3. 更新底部的头像列表
-                const area = document.getElementById('likes-area-' + momentId);
-                const list = document.getElementById('liker-list-' + momentId);
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // 3. 更新底部的头像列表
+                    const area = document.getElementById('likes-area-' + momentId);
+                    const list = document.getElementById('liker-list-' + momentId);
 
-                if (data.likers && data.likers.length > 0) {
-                    area.style.display = 'flex'; // 有赞，显示盒子
+                    if (data.likers && data.likers.length > 0) {
+                        area.style.display = 'flex'; // 有赞，显示盒子
 
-                    // 重绘头像
-                    let html = '';
-                    data.likers.forEach(user => {
-                        if (user.avatar) {
-                            html += `<img src="${user.avatar}" class="liker-avatar" title="${user.name}">`;
-                        } else {
-                            html += `<div class="liker-avatar bg-secondary text-white d-flex align-items-center justify-content-center small fw-bold">${user.name[0]}</div>`;
-                        }
-                    });
-                    list.innerHTML = html;
+                        // 重绘头像
+                        let html = '';
+                        data.likers.forEach(user => {
+                            if (user.avatar) {
+                                html += `<img src="${user.avatar}" class="liker-avatar" title="${user.name}">`;
+                            } else {
+                                html += `<div class="liker-avatar bg-secondary text-white d-flex align-items-center justify-content-center small fw-bold">${user.name[0]}</div>`;
+                            }
+                        });
+                        list.innerHTML = html;
 
-                } else {
-                    area.style.display = 'none'; // 没赞了，隐藏盒子
+                    } else {
+                        area.style.display = 'none'; // 没赞了，隐藏盒子
+                    }
                 }
+            });
+    }
+
+    // ================= 🎡 幸运大转盘逻辑 =================
+    let wheelCanvas = document.getElementById('wheel-canvas');
+    let wheelCtx = wheelCanvas ? wheelCanvas.getContext('2d') : null;
+    let currentWheelItems = []; // 当前转盘上的选项
+    let currentWheelFamId = null;
+    let currentRotation = 0;
+    let isSpinning = false;
+    let currentMode = 'member'; // 'member' 或 'custom'
+
+    // 配色盘 (红黄蓝绿紫橙)
+    const wheelColors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#9A6CB9'];
+
+    // 1. 打开弹窗
+    function openWheelModal(fid) {
+        currentWheelFamId = fid;
+        // 默认切回选人模式
+        document.getElementById('mode-member-tab').click();
+        new bootstrap.Modal(document.getElementById('wheelModal')).show();
+        // 稍微延迟一下确保模态框渲染完成
+        setTimeout(() => setWheelMode('member'), 200);
+    }
+
+    // 2. 切换模式并加载数据
+    function setWheelMode(mode) {
+        if (isSpinning) return;
+        currentMode = mode;
+        currentWheelItems = [];
+
+        if (mode === 'member') {
+            // 从 familyMembersMap 获取人名
+            // 注意：familyMembersMap 的 key 是字符串
+            const members = familyMembersMap[String(currentWheelFamId)] || [];
+            members.forEach(uid => {
+                if (userMap[uid]) {
+                    // 如果是我，显示"我"，否则显示名字
+                    currentWheelItems.push(uid === currentUserId ? '我' : userMap[uid].name);
+                }
+            });
+            if (currentWheelItems.length === 0) currentWheelItems = ['暂无成员'];
+        } else {
+            // 自定义模式：读取输入框
+            updateCustomWheel();
+            return; // updateCustomWheel 会调用 draw
+        }
+        drawWheel();
+    }
+
+    // 3. 读取自定义输入
+    function updateCustomWheel() {
+        const text = document.getElementById('custom-items').value;
+        // 按换行分割，过滤空行
+        const lines = text.split('\n').map(t => t.trim()).filter(t => t);
+
+        if (lines.length > 0) {
+            currentWheelItems = lines;
+        } else {
+            currentWheelItems = ['请输入', '选项'];
+        }
+        drawWheel();
+    }
+
+    // [修改] 绘制函数 (增加文字描边，更好看)
+    function drawWheel() {
+        if (!wheelCtx) return;
+        const count = currentWheelItems.length;
+        const arc = 2 * Math.PI / count;
+        const radius = wheelCanvas.width / 2;
+
+        wheelCtx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+        wheelCtx.save();
+        wheelCtx.translate(radius, radius);
+        wheelCtx.rotate(-Math.PI / 2);
+
+        for (let i = 0; i < count; i++) {
+            const angle = i * arc;
+
+            // 扇形
+            wheelCtx.beginPath();
+            wheelCtx.moveTo(0, 0);
+            wheelCtx.arc(0, 0, radius, angle, angle + arc);
+            wheelCtx.fillStyle = wheelColors[i % wheelColors.length];
+            wheelCtx.fill();
+            // 扇形分割线
+            wheelCtx.strokeStyle = "#fff";
+            wheelCtx.lineWidth = 4;
+            wheelCtx.stroke();
+
+            // 文字
+            wheelCtx.save();
+            wheelCtx.rotate(angle + arc / 2);
+            wheelCtx.textAlign = "right";
+            wheelCtx.fillStyle = "#fff";
+            wheelCtx.font = "bold 36px system-ui"; // 字体改小一点点
+            wheelCtx.shadowColor = "rgba(0,0,0,0.1)";
+            wheelCtx.shadowBlur = 4;
+            // 垂直居中修正
+            wheelCtx.textBaseline = "middle";
+            wheelCtx.fillText(currentWheelItems[i], radius - 30, 0);
+            wheelCtx.restore();
+        }
+        wheelCtx.restore();
+        wheelCanvas.style.transform = `rotate(${currentRotation % 360}deg)`;
+    }
+
+    // 5. 开始转动
+    function spinWheel() {
+        if (isSpinning) return;
+        if (currentWheelItems.length < 2) {
+            alert("至少需要两个选项才能转哦！");
+            return;
+        }
+
+        isSpinning = true;
+        // 随机旋转圈数 (5~10圈) + 随机角度
+        // 1440 = 4圈
+        const extraSpins = 1800 + Math.random() * 1800;
+        currentRotation += extraSpins;
+
+        wheelCanvas.style.transform = `rotate(${currentRotation}deg)`;
+
+        // 播放音效 (可选，复用木鱼的音效逻辑或者震动)
+        if (navigator.vibrate) navigator.vibrate(200);
+
+        // 4秒后停下 (和 CSS transition 时间一致)
+        setTimeout(() => {
+            isSpinning = false;
+            calculateWinner();
+        }, 4000);
+    }
+
+    // 6. 计算结果
+    function calculateWinner() {
+        // 计算实际角度 (取余)
+        const actualDeg = currentRotation % 360;
+
+        // 核心数学题：
+        // 指针固定在 12点钟 (270度/ -90度位置相对于Canvas 0度)
+        // 或者是：我们Canvas绘制时已经把0度旋转到了12点。
+        // Canvas旋转了 N 度。
+        // 指针指向的索引 = 总数 - (旋转角度 / 每个扇区角度) % 总数
+        // 这是一个比较通用的公式
+
+        const count = currentWheelItems.length;
+        const degPerItem = 360 / count;
+
+        // 指针在正上方，Canvas顺时针转了 actualDeg
+        // 也就相当于 指针逆时针走了 actualDeg
+        // 索引计算：
+        let index = Math.floor((360 - actualDeg % 360) / degPerItem);
+        index = index % count; // 防止溢出
+
+        const winner = currentWheelItems[index];
+
+        // 庆祝特效
+        if (window.fireConfetti) fireConfetti();
+        alert("🎉 结果是：\n\n" + winner);
+
+        // 自动发送通知
+        const autoNotify = document.getElementById('auto-notify').checked;
+        if (autoNotify && currentWheelFamId) {
+            sendWheelResult(winner);
+        }
+    }
+
+    // [修复版] 发送结果逻辑 (修复"我"的显示问题)
+    function sendWheelResult(winner) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/send_game_result';
+
+        const i1 = document.createElement('input'); i1.type='hidden'; i1.name='csrf_token'; i1.value='{{ csrf_token() }}';
+        const i2 = document.createElement('input'); i2.type='hidden'; i2.name='family_id'; i2.value=currentWheelFamId;
+        const i3 = document.createElement('input'); i3.type='hidden'; i3.name='content';
+
+        // [核心修复] 名字转换：如果是"我"，换成真实昵称
+        let finalName = winner;
+        if (winner === '我') {
+            finalName = currentUserName;
+        }
+
+        let msg = "";
+
+        if (currentMode === 'member') {
+            // 获取输入的任务
+            const taskInput = document.getElementById('member-task-input');
+            const task = taskInput ? taskInput.value.trim() : '';
+
+            if (task) {
+                // 有任务
+                msg = `🎡 命运大转盘公正裁决：\n👉 恭喜 【${finalName}】 喜提任务：\n🔥 【${task}】 🔥\n(全家见证，不可耍赖)`;
+            } else {
+                // 没任务
+                msg = `🎡 命运大转盘公正裁决：\n🎉 天选之子是 —— 【${finalName}】！\n(不论干啥，都不许耍赖哦)`;
             }
-        });
+
+        } else {
+            // 选事模式
+            msg = `🎡 命运大转盘结果公示：\n✨ 今晚决定 —— 【${finalName}】！\n(纠结症终结者)`;
+        }
+
+        i3.value = msg;
+
+        form.appendChild(i1); form.appendChild(i2); form.appendChild(i3);
+        document.body.appendChild(form);
+        showLoading();
+        form.submit();
     }
 </script>
 </body>
