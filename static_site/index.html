@@ -59,42 +59,50 @@
 
     <header>
         <h1>Python 全栈开发学习笔记</h1>
-        <p style="color: #666;">记录从零开始构建 Web 应用的技术栈与实践心得。</p>
+        <p style="color: #666;">记录从零开始构建高可用 Web 应用的技术栈选型与实践心得。</p>
     </header>
 
     <main>
         <section>
-            <h2>01. Flask 框架基础</h2>
-            <p>Flask 是一个微型的 Python Web 框架。相比于 Django，它更加轻量和灵活。在构建应用时，我们需要理解其核心概念：<strong>路由 (Routes)</strong>、<strong>模板渲染 (Jinja2)</strong> 以及 <strong>请求上下文 (Request Context)</strong>。</p>
-            <blockquote>
-                核心思想：Keep it simple, stupid. 只提供核心功能，其他功能通过扩展实现。
-            </blockquote>
-            <h3>常用扩展库整理</h3>
+            <h2>01. 后端架构：Flask 的微内核哲学</h2>
+            <p>在对比了 Django 和 Flask 之后，我选择了 Flask 作为本项目的核心框架。Flask 的"微内核"设计理念（Microframework）允许开发者按需选择扩展，保持了代码的轻量与灵活性。</p>
+            <h3>核心组件实践</h3>
             <ul>
-                <li><strong>Flask-WTF</strong>: 处理表单验证与 CSRF 保护。</li>
-                <li><strong>Gunicorn</strong>: 生产环境下的 WSGI HTTP 服务器。</li>
+                <li><strong>路由分发</strong>：使用 <code>Blueprint</code> 实现模块化开发，将用户认证、业务逻辑和 API 接口分离。</li>
+                <li><strong>会话管理</strong>：默认的 Cookie Session 在存储大量数据时存在限制，生产环境建议配合 Redis 使用 <code>Flask-Session</code> 进行服务端存储。</li>
             </ul>
         </section>
 
         <section>
-            <h2>02. 数据库设计与 ORM</h2>
-            <p>在数据持久化层面，选择了 PostgreSQL 作为主数据库。相较于 MySQL，Postgres 在处理复杂查询和 JSON 数据类型上有着天然的优势。</p>
-            <pre><code># 示例：使用 Python 连接数据库
-import psycopg2
-
-conn = psycopg2.connect(
-    dbname="mydb",
-    user="user",
-    password="password",
-    host="localhost"
-)</code></pre>
-            <p>在实际开发中，还需要考虑数据库的安全性，例如使用行级安全策略（Row Level Security, RLS）来隔离不同用户的数据访问权限。</p>
+            <h2>02. 数据持久化：PostgreSQL 与 JSONB</h2>
+            <p>随着业务数据的复杂化，传统的关系型数据表结构有时显得过于僵硬。PostgreSQL 对 JSONB 数据类型的原生支持，完美解决了结构化与非结构化数据共存的问题。</p>
+            <pre><code>-- 示例：在 Postgres 中创建支持 JSON 索引的表
+CREATE TABLE app_logs (
+    id SERIAL PRIMARY KEY,
+    event_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_event_data ON app_logs USING GIN (event_data);</code></pre>
+            <p>此外，通过配置行级安全策略（RLS），我们可以在数据库层面实现多租户数据的物理隔离，大幅提升安全性。</p>
         </section>
 
         <section>
-            <h2>03. Linux 服务器运维</h2>
-            <p>从本地开发环境迁移到生产环境（阿里云 ECS），主要涉及环境搭建和反向代理配置。Nginx 作为高性能的反向代理服务器，主要负责静态资源托管和 SSL 证书的终结。</p>
-            <p>此外，为了服务器安全，配置 Fail2Ban 防止暴力破解 SSH 也是必不可少的步骤。</p>
+            <h2>03. 前端工程化：PWA 渐进式应用</h2>
+            <p>为了在移动端提供接近原生 App 的体验，本项目引入了 PWA (Progressive Web Apps) 技术栈。</p>
+            <blockquote>
+                核心目标：Reliable (可靠)、Fast (快速)、Engaging (沉浸)。
+            </blockquote>
+            <p>通过配置 <code>manifest.json</code> 和注册 Service Worker，实现了应用的可安装性（Add to Home Screen）和离线资源缓存策略，解决了弱网环境下的加载白屏问题。</p>
+        </section>
+
+        <section>
+            <h2>04. 部署与运维：Nginx + Gunicorn</h2>
+            <p>从开发环境（Development）迁移到生产环境（Production）时，单纯使用 Flask 自带的 WSGI 服务器是不够的。标准的部署架构如下：</p>
+            <ul>
+                <li><strong>Nginx</strong>：作为反向代理服务器，处理静态文件、SSL 握手以及负载均衡。</li>
+                <li><strong>Gunicorn</strong>：作为 WSGI 容器，管理 Python 进程池，处理动态请求。</li>
+                <li><strong>Systemd</strong>：管理服务进程的生命周期，实现开机自启和崩溃重启。</li>
+            </ul>
         </section>
     </main>
 
