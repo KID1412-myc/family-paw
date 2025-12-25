@@ -93,7 +93,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.8.0'
+CURRENT_APP_VERSION = '3.8.1'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -1477,12 +1477,12 @@ def send_family_reminder():
 @app.route('/create_family', methods=['POST'])
 @login_required
 def create_family():
-    # ⚠️ 关键修改：使用 admin_supabase (上帝权限) 来创建
-    # 这样可以绕过 "必须先是成员才能看到家庭ID" 的死锁问题
+    # ⚠️ 关键修改：优先使用 admin_supabase (上帝权限)
+    # 这样可以绕过 "必须先是成员才能看到家庭ID" 的 RLS 死锁问题
+    # 如果只用 get_db()，在插入 members 时可能会因为你还不是 member 而被拒绝
     if admin_supabase:
         client = admin_supabase
     else:
-        # 如果没配置 Service Key，只能回退到普通用户（依然会报错，所以必须配 Service Key）
         client = get_db()
         print("⚠️ 警告: 缺少 Service Key，创建家庭可能会失败")
 
@@ -1495,7 +1495,8 @@ def create_family():
     try:
         code = generate_invite_code()
 
-        # 1. 使用上帝权限插入家庭，这样能拿到 ID
+        # 1. 使用上帝权限插入家庭，获取 ID
+        # execute() 后直接返回数据列表
         res = client.table('families').insert({
             "name": family_name,
             "invite_code": code
@@ -1504,7 +1505,8 @@ def create_family():
         if res.data and len(res.data) > 0:
             new_fam_id = res.data[0]['id']
 
-            # 2. 依然使用上帝权限，把自己绑定进这个家庭
+            # 2. [核心修复] 依然使用上帝权限，把自己绑定进这个家庭
+            # 这一步至关重要，不加这一步，新家庭在首页就是空的
             client.table('family_members').insert({
                 'family_id': new_fam_id,
                 'user_id': session['user']
@@ -1523,6 +1525,7 @@ def create_family():
 @app.route('/join_family', methods=['POST'])
 @login_required
 def join_family():
+    # 加入家庭需要查询邀请码，必须用 admin 权限查 (因为你还没加入，看不到别的家庭)
     if not admin_supabase:
         flash("缺少 Service Key，无法查询邀请码", "danger")
         return redirect(url_for('home', tab='mine'))
@@ -1531,26 +1534,34 @@ def join_family():
     if not code: return redirect(url_for('home', tab='mine'))
 
     try:
-        # 1. 查家庭
+        # 1. 查家庭 ID
         fam = admin_supabase.table('families').select('id, name').eq('invite_code', code.upper()).single().execute()
+
         if fam.data:
             target_id = fam.data['id']
-            # 2. [修改] 插入中间表 (如果已存在会报错，我们在 SQL 设置了 unique)
+
+            # 2. [修改] 插入中间表
+            # 这里可以用 get_db()，因为 RLS 策略通常允许用户 insert 自己的 member 记录
             try:
                 get_db().table('family_members').insert({
                     'family_id': target_id,
                     'user_id': session['user']
                 }).execute()
-                flash(f"成功加入 [{fam.data['name']}]", "success")
+
+                flash(f"成功加入 [{fam.data['name']}]！", "success")
             except Exception as e:
-                if "duplicate" in str(e):
-                    flash("你已经在该家庭里了", "warning")
+                # 捕获重复加入的错误
+                if "duplicate" in str(e) or "Unique" in str(e) or "23505" in str(e):
+                    flash("你已经在该家庭里了，无需重复加入", "info")
                 else:
-                    raise e
+                    print(f"Join Error: {e}")
+                    flash(f"加入失败: {str(e)}", "danger")
         else:
-            flash("邀请码无效", "warning")
+            flash("邀请码无效，请检查输入", "warning")
+
     except Exception as e:
-        flash(f"加入失败: {e}", "danger")
+        flash(f"系统错误: {e}", "danger")
+
     return redirect(url_for('home', tab='mine'))
 
 
@@ -2647,73 +2658,73 @@ def delete_footprint():
 @app.route('/api/family_stats', methods=['POST'])
 @login_required
 def get_family_stats():
-    db = get_db()
-    family_id = request.json.get('family_id')
+    """获取家庭角色卡数据 (使用 Admin 权限确保读取完整)"""
+    # [修改] 使用 Admin 客户端，防止 RLS 拦截导致查不到成员
+    client = admin_supabase if admin_supabase else get_db()
 
-    if not family_id: return jsonify({})
+    family_id = request.json.get('family_id')
+    if not family_id: return jsonify([])
 
     try:
-        # 1. 获取该家庭所有成员
-        mems = db.table('family_members').select('user_id, created_at').eq('family_id', family_id).execute()
+        # 1. 获取该家庭所有成员 (Admin 查，绝对全)
+        mems = client.table('family_members').select('user_id, created_at').eq('family_id', family_id).execute()
         member_list = mems.data or []
+
+        if not member_list:
+            return jsonify([])  # 真的没人
+
         user_ids = [m['user_id'] for m in member_list]
 
-        # 获取成员详情 (名字/头像)
-        profiles = db.table('profiles').select('id, display_name, avatar_url').in_('id', user_ids).execute()
+        # 获取成员详情
+        profiles = client.table('profiles').select('id, display_name, avatar_url').in_('id', user_ids).execute()
         user_info_map = {p['id']: p for p in (profiles.data or [])}
 
         # 2. 准备 5 维数据计数器
-        # 维度: [守护力, 记录力, 美食魂, 关怀力, 元老值]
         stats = {uid: {'guardian': 0, 'recorder': 0, 'foodie': 0, 'care': 0, 'seniority': 0} for uid in user_ids}
 
-        # A. 守护力 (Logs: 喂食/遛狗)
-        # 先查出这个家庭的宠物
-        pets = db.table('pets').select('id').eq('family_id', family_id).execute()
+        # A. 守护力 (Logs)
+        pets = client.table('pets').select('id').eq('family_id', family_id).execute()
         pet_ids = [p['id'] for p in pets.data] if pets.data else []
         if pet_ids:
-            logs = db.table('logs').select('user_id').in_('pet_id', pet_ids).execute()
+            logs = client.table('logs').select('user_id').in_('pet_id', pet_ids).execute()
             for l in (logs.data or []):
                 if l['user_id'] in stats: stats[l['user_id']]['guardian'] += 1
 
-        # B. 记录力 (Moments: 发动态 + 传照片也算)
-        # 简单起见，统计 logs里action=photo 和 moments
-        # 这里只统计 moments 表
-        moms = db.table('moments').select('user_id') \
-            .or_(f"target_family_id.is.null,target_family_id.eq.{family_id}") \
-            .execute()
-
+        # B. 记录力 (Moments - 统计所有 target_family_id 匹配的)
+        # 使用 or_ 语法同时查 公开(null) 和 私有(eq) 可能会漏，为了稳妥，直接查该家庭下的私有动态
+        # (公开动态算全家贡献，这里暂时只算发到本家庭的，逻辑更严谨)
+        moms = client.table('moments').select('user_id').eq('target_family_id', family_id).execute()
         for m in (moms.data or []):
-            # 只有当这个发动态的人属于当前家庭成员列表时，才统计
-            # (防止统计到隔壁老王发的公开动态)
-            if m['user_id'] in stats:
-                stats[m['user_id']]['recorder'] += 1
+            if m['user_id'] in stats: stats[m['user_id']]['recorder'] += 1
 
-        # C. 美食魂 (Wishes: 许愿)
-        wishes = db.table('family_wishes').select('created_by').eq('family_id', family_id).execute()
+        # C. 美食魂 (Wishes)
+        wishes = client.table('family_wishes').select('created_by').eq('family_id', family_id).execute()
         for w in (wishes.data or []):
             uid = w['created_by']
             if uid in stats: stats[uid]['foodie'] += 1
 
-        # D. 关怀力 (Reminders: 提醒/拍一拍)
-        rems = db.table('family_reminders').select('created_by').eq('family_id', family_id).execute()
+        # D. 关怀力 (Reminders)
+        rems = client.table('family_reminders').select('created_by').eq('family_id', family_id).execute()
         for r in (rems.data or []):
             uid = r['created_by']
             if uid in stats: stats[uid]['care'] += 1
 
-        # E. 元老值 (加入天数)
+        # E. 元老值
         today = datetime.now(timezone.utc)
         for m in member_list:
-            join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
-            days = (today - join_date).days
-            if m['user_id'] in stats: stats[m['user_id']]['seniority'] = days
+            try:
+                join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
+                days = (today - join_date).days
+                if m['user_id'] in stats: stats[m['user_id']]['seniority'] = days
+            except:
+                pass
 
-        # 3. 组装返回数据 (计算称号)
+        # 3. 组装返回
         result = []
         for uid, s in stats.items():
             info = user_info_map.get(uid, {})
 
-            # 计算最高属性，决定称号
-            # 权重微调：元老值除以10，防止天数太多碾压其他属性
+            # 计算称号
             scores = {
                 '🛡️ 金牌铲屎官': s['guardian'],
                 '📸 朋友圈战神': s['recorder'],
@@ -2722,10 +2733,8 @@ def get_family_stats():
                 '🌟 一家之主': s['seniority'] / 10
             }
             title = max(scores, key=scores.get)
-            # 如果全是0，给个新手称号
             if all(v == 0 for v in scores.values()): title = "🌱 萌新成员"
 
-            # 处理头像
             avatar = None
             if info.get('avatar_url'):
                 avatar = f"{url}/storage/v1/object/public/family_photos/{info['avatar_url']}"
