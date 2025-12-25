@@ -91,7 +91,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.3.5'
+CURRENT_APP_VERSION = '3.4.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -973,14 +973,43 @@ def home():
                         pet['latest_photo'] = f"{url}/storage/v1/object/public/family_photos/{log['image_path']}"
                         pet['photo_uploader'] = who
 
+    # ================= 5. 数据组装 (动态 + 点赞) =================
     moments = []
     for m in moments_data:
+        # A. 基础信息
         u_info = user_map.get(m['user_id'], {})
         m['user_name'] = u_info.get('name', '家人')
         m['user_avatar'] = u_info.get('avatar')
         m['time_str'] = format_time_friendly(m['created_at'])
         if m.get('image_path'):
             m['image_url'] = f"{url}/storage/v1/object/public/family_photos/{m['image_path']}"
+
+        # B. [升级版] 获取点赞人详细列表
+        # 1. 查询点赞数据
+        likes_res = db.table('moment_likes').select('user_id').eq('moment_id', m['id']).execute()
+        likes_data = likes_res.data or []
+
+        m['likers'] = []  # 存具体的点赞人对象 (头像+名字)
+        m['is_liked'] = False  # 初始化为未点赞
+
+        # 2. 遍历数据
+        for l in likes_data:
+            uid = l['user_id']
+
+            # 判断是不是我赞的 (如果是，心变红)
+            if uid == current_user_id:
+                m['is_liked'] = True
+
+            # 从 user_map 里拿头像和名字
+            if uid in user_map:
+                # 这一步是为了让前端能显示头像
+                m['likers'].append(user_map[uid])
+
+        # 3. 统计数量
+        m['like_count'] = len(m['likers'])
+
+        # [注意] 后面不需要再写那个 any(...) 的判断了，循环里已经做完了
+
         moments.append(m)
 
     # 6. 获取更新日志
@@ -2412,6 +2441,56 @@ def delete_pet_photo():
         flash(f"删除失败: {e}", "danger")
 
     return redirect(url_for('pet_detail', pet_id=pet_id))
+
+
+@app.route('/api/toggle_like', methods=['POST'])
+@login_required
+def toggle_like():
+    """点赞 API (返回头像列表)"""
+    db = get_db()
+    try:
+        data = request.json
+        moment_id = data.get('moment_id')
+        user_id = session['user']
+
+        # 1. 检查并切换状态
+        check = db.table('moment_likes').select('*').eq('user_id', user_id).eq('moment_id', moment_id).execute()
+
+        if check.data:
+            db.table('moment_likes').delete().eq('user_id', user_id).eq('moment_id', moment_id).execute()
+            is_liked = False
+        else:
+            db.table('moment_likes').insert({'user_id': user_id, 'moment_id': moment_id}).execute()
+            is_liked = True
+
+        # 2. [核心] 获取最新的点赞人列表 (为了前端渲染)
+        # 这里需要重新构建一下简单的 user_map 或者直接查 profiles
+        # 为了简单，我们只返回 user_id 列表，前端根据页面已有的 user_map 渲染?
+        # 不行，前端 user_map 是 Jinja2 渲染的，JS 拿不到完整版。
+        # 所以后端直接查好返回给前端最稳妥。
+
+        likers_res = db.table('moment_likes').select('user_id').eq('moment_id', moment_id).execute()
+        uids = [x['user_id'] for x in (likers_res.data or [])]
+
+        likers_info = []
+        if uids:
+            profiles = db.table('profiles').select('id, display_name, avatar_url').in_('id', uids).execute()
+            for p in (profiles.data or []):
+                avatar = None
+                if p.get('avatar_url'):
+                    avatar = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
+
+                likers_info.append({
+                    'id': p['id'],
+                    'name': p['display_name'],
+                    'avatar': avatar
+                })
+
+        return jsonify({'success': True, 'is_liked': is_liked, 'likers': likers_info})
+
+    except Exception as e:
+        print(f"Like Error: {e}")
+        return jsonify({'success': False})
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

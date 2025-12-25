@@ -1097,6 +1097,71 @@
             font-size: 30px;
             cursor: pointer;
         }
+
+        /* 点赞按钮动画 */
+        .like-btn {
+            background: none;
+            border: none;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #888;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .like-btn:active {
+            transform: scale(1.2);
+        }
+
+        /* 已点赞状态 (红色) */
+        .like-btn.liked {
+            color: #ff6b6b;
+        }
+
+        .like-btn.liked i {
+            font-weight: 900;
+        }
+
+        /* 实心心 */
+        /* 朋友圈风格的点赞框 */
+        .likes-area {
+            background: #f7f7f7;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #555;
+            position: relative;
+        }
+        /* 那个指向上面操作栏的小三角 */
+        .likes-area::before {
+            content: '';
+            position: absolute;
+            top: -6px; left: 20px;
+            width: 0; height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid #f7f7f7;
+        }
+
+        .like-heart-icon { color: #576b95; margin-top: 2px; align-self: flex-start; }
+
+        .liker-list {
+            display: flex; flex-wrap: wrap; gap: 5px;
+        }
+
+        .liker-avatar {
+            width: 24px; height: 24px;
+            border-radius: 4px; /* 微信风格是圆角矩形 */
+            object-fit: cover;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .liker-name { display: none; } /* 既然看头像就不显示名字了，省空间 */
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1785,52 +1850,75 @@
                 <div class="moment-item">
                     <div class="moment-header">
                         <div class="avatar-circle">
-                            {% if moment.user_avatar %}
-                                <img src="{{ moment.user_avatar }}">
-                            {% else %}
-                                {{ moment.user_name[0] }}
-                            {% endif %}
+                            {% if moment.user_avatar %}<img src="{{ moment.user_avatar }}">{% else %}
+                                {{ moment.user_name[0] }}{% endif %}
                         </div>
                         <div class="flex-grow-1">
                             <div class="moment-user">{{ moment.user_name }}</div>
                             <div class="moment-time">
                                 {{ moment.time_str }}
-
-                                <!-- [修改] 不显示"私密"，而是显示具体的家庭名称 -->
                                 {% if moment.target_family_id %}
                                     {% for f in my_families %}
                                         {% if f.id == moment.target_family_id %}
                                             <span class="badge bg-white text-secondary border ms-1 fw-normal"
                                                   style="font-size: 10px; transform: scale(0.95);">
-                    <i class="fas fa-home me-1 text-muted"></i>{{ f.name }}
-                </span>
+                                        <i class="fas fa-home me-1 text-muted"></i>{{ f.name }}
+                                    </span>
                                         {% endif %}
                                     {% endfor %}
                                 {% else %}
-                                    <!-- 公开动态可选显示地球图标，或者不显示 -->
                                     <span class="badge bg-transparent text-muted ms-1 fw-normal"
-                                          style="font-size: 10px; transform: scale(0.95); opacity: 0.5;">
-            <i class="fas fa-globe"></i> 公开
-        </span>
+                                          style="font-size: 10px; opacity: 0.5;">
+                                <i class="fas fa-globe"></i> 公开
+                            </span>
                                 {% endif %}
                             </div>
                         </div>
-                        {% if moment.user_id == current_user_id %}
-                            <form action="/delete_moment/{{ moment.id }}" method="POST"
-                                  onsubmit="return confirm('确定删除这条动态吗？')" class="ms-auto">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" class="moment-delete-btn" title="删除"><i
-                                        class="fas fa-trash-alt"></i>
-                                </button>
-                            </form>
-                        {% endif %}
                     </div>
+
                     {% if moment.content %}
-                        <div class="moment-content">{{ moment.content }}</div>
-                    {% endif %}
+                        <div class="moment-content">{{ moment.content }}</div>{% endif %}
                     {% if moment.image_url %}<img src="{{ moment.image_url }}" class="moment-img shadow-sm"
                                                   onclick="window.open(this.src)">{% endif %}
+
+                    <!-- 3. 底部操作栏 -->
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2">
+                        <!-- 纯按钮，不带数字了 -->
+                        <button class="like-btn {% if moment.is_liked %}liked{% endif %}"
+                                onclick="toggleLike(this, '{{ moment.id }}')">
+                            <i class="{{ 'fas' if moment.is_liked else 'far' }} fa-heart fa-lg"></i>
+                            <span class="small ms-1">{{ '取消' if moment.is_liked else '点赞' }}</span>
+                        </button>
+
+                        <!-- 删除按钮 (保持不变) -->
+                        {% if moment.user_id == current_user_id %}
+                        <form action="/delete_moment/{{ moment.id }}" method="POST" onsubmit="return confirm('确定删除这条动态吗？')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm text-secondary p-0">
+                                <i class="far fa-trash-alt"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+
+                    <!-- 4. [新增] 朋友圈点赞列表 (如果有赞才显示) -->
+                    <div class="likes-area" id="likes-area-{{ moment.id }}" style="display: {{ 'flex' if moment.likers else 'none' }};">
+                        <i class="far fa-heart like-heart-icon"></i>
+                        <div class="liker-list" id="liker-list-{{ moment.id }}">
+                            {% for liker in moment.likers %}
+                                {% if liker.avatar %}
+                                    <img src="{{ liker.avatar }}" class="liker-avatar" title="{{ liker.name }}">
+                                {% else %}
+                                    <!-- 没头像显示名字首字 -->
+                                    <div class="liker-avatar bg-secondary text-white d-flex align-items-center justify-content-center small fw-bold">
+                                        {{ liker.name[0] }}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
+
             {% else %}
                 <div class="text-center p-5 text-muted">
                     <div class="mb-3 opacity-50"><i class="fas fa-seedling fa-3x text-success"></i></div>
@@ -1841,6 +1929,7 @@
                         <small>快来发第一条状态，让家人知道你在干嘛！</small>
                     {% endif %}
                 </div>
+
             {% endfor %}
         </div>
         <div style="height: 40px;"></div>
@@ -3532,6 +3621,58 @@
             navigator.serviceWorker.register('/sw.js')
                 .then(() => console.log('SW Registered'))
                 .catch(err => console.log('SW Failed', err));
+        });
+    }
+    // 点赞功能
+    // [朋友圈版] 点赞逻辑
+    function toggleLike(btn, momentId) {
+        const icon = btn.querySelector('i');
+        const text = btn.querySelector('span');
+
+        // 1. 视觉预判 (UI变色)
+        const isLiked = btn.classList.contains('liked');
+        btn.classList.toggle('liked');
+        if (isLiked) {
+            icon.classList.remove('fas'); icon.classList.add('far');
+            text.innerText = '点赞';
+        } else {
+            icon.classList.remove('far'); icon.classList.add('fas');
+            text.innerText = '取消';
+            if(window.fireConfetti) fireConfetti();
+            if(navigator.vibrate) navigator.vibrate(50);
+        }
+
+        // 2. 请求后端
+        fetch('/api/toggle_like', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+            body: JSON.stringify({ moment_id: momentId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // 3. 更新底部的头像列表
+                const area = document.getElementById('likes-area-' + momentId);
+                const list = document.getElementById('liker-list-' + momentId);
+
+                if (data.likers && data.likers.length > 0) {
+                    area.style.display = 'flex'; // 有赞，显示盒子
+
+                    // 重绘头像
+                    let html = '';
+                    data.likers.forEach(user => {
+                        if (user.avatar) {
+                            html += `<img src="${user.avatar}" class="liker-avatar" title="${user.name}">`;
+                        } else {
+                            html += `<div class="liker-avatar bg-secondary text-white d-flex align-items-center justify-content-center small fw-bold">${user.name[0]}</div>`;
+                        }
+                    });
+                    list.innerHTML = html;
+
+                } else {
+                    area.style.display = 'none'; // 没赞了，隐藏盒子
+                }
+            }
         });
     }
 </script>
