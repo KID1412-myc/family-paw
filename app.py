@@ -2835,15 +2835,36 @@ def get_family_stats():
             if r['created_by'] in stats: stats[r['created_by']]['care'] += 1
 
         # E. 元老值 (累计天数，不按周算，这是资历)
-        today_date = datetime.now(timezone.utc).date()
+        now_date = datetime.now(timezone(timedelta(hours=8))).date()
+
         for m in member_list:
-            try:
-                join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00')).date()
-                days = (today_date - join_date).days
-                final_days = max(1, days + 1)
-                if m['user_id'] in stats: stats[m['user_id']]['seniority'] = final_days
-            except:
-                pass
+            uid = m['user_id']
+            if uid in stats:
+                try:
+                    # [暴力修复] 不解析时区，直接截取字符串前10位 (YYYY-MM-DD)
+                    # 数据库格式不管是 "2025-12-05T..." 还是 "2025-12-05 15:..."，前10位永远是日期
+                    raw_time = str(m['created_at'])
+                    date_str = raw_time[:10]
+
+                    # 转为日期对象
+                    join_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+                    # 计算天数
+                    days = (now_date - join_date).days
+
+                    # 修正：最少算1天
+                    final_days = max(1, days + 1)
+
+                    stats[uid]['seniority'] = final_days
+
+                    # [调试日志] 如果是 0 或 1，打印出来看看
+                    if final_days <= 1:
+                        print(f"DEBUG Seniority: UID={uid}, Raw={raw_time}, Calc={final_days}")
+
+                except Exception as e:
+                    # 万一报错，打印出来，并给个保底值 1
+                    print(f"❌ 元老值计算失败: {e} (Raw: {m.get('created_at')})")
+                    stats[uid]['seniority'] = 1
 
         # 4. 组装返回
         result = []
