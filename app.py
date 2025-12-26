@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 # [修改] 多导入一个 generate_csrf
 from flask_wtf.csrf import CSRFProtect, generate_csrf
+from cryptography.fernet import Fernet
 
 LAB_CODE = "testuser8888"
 # 加载 .env 文件
@@ -93,7 +94,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.10.0'
+CURRENT_APP_VERSION = '3.11.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -481,7 +482,25 @@ def calculate_champion(client, family_id, start_time, end_time):
     if best_uid:
         return {'uid': best_uid, 'title': best_title, 'score': best_score}
     return None
+# ================= 数据加密模块 =================
+crypto_key = os.environ.get("CRYPTO_KEY")
+cipher = Fernet(crypto_key) if crypto_key else None
 
+def encrypt_data(text):
+    """加密: 明文 -> 乱码"""
+    if not cipher or not text: return text
+    try:
+        return cipher.encrypt(text.encode()).decode()
+    except: return text
+
+def decrypt_data(text):
+    """解密: 乱码 -> 明文"""
+    if not cipher or not text: return text
+    try:
+        return cipher.decrypt(text.encode()).decode()
+    except:
+        # 如果解密失败(可能是旧数据是明文)，直接返回原样
+        return text
 # ================= 微信推送服务 (WxPusher) =================
 
 # 从环境变量读取配置 (也可以直接填字符串)
@@ -918,6 +937,23 @@ def home():
                             # 排序优先级: wanted(0) > bought(1) > eaten(2)
                             status_order = {'wanted': 0, 'bought': 1, 'eaten': 2}
                             f['wishes'] = sorted(raw_wishes, key=lambda x: status_order.get(x['status'], 0))
+                        except:
+                            pass
+
+                        # [新增] 获取 Wi-Fi 列表
+                        f['wifis'] = []
+                        try:
+                            f['wifis'] = db.table('family_wifis').select('*').eq('family_id',f['id']).execute().data or []
+                        except:
+                            pass
+
+                        # [新增] 获取 备忘录 列表
+                        f['memos'] = []
+                        try:
+                            raw_memos = db.table('family_memos').select('*').eq('family_id', f['id']).execute().data or []
+                            for m in raw_memos:
+                                m['content'] = decrypt_data(m['content'])
+                            f['memos'] = raw_memos
                         except:
                             pass
                         f['reminders'] = []
@@ -3084,6 +3120,62 @@ def get_family_graph():
     except Exception as e:
         print(f"Graph Error: {e}")
         return jsonify({'nodes': [], 'links': []})
+# ================= 工具箱路由 =================
+
+@app.route('/add_wifi', methods=['POST'])
+@login_required
+def add_wifi():
+    db = get_db()
+    try:
+        db.table('family_wifis').insert({
+            'family_id': request.form.get('family_id'),
+            'location': request.form.get('location'),
+            'ssid': request.form.get('ssid'),
+            'password': request.form.get('password')
+        }).execute()
+        flash("Wi-Fi 添加成功", "success")
+    except Exception as e:
+        flash(f"添加失败: {e}", "danger")
+    return redirect(url_for('home'))
+
+@app.route('/delete_wifi', methods=['POST'])
+@login_required
+def delete_wifi():
+    try:
+        get_db().table('family_wifis').delete().eq('id', request.form.get('id')).execute()
+        flash("已删除", "success")
+    except: pass
+    return redirect(url_for('home'))
+
+
+@app.route('/add_memo', methods=['POST'])
+@login_required
+def add_memo():
+    db = get_db()
+    content = request.form.get('content')
+
+    # [修改] 加密内容
+    safe_content = encrypt_data(content)
+
+    try:
+        db.table('family_memos').insert({
+            'family_id': request.form.get('family_id'),
+            'title': request.form.get('title'),
+            'content': safe_content  # 存入乱码
+        }).execute()
+        flash("备忘录保存成功 (已加密)", "success")
+    except Exception as e:
+        flash(f"添加失败: {e}", "danger")
+    return redirect(url_for('home'))
+
+@app.route('/delete_memo', methods=['POST'])
+@login_required
+def delete_memo():
+    try:
+        get_db().table('family_memos').delete().eq('id', request.form.get('id')).execute()
+        flash("已删除", "success")
+    except: pass
+    return redirect(url_for('home'))
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

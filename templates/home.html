@@ -1419,6 +1419,27 @@
         }
         /* 隐藏 ECharts 的 loading 背景 */
         #graph-chart { background: #fdfdfd; border-radius: 16px; }
+        /* === 工具箱卡片样式 === */
+        .wifi-card {
+            background: #2d3436; color: white;
+            border-radius: 16px; padding: 15px; margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .wifi-qr-btn {
+            background: white; color: black; border-radius: 50%;
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+
+        .memo-card {
+            background: #fff; border: 1px solid #eee;
+            border-radius: 12px; padding: 12px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .memo-content-blur {
+            filter: blur(4px); cursor: pointer; user-select: none; transition: 0.2s;
+        }
+        .memo-content-blur:active, .memo-content-show { filter: none; }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1426,6 +1447,8 @@
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <!-- 中国地图数据 (这个CDN比较稳) -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js"></script>
+    <!-- 二维码生成库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
 
@@ -1604,6 +1627,23 @@
                                         <i class="fas fa-project-diagram"></i>
                                     </div>
                                     <span>亲密引力</span>
+                                </div>
+                                <!-- 4. Wi-Fi (修复引号) -->
+                                <div class="tool-item"
+                                     onclick='openWifiModal("{{ fam.id }}", {{ fam.wifis | tojson | safe }}); toggleTools("{{ fam.id }}")'>
+                                    <div class="mini-icon" style="background: #2d3436;">
+                                        <i class="fas fa-wifi"></i>
+                                    </div>
+                                    <span>Wi-Fi 卡</span>
+                                </div>
+
+                                <!-- 5. 备忘录 (修复引号) -->
+                                <div class="tool-item"
+                                     onclick='openMemoModal("{{ fam.id }}", {{ fam.memos | tojson | safe }}); toggleTools("{{ fam.id }}")'>
+                                    <div class="mini-icon" style="background: #f1c40f;">
+                                        <i class="fas fa-sticky-note"></i>
+                                    </div>
+                                    <span>备忘录</span>
                                 </div>
                             </div>
                         </div>
@@ -3090,6 +3130,71 @@
                     <div class="text-center text-muted small py-2">
                         💡 拖拽头像试试 / 连线越粗越亲密
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Wi-Fi 弹窗 -->
+    <div class="modal fade" id="wifiModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">📶 Wi-Fi 共享卡</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 列表区 -->
+                    <div id="wifi-list" class="mb-3"></div>
+
+                    <!-- 添加区 (折叠) -->
+                    <div class="collapse" id="addWifiBox">
+                        <form action="/add_wifi" method="POST" class="p-3 bg-light rounded-3 mt-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="family_id" id="wifi_fam_id">
+                            <div class="row g-2 mb-2">
+                                <div class="col-4"><input type="text" name="location" class="form-control form-control-sm" placeholder="位置(客厅)" required></div>
+                                <div class="col-8"><input type="text" name="ssid" class="form-control form-control-sm" placeholder="Wi-Fi名称" required></div>
+                            </div>
+                            <input type="text" name="password" class="form-control form-control-sm mb-2" placeholder="密码" required>
+                            <button class="btn btn-sm btn-dark w-100">保存</button>
+                        </form>
+                    </div>
+                    <button class="btn btn-link w-100 text-decoration-none small" data-bs-toggle="collapse" data-bs-target="#addWifiBox">+ 添加新 Wi-Fi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二维码大图弹窗 -->
+    <div class="modal fade" id="qrModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content rounded-4">
+                <div class="modal-body text-center p-4">
+                    <h6 class="fw-bold mb-3" id="qr-ssid"></h6>
+                    <div id="qrcode-container" class="d-flex justify-content-center"></div>
+                    <div class="mt-3 small text-muted">扫一扫 直接连接</div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- 备忘录弹窗 -->
+    <div class="modal fade" id="memoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">📒 家庭备忘录</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="memo-list" class="mb-3"></div>
+
+                    <form action="/add_memo" method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="family_id" id="memo_fam_id">
+                        <input type="text" name="title" class="form-control" placeholder="标题 (如:燃气号)" required style="width:40%">
+                        <input type="text" name="content" class="form-control" placeholder="内容" required>
+                        <button class="btn btn-warning text-white"><i class="fas fa-plus"></i></button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -4899,7 +5004,94 @@
 
         graphChart.setOption(option);
     }
+    // ================= Wi-Fi 逻辑 =================
+    function openWifiModal(fid, wifis) {
+        document.getElementById('wifi_fam_id').value = fid;
+        const list = document.getElementById('wifi-list');
+        list.innerHTML = '';
 
+        if(!wifis || wifis.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无 Wi-Fi</div>';
+
+        wifis.forEach(w => {
+            const el = document.createElement('div');
+            el.className = 'wifi-card';
+            el.innerHTML = `
+                <div style="overflow:hidden;">
+                    <div class="small opacity-50 mb-1"><i class="fas fa-map-marker-alt"></i> ${w.location}</div>
+                    <div class="fw-bold fs-5 text-truncate">${w.ssid}</div>
+                    <div class="small font-monospace mt-1" onclick="copyText('${w.password}')">
+                        <i class="fas fa-key"></i> ${w.password} <i class="far fa-copy ms-1"></i>
+                    </div>
+                </div>
+                <div class="wifi-qr-btn shadow" onclick="showWifiQR('${w.ssid}', '${w.password}')">
+                    <i class="fas fa-qrcode fa-lg"></i>
+                </div>
+                <!-- 删除 -->
+                <form action="/delete_wifi" method="POST" style="position:absolute; right:5px; top:5px" onsubmit="return confirm('删？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" value="${w.id}">
+                    <button class="btn btn-sm text-white opacity-25 p-0">×</button>
+                </form>
+            `;
+            list.appendChild(el);
+        });
+
+        new bootstrap.Modal(document.getElementById('wifiModal')).show();
+    }
+
+    function showWifiQR(ssid, password) {
+        document.getElementById('qr-ssid').innerText = ssid;
+        const container = document.getElementById('qrcode-container');
+        container.innerHTML = ''; // 清空
+
+        // 生成 Wi-Fi 专用二维码格式
+        const wifiString = `WIFI:T:WPA;S:${ssid};P:${password};;`;
+        new QRCode(container, {
+            text: wifiString,
+            width: 180,
+            height: 180
+        });
+
+        new bootstrap.Modal(document.getElementById('qrModal')).show();
+    }
+
+    // ================= 备忘录逻辑 =================
+    function openMemoModal(fid, memos) {
+        document.getElementById('memo_fam_id').value = fid;
+        const list = document.getElementById('memo-list');
+        list.innerHTML = '';
+
+        if(!memos || memos.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无备忘</div>';
+
+        memos.forEach(m => {
+            const el = document.createElement('div');
+            el.className = 'memo-card';
+            el.innerHTML = `
+                <div>
+                    <div class="fw-bold text-dark small mb-1">${m.title}</div>
+                    <!-- 点击切换模糊/清晰 -->
+                    <div class="font-monospace text-primary memo-content-blur" onclick="this.classList.toggle('memo-content-blur');">
+                        ${m.content}
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-light text-secondary" onclick="copyText('${m.content}')"><i class="far fa-copy"></i></button>
+                    <form action="/delete_memo" method="POST" onsubmit="return confirm('删？')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="id" value="${m.id}">
+                        <button class="btn btn-sm btn-light text-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                </div>
+            `;
+            list.appendChild(el);
+        });
+
+        new bootstrap.Modal(document.getElementById('memoModal')).show();
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(()=>alert('已复制: '+text));
+    }
 </script>
 </body>
 </html>
