@@ -93,7 +93,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.9.0'
+CURRENT_APP_VERSION = '3.10.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -2415,7 +2415,7 @@ def update_status():
 @app.route('/nudge_member', methods=['POST'])
 @login_required
 def nudge_member():
-    """拍一拍家人"""
+    """拍一拍家人 (带数据记录)"""
     db = get_db()
     target_uid = request.form.get('target_uid')
     target_name = request.form.get('target_name')
@@ -2425,26 +2425,30 @@ def nudge_member():
 
     try:
         my_name = session.get('display_name', '我')
-        # 构造拍一拍文案
         msg = f"👋 {my_name} 拍了拍 {target_name}"
 
-        # 写入家庭提醒表 (复用现有的提醒功能)
+        # 1. 写入家庭留言板 (App内显示)
+        # [修改] 增加 target_user_id，用于生成亲密引力场
         db.table('family_reminders').insert({
             'family_id': family_id,
             'content': msg,
-            'sender_name': '系统'
+            'sender_name': '系统',
+            'created_by': session['user'],
+            'target_user_id': target_uid  # <--- 关键新增
         }).execute()
+
+        # 2. 发送微信推送 (保持不变)
         send_wechat_push(
             family_id=family_id,
             summary=f"👋 {my_name} 拍了拍 {target_name}",
             content=f"家庭里的互动：\n{my_name} 刚刚拍了拍 {target_name} 的脑袋。\n快去App看看吧！"
         )
+
         flash(f"你拍了拍 {target_name}", "success")
     except Exception as e:
         print(f"Nudge Error: {e}")
 
     return redirect(url_for('home'))
-
 
 # [新增] 添加大事记
 @app.route('/add_family_event', methods=['POST'])
@@ -2977,6 +2981,109 @@ def get_family_history():
     except Exception as e:
         print(f"History Error: {e}")
         return jsonify([])
+
+
+# ================= 🕸️ 亲密引力场接口 =================
+
+@app.route('/api/family_graph', methods=['POST'])
+@login_required
+def get_family_graph():
+    """
+    亲密引力场数据接口 (修复 UUID 格式报错版)
+    """
+    client = admin_supabase if admin_supabase else get_db()
+    family_id = request.json.get('family_id')
+    if not family_id: return jsonify({})
+
+    try:
+        # === 1. 获取节点 (Nodes) ===
+        mems = client.table('family_members').select('user_id').eq('family_id', family_id).execute()
+        user_ids = [m['user_id'] for m in (mems.data or [])]
+        if not user_ids: return jsonify({})
+
+        profiles = client.table('profiles').select('id, display_name, avatar_url').in_('id', user_ids).execute()
+
+        nodes = []
+        user_map = {}
+
+        for p in (profiles.data or []):
+            avatar = "/static/icon.png"
+            if p.get('avatar_url'):
+                avatar = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
+
+            user_map[p['id']] = p['display_name']
+
+            nodes.append({
+                'id': p['id'],
+                'name': p['display_name'],
+                'symbol': f'image://{avatar}',
+                'symbolSize': 60,
+                'itemStyle': {'borderWidth': 2, 'borderColor': '#fff'},
+                'value': 0
+            })
+
+        # === 2. 计算亲密度 (Links) ===
+        interaction_counts = {}
+
+        # --- A. 统计点赞 (Likes) ---
+        moms = client.table('moments').select('id, user_id') \
+            .or_(f"target_family_id.is.null,target_family_id.eq.{family_id}") \
+            .execute()
+        mom_list = moms.data or []
+        mom_author_map = {m['id']: m['user_id'] for m in mom_list}
+        all_mom_ids = list(mom_author_map.keys())
+
+        if all_mom_ids:
+            chunk_size = 100
+            for i in range(0, len(all_mom_ids), chunk_size):
+                chunk = all_mom_ids[i:i + chunk_size]
+                likes = client.table('moment_likes').select('user_id, moment_id').in_('moment_id', chunk).execute()
+
+                for l in (likes.data or []):
+                    liker = l['user_id']
+                    author = mom_author_map.get(l['moment_id'])
+
+                    if author and liker != author and liker in user_map and author in user_map:
+                        key = f"{liker}|{author}"
+                        interaction_counts[key] = interaction_counts.get(key, 0) + 1
+
+        # --- B. 统计拍一拍 (Reminders) ---
+        # [核心修复] 去掉 .neq('target_user_id', 'null')，防止 UUID 报错
+        # 直接查出所有提醒，在 Python 里筛选
+        rems = client.table('family_reminders') \
+            .select('created_by, target_user_id') \
+            .eq('family_id', family_id) \
+            .execute()
+
+        for r in (rems.data or []):
+            sender = r.get('created_by')
+            target = r.get('target_user_id')  # 可能是 None
+
+            # 在这里判断 target 是否存在
+            if sender and target and sender != target and sender in user_map and target in user_map:
+                key = f"{sender}|{target}"
+                interaction_counts[key] = interaction_counts.get(key, 0) + 2
+
+        # === 3. 生成连线数据 ===
+        links = []
+        for key, count in interaction_counts.items():
+            u1, u2 = key.split('|')
+            links.append({
+                'source': u1,
+                'target': u2,
+                'value': count,
+                'lineStyle': {
+                    'width': 1 + min(count, 10) * 0.8,
+                    'curveness': 0.2,
+                    'opacity': 0.6 + min(count, 20) * 0.02
+                }
+            })
+
+        return jsonify({'nodes': nodes, 'links': links})
+
+    except Exception as e:
+        print(f"Graph Error: {e}")
+        return jsonify({'nodes': [], 'links': []})
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

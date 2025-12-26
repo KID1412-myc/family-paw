@@ -1417,6 +1417,8 @@
                 transform: translateY(0);
             }
         }
+        /* 隐藏 ECharts 的 loading 背景 */
+        #graph-chart { background: #fdfdfd; border-radius: 16px; }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1539,7 +1541,7 @@
 
                         <!-- 邀请码 (保留) -->
                         <div class="code-pill" onclick="copyCode(this)" title="点击复制">
-                            <i class="fas fa-key"></i>邀请码:{{ fam.invite_code }}
+                            <i class="fas fa-key"></i>{{ fam.invite_code }}
                         </div>
 
                         <!-- [新增] 工具箱按钮 -->
@@ -1594,7 +1596,15 @@
                                     </div>
                                     <span>决定转盘</span>
                                 </div>
-
+                                <!-- [新增] 亲密引力场 -->
+                                <div class="tool-item"
+                                     onclick="openGraphModal('{{ fam.id }}'); toggleTools('{{ fam.id }}')">
+                                    <div class="mini-icon"
+                                         style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
+                                        <i class="fas fa-project-diagram"></i>
+                                    </div>
+                                    <span>亲密引力</span>
+                                </div>
                             </div>
                         </div>
 
@@ -3066,6 +3076,24 @@
         </div>
     </div>
 </div>
+<!-- 亲密引力场弹窗 -->
+    <div class="modal fade" id="graphModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">🕸️ 亲密引力场</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- 图表容器 -->
+                    <div id="graph-chart" style="width: 100%; height: 500px;"></div>
+                    <div class="text-center text-muted small py-2">
+                        💡 拖拽头像试试 / 连线越粗越亲密
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -4541,7 +4569,7 @@
         // 1. 记录当前操作的家庭ID (给历史榜单用)
         currentRoleFamId = fid;
         const weekTabBtn = document.querySelector('a[href="#tab-week"]');
-        if(weekTabBtn) weekTabBtn.click();
+        if (weekTabBtn) weekTabBtn.click();
         // 2. [核心修复] 立即重置 UI 状态 (防止看到上一个家庭的残留)
         document.getElementById('role-title').innerText = '加载中...';
         document.getElementById('role-title').className = 'role-title-badge bg-secondary'; // 变灰
@@ -4562,14 +4590,14 @@
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
             body: JSON.stringify({family_id: fid})
         })
-        .then(res => res.json())
-        .then(data => {
-            roleDataCache = data;
-            // 数据回来后，重新渲染 UI
-            renderRoleUI();
+            .then(res => res.json())
+            .then(data => {
+                roleDataCache = data;
+                // 数据回来后，重新渲染 UI
+                renderRoleUI();
 
-            // 恢复称号徽章的颜色 (渲染函数里会重新赋值 class，这里不用管，renderRoleUI 会处理)
-        });
+                // 恢复称号徽章的颜色 (渲染函数里会重新赋值 class，这里不用管，renderRoleUI 会处理)
+            });
     }
 
     function renderRoleUI() {
@@ -4708,6 +4736,7 @@
 
         openMapModal(fid, hName, hLat, hLon, aName, aLat, aLon, footprints);
     }
+
     // 加载历史榜单
     // [修复版] 加载历史榜单 (防止残留)
     function loadHistory() {
@@ -4722,18 +4751,18 @@
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
             body: JSON.stringify({family_id: currentRoleFamId})
         })
-        .then(res => res.json())
-        .then(data => {
-            if(data.length === 0) {
-                list.innerHTML = '<div class="text-center text-muted py-5">暂无历史记录<br><small>下周一再来看吧</small></div>';
-                return;
-            }
+            .then(res => res.json())
+            .then(data => {
+                if (data.length === 0) {
+                    list.innerHTML = '<div class="text-center text-muted py-5">暂无历史记录<br><small>下周一再来看吧</small></div>';
+                    return;
+                }
 
-            let html = '';
-            data.forEach(item => {
-                const avatar = item.avatar ? `<img src="${item.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : `<div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;">${item.name[0]}</div>`;
+                let html = '';
+                data.forEach(item => {
+                    const avatar = item.avatar ? `<img src="${item.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : `<div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;">${item.name[0]}</div>`;
 
-                html += `
+                    html += `
                 <div class="d-flex align-items-center bg-white p-2 mb-2 rounded-3 shadow-sm border">
                     <!-- 左侧头像 -->
                     <div class="me-3">${avatar}</div>
@@ -4761,12 +4790,115 @@
 
                     </div>
                 </div>`;
+                });
+                list.innerHTML = html;
             });
-            list.innerHTML = html;
-        });
+    }
+    // ================= 🕸️ 亲密引力场逻辑 (美化版) =================
+    let graphChart = null;
+
+    function openGraphModal(fid) {
+        new bootstrap.Modal(document.getElementById('graphModal')).show();
+
+        setTimeout(() => {
+            if (!graphChart) graphChart = echarts.init(document.getElementById('graph-chart'));
+
+            // [修改] 中文加载提示
+            graphChart.showLoading({
+                text: '正在分析亲密度...',
+                color: '#ff7675',
+                textColor: '#ff7675',
+                maskColor: 'rgba(255, 255, 255, 0.8)'
+            });
+
+            fetch('/api/family_graph', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+                body: JSON.stringify({family_id: fid})
+            })
+            .then(res => res.json())
+            .then(data => {
+                graphChart.hideLoading();
+                if (!data.nodes || data.nodes.length === 0) {
+                    graphChart.clear();
+                    return;
+                }
+                renderGraph(data.nodes, data.links);
+            });
+        }, 500);
     }
 
+    function renderGraph(nodes, links) {
+        const option = {
+            backgroundColor: '#ffffff',
+            title: {
+                text: '家庭引力场',
+                subtext: '基于点赞与拍一拍数据分析，连线越粗距离越近，越亲密',
+                top: '20',
+                left: 'center',
+                textStyle: { color: '#333', fontSize: 16 }
+            },
+            tooltip: {
+                formatter: function (params) {
+                    if (params.dataType === 'edge') {
+                        return `亲密度：${params.data.value} `;
+                    }
+                    return params.data.name;
+                }
+            },
+            series: [{
+                type: 'graph',
+                layout: 'force',
+                roam: true,
+                scaleLimit:{
+                    min:0.5,
+                    max:3.0
+                },
+                draggable: true,
 
+                // [美化] 节点样式：加边框，加阴影
+                symbolSize: 60,
+                itemStyle: {
+                    borderColor: '#fff',
+                    borderWidth: 4,
+                    shadowBlur: 10,
+                    shadowColor: 'rgba(0, 0, 0, 0.2)'
+                },
+
+                label: {
+                    show: true,
+                    position: 'bottom',
+                    distance: 5,
+                    color: '#333',
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    backgroundColor: 'rgba(255,255,255,0.7)',
+                    padding: [2, 4],
+                    borderRadius: 4
+                },
+
+                // 力学配置：让球更有弹性
+                force: {
+                    repulsion: 1000, // 排斥力大一点，不拥挤
+                    edgeLength: [120, 400],
+                    gravity: 0.1
+                },
+
+                // 连线样式
+                edgeSymbol: ['circle', 'arrow'],
+                edgeSymbolSize: [4, 8],
+                lineStyle: {
+                    color: '#ff9a9e', // 粉色连线
+                    curveness: 0.15
+                },
+
+                data: nodes,
+                links: links
+            }]
+        };
+
+        graphChart.setOption(option);
+    }
 
 </script>
 </body>
