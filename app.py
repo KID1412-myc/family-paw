@@ -93,7 +93,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.8.2'
+CURRENT_APP_VERSION = '3.9.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -411,6 +411,76 @@ def calculate_event_details(event):
         print(f"Calc Error: {e}")
         return None
 
+
+# [新增] 通用统计函数 (根据时间范围算出谁是冠军)
+def calculate_champion(client, family_id, start_time, end_time):
+    # 1. 获取成员
+    mems = client.table('family_members').select('user_id').eq('family_id', family_id).execute()
+    user_ids = [m['user_id'] for m in (mems.data or [])]
+    if not user_ids: return None
+
+    # 2. 初始化计数
+    stats = {uid: {'guardian': 0, 'recorder': 0, 'foodie': 0, 'care': 0} for uid in user_ids}
+
+    # 3. 统计各项数据 (带时间范围)
+    # A. 守护
+    pets = client.table('pets').select('id').eq('family_id', family_id).execute()
+    pet_ids = [p['id'] for p in (pets.data or [])]
+    if pet_ids:
+        logs = client.table('logs').select('user_id').in_('pet_id', pet_ids).gte('created_at', start_time).lt(
+            'created_at', end_time).execute()
+        for l in (logs.data or []):
+            if l['user_id'] in stats: stats[l['user_id']]['guardian'] += 1
+
+    # B. 记录 (简化版：只查moments)
+    moms = client.table('moments').select('user_id').or_(
+        f"target_family_id.is.null,target_family_id.eq.{family_id}").gte('created_at', start_time).lt('created_at',
+                                                                                                      end_time).execute()
+    for m in (moms.data or []):
+        if m['user_id'] in stats: stats[m['user_id']]['recorder'] += 1
+
+    # C. 美食
+    wishes = client.table('family_wishes').select('created_by').eq('family_id', family_id).gte('created_at',
+                                                                                               start_time).lt(
+        'created_at', end_time).execute()
+    for w in (wishes.data or []):
+        if w['created_by'] in stats: stats[w['created_by']]['foodie'] += 1
+
+    # D. 关怀
+    rems = client.table('family_reminders').select('created_by').eq('family_id', family_id).gte('created_at',
+                                                                                                start_time).lt(
+        'created_at', end_time).execute()
+    for r in (rems.data or []):
+        if r['created_by'] in stats: stats[r['created_by']]['care'] += 1
+
+    # 4. 评选 MVP
+    best_uid = None
+    best_score = -1
+    best_title = ""
+
+    for uid, s in stats.items():
+        # 简单加权总分 (元老值不参与周榜竞赛，只看谁干活多)
+        total = s['guardian'] + s['recorder'] + s['foodie'] + s['care']
+
+        if total > best_score and total > 0:  # 必须有贡献
+            best_score = total
+            best_uid = uid
+
+            # [修改] 统一使用你指定的称号文案
+            # 这样归档到历史表里的就是"金牌铲屎官"了
+            scores = {
+                '🛡️ 金牌铲屎官': s['guardian'],
+                '📸 朋友圈战神': s['recorder'],
+                '😋 干饭王': s['foodie'],
+                '❤️ 贴心小棉袄': s['care']
+            }
+            # 直接取 Key 作为标题
+            best_arr = max(scores, key=scores.get)
+            best_title=f"周榜·{best_arr}"
+
+    if best_uid:
+        return {'uid': best_uid, 'title': best_title, 'score': best_score}
+    return None
 
 # ================= 微信推送服务 (WxPusher) =================
 
@@ -2658,96 +2728,144 @@ def delete_footprint():
 @app.route('/api/family_stats', methods=['POST'])
 @login_required
 def get_family_stats():
-    """获取家庭角色卡数据 (使用 Admin 权限确保读取完整)"""
-    # [修改] 使用 Admin 客户端，防止 RLS 拦截导致查不到成员
+    """获取家庭角色卡 (本周战绩版)"""
     client = admin_supabase if admin_supabase else get_db()
 
     family_id = request.json.get('family_id')
     if not family_id: return jsonify([])
+    # [新增] === 懒加载归档：检查上周是否已结算 ===
+    try:
+        now = datetime.now(timezone(timedelta(hours=8)))
+        # 获取上周的年份和周数 (ISO标准)
+        last_week_date = now - timedelta(days=7)
+        year, week, _ = last_week_date.isocalendar()
+        week_str = f"{year}-W{week}"
+
+        # 查库：上周结算过吗？
+        check = client.table('family_weekly_honors').select('id').eq('family_id', family_id).eq('week_str',
+                                                                                                week_str).execute()
+
+        if not check.data:
+            # 没结算 -> 开始补算上周数据
+            # 上周一 00:00 ~ 本周一 00:00
+            this_monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            last_monday = this_monday - timedelta(days=7)
+
+            t_start = last_monday.astimezone(timezone.utc).isoformat()
+            t_end = this_monday.astimezone(timezone.utc).isoformat()
+
+            # 调用刚才写的计算函数
+            winner = calculate_champion(client, family_id, t_start, t_end)
+
+            if winner:
+                # 存入荣誉表
+                client.table('family_weekly_honors').insert({
+                    'family_id': family_id,
+                    'week_str': week_str,
+                    'winner_id': winner['uid'],
+                    'title': winner['title'],
+                    'score_data': {'total': winner['score']}
+                }).execute()
+                print(f"✅ 已自动归档上周 ({week_str}) 冠军")
+            else:
+                # 上周没人互动，插个空记录防止重复计算
+                pass
+    except Exception as e:
+        print(f"Archive Error: {e}")
 
     try:
-        # 1. 获取该家庭所有成员 (Admin 查，绝对全)
+        # 1. 计算"本周一 00:00"的 UTC 时间 (用于过滤数据)
+        now = datetime.now(timezone(timedelta(hours=8)))  # 北京时间
+        # 找到本周一 (weekday: 0=Mon, 6=Sun)
+        start_of_week = now - timedelta(days=now.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        # 转为 UTC 字符串供数据库查询
+        filter_time = start_of_week.astimezone(timezone.utc).isoformat()
+
+        # 2. 获取成员
         mems = client.table('family_members').select('user_id, created_at').eq('family_id', family_id).execute()
         member_list = mems.data or []
-
-        if not member_list:
-            return jsonify([])  # 真的没人
+        if not member_list: return jsonify([])
 
         user_ids = [m['user_id'] for m in member_list]
-
-        # 获取成员详情
         profiles = client.table('profiles').select('id, display_name, avatar_url').in_('id', user_ids).execute()
         user_info_map = {p['id']: p for p in (profiles.data or [])}
 
-        # 2. 准备 5 维数据计数器
-        stats = {uid: {'guardian': 0, 'recorder': 0, 'foodie': 0, 'care': 0, 'seniority': 0} for uid in user_ids}
+        # 3. 初始化计数器
+        stats = {uid: {'guardian': 0, 'recorder': 0, 'foodie': 0, 'care': 0, 'seniority': 1} for uid in user_ids}
 
-        # A. 守护力 (Logs)
+        # A. 守护力 (本周喂食/遛狗)
         pets = client.table('pets').select('id').eq('family_id', family_id).execute()
         pet_ids = [p['id'] for p in pets.data] if pets.data else []
         if pet_ids:
-            logs = client.table('logs').select('user_id').in_('pet_id', pet_ids).execute()
+            logs = client.table('logs').select('user_id') \
+                .in_('pet_id', pet_ids) \
+                .gte('created_at', filter_time) \
+                .execute()
             for l in (logs.data or []):
                 if l['user_id'] in stats: stats[l['user_id']]['guardian'] += 1
 
-        # B. 记录力 (Moments - 统计所有 target_family_id 匹配的)
-        # 使用 or_ 语法同时查 公开(null) 和 私有(eq) 可能会漏，为了稳妥，直接查该家庭下的私有动态
-        # (公开动态算全家贡献，这里暂时只算发到本家庭的，逻辑更严谨)
-        moms = client.table('moments').select('user_id').eq('target_family_id', family_id).execute()
+        # B. [修复] 记录力 (本周动态：公开 + 本家庭)
+        # 逻辑：(target is null OR target = family_id) AND created_at >= 本周
+        moms = client.table('moments').select('user_id') \
+            .or_(f"target_family_id.is.null,target_family_id.eq.{family_id}") \
+            .gte('created_at', filter_time) \
+            .execute()
+
         for m in (moms.data or []):
-            if m['user_id'] in stats: stats[m['user_id']]['recorder'] += 1
+            uid = m['user_id']
+            # 只有当发动态的人在当前家庭成员列表里，才统计
+            if uid in stats:
+                stats[uid]['recorder'] += 1
 
-        # C. 美食魂 (Wishes)
-        wishes = client.table('family_wishes').select('created_by').eq('family_id', family_id).execute()
+        # C. 美食魂 (本周许愿)
+        wishes = client.table('family_wishes').select('created_by') \
+            .eq('family_id', family_id) \
+            .gte('created_at', filter_time) \
+            .execute()
         for w in (wishes.data or []):
-            uid = w['created_by']
-            if uid in stats: stats[uid]['foodie'] += 1
+            if w['created_by'] in stats: stats[w['created_by']]['foodie'] += 1
 
-        # D. 关怀力 (Reminders)
-        rems = client.table('family_reminders').select('created_by').eq('family_id', family_id).execute()
+        # D. 关怀力 (本周提醒)
+        rems = client.table('family_reminders').select('created_by') \
+            .eq('family_id', family_id) \
+            .gte('created_at', filter_time) \
+            .execute()
         for r in (rems.data or []):
-            uid = r['created_by']
-            if uid in stats: stats[uid]['care'] += 1
+            if r['created_by'] in stats: stats[r['created_by']]['care'] += 1
 
-        # E. 元老值
-        now_bj = datetime.now(timezone(timedelta(hours=8))).date()
-
+        # E. 元老值 (累计天数，不按周算，这是资历)
+        today_date = datetime.now(timezone.utc).date()
         for m in member_list:
             try:
-                # 1. 直接截取前10位: "2025-12-05 15:xx..." -> "2025-12-05"
-                # 这种字符串处理方式绝对不会报错，无视任何时区格式
-                date_str = str(m['created_at'])[:10]
+                join_date = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00')).date()
+                days = (today_date - join_date).days
+                final_days = max(1, days + 1)
+                if m['user_id'] in stats: stats[m['user_id']]['seniority'] = final_days
+            except:
+                pass
 
-                # 2. 转为日期对象
-                join_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-
-                # 3. 计算天数
-                days = (now_bj - join_date).days
-
-
-
-                if m['user_id'] in stats:
-                    stats[m['user_id']]['seniority'] = days
-
-            except Exception as e:
-                # 把错误打印出来，万一还有错能看到
-                print(f"Seniority Calc Error: {e} for {m['created_at']}")
-
-        # 3. 组装返回
+        # 4. 组装返回
         result = []
         for uid, s in stats.items():
             info = user_info_map.get(uid, {})
 
-            # 计算称号
+            # [修改] 称号计算 (按你的新文案)
+            # 权重调整：元老值除以 30 (一个月抵一次本周互动，避免老用户躺赢)
+            # 其他按次数 1:1 比拼
             scores = {
                 '🛡️ 金牌铲屎官': s['guardian'],
                 '📸 朋友圈战神': s['recorder'],
                 '😋 干饭王': s['foodie'],
                 '❤️ 贴心小棉袄': s['care'],
-                '🌟 一家之主': s['seniority'] / 7
+                '🌟 一家之主': s['seniority'] / 30
             }
             title = max(scores, key=scores.get)
-            if all(v == 0 for v in scores.values()): title = "🌱 萌新成员"
+
+            # 如果本周完全没互动 (且元老值权重也没超过0.5)，给个"潜水中"
+            # (这里稍微放宽一点，让元老至少有点牌面)
+            if all(v == 0 for k, v in scores.items() if k != '🌟 一家之主') and scores['🌟 一家之主'] < 1:
+                title = "💤 本周潜水中"
 
             avatar = None
             if info.get('avatar_url'):
@@ -2765,6 +2883,78 @@ def get_family_stats():
 
     except Exception as e:
         print(f"Stats Error: {e}")
+        return jsonify([])
+
+
+@app.route('/api/family_history', methods=['POST'])
+@login_required
+def get_family_history():
+    """获取往期周榜 (带具体日期计算)"""
+    client = admin_supabase if admin_supabase else get_db()
+    fid = request.json.get('family_id')
+    try:
+        check = get_db().table('family_members').select('id') \
+            .eq('family_id', fid) \
+            .eq('user_id', session['user']) \
+            .execute()
+
+        if not check.data:
+            # 如果查不到我是成员，直接拒绝
+            return jsonify([])
+    except:
+        return jsonify([])
+
+    try:
+        res = client.table('family_weekly_honors') \
+            .select('week_str, title, winner_id') \
+            .eq('family_id', fid) \
+            .order('week_str', desc=True) \
+            .limit(10) \
+            .execute()
+
+        data = res.data or []
+        result = []
+
+        for item in data:
+            uid = item['winner_id']
+            # 获取用户信息
+            p = client.table('profiles').select('display_name, avatar_url').eq('id', uid).single().execute()
+
+            # [核心修改] 计算具体日期范围
+            # week_str 格式: "2025-W51"
+            date_range_str = ""
+            week_num = ""
+            try:
+                year_str, week_str = item['week_str'].split('-W')
+                year = int(year_str)
+                week = int(week_str)
+                week_num = f"第{week}周"
+
+                # 计算周一和周日
+                # fromisocalendar(year, week, day) 1=Monday
+                start_date = datetime.fromisocalendar(year, week, 1)
+                end_date = start_date + timedelta(days=6)
+
+                # 格式化: 12.15 - 12.21
+                date_range_str = f"{start_date.strftime('%m.%d')} - {end_date.strftime('%m.%d')}"
+            except:
+                date_range_str = item['week_str']  # 算错了就显示原样
+
+            if p.data:
+                avatar = None
+                if p.data.get('avatar_url'):
+                    avatar = f"{url}/storage/v1/object/public/family_photos/{p.data['avatar_url']}"
+
+                result.append({
+                    'date_range': date_range_str,  # 如: 12.15 - 12.21
+                    'week_num': week_num,  # 如: 第51周
+                    'title': item['title'],
+                    'name': p.data['display_name'],
+                    'avatar': avatar
+                })
+        return jsonify(result)
+    except Exception as e:
+        print(f"History Error: {e}")
         return jsonify([])
 if __name__ == '__main__':
     # 开发环境启动
