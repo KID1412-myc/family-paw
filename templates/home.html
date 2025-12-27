@@ -1530,6 +1530,106 @@
             background: #2ecc71;
             border-color: #2ecc71;
         }
+
+        /* === 🎟️ 兑换券样式 === */
+        @keyframes flyInRight {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .coupon-card {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border-radius: 12px;
+            display: flex;
+            position: relative;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(255, 154, 158, 0.3);
+            overflow: hidden;
+            color: white;
+            transition: transform 0.2s;
+            animation: flyInRight 0.5s ease-out forwards;
+        }
+
+        .coupon-card:active {
+            transform: scale(0.98);
+        }
+
+        /* 预设标签：增加点击反馈 */
+        .preset-tag {
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .preset-tag:active {
+            transform: scale(0.95);
+            background: #e9ecef !important;
+        }
+
+        /* 锯齿分割线 */
+        .coupon-split {
+            width: 10px;
+            background-image: radial-gradient(circle at 0 50%, transparent 4px, rgba(255, 255, 255, 0.3) 5px);
+            background-size: 10px 15px;
+            background-position: 0 0;
+            border-right: 1px dashed rgba(255, 255, 255, 0.5);
+        }
+
+        .coupon-left {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .coupon-right {
+            width: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+        }
+
+        .coupon-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .coupon-meta {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        /* 已使用状态 (灰色 + 印章) */
+        .coupon-used {
+            background: #dfe6e9;
+            color: #636e72;
+            box-shadow: none;
+        }
+
+        .coupon-used .coupon-stamp {
+            position: absolute;
+            right: 60px;
+            top: 10px;
+            border: 3px solid #b2bec3;
+            color: #b2bec3;
+            font-weight: 900;
+            padding: 5px 10px;
+            transform: rotate(-25deg);
+            opacity: 0.6;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1751,6 +1851,14 @@
                                         <i class="fas fa-shopping-basket"></i>
                                     </div>
                                     <span>采购清单</span>
+                                </div>
+                                <!-- 8. 兑换券 -->
+                                <div class="tool-item"
+                                     onclick='openCouponModal("{{ fam.id }}", {{ fam.coupons_received | tojson | safe }}, {{ fam.coupons_sent | tojson | safe }}, {{ family_members_dict[fam.id] | tojson | safe }}); toggleTools("{{ fam.id }}")'>
+                                    <div class="mini-icon" style="background: #fd79a8;">
+                                        <i class="fas fa-ticket-alt"></i>
+                                    </div>
+                                    <span>兑换券</span>
                                 </div>
                             </div>
                         </div>
@@ -3400,6 +3508,95 @@
 
                 <!-- 2. [核心修复] 列表容器 (之前可能漏了这个 div) -->
                 <div id="shop-list" style="max-height: 400px; overflow-y: auto;">
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 兑换券弹窗 (完整版) -->
+<div class="modal fade" id="couponModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0" style="background: #f8f9fa;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🎟️ 亲密兑换券</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- 顶部切换 Tabs -->
+                <ul class="nav nav-pills nav-fill mb-3 p-1 bg-white rounded-pill shadow-sm">
+                    <li class="nav-item">
+                        <a class="nav-link active rounded-pill btn-sm py-2 fw-bold" data-bs-toggle="pill"
+                           href="#tab-wallet">
+                            <i class="fas fa-wallet me-1"></i>我的卡包
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill btn-sm py-2 fw-bold" data-bs-toggle="pill" href="#tab-issue">
+                            <i class="fas fa-print me-1"></i>发行中心
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- 1. 我的卡包 (我收到的) -->
+                    <div class="tab-pane fade show active" id="tab-wallet">
+                        <div id="coupon-list-received" style="max-height: 400px; overflow-y: auto; padding: 5px;">
+                            <!-- JS 填充 -->
+                        </div>
+                    </div>
+
+                    <!-- 2. 发行中心 (我发的) -->
+                    <div class="tab-pane fade" id="tab-issue">
+                        <!-- 发行表单 -->
+                        <form action="/send_coupon" method="POST" class="bg-white p-3 rounded-3 shadow-sm mb-3">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="family_id" id="coupon_fam_id">
+
+                            <div class="mb-2">
+                                <label class="small text-muted fw-bold">发给谁？</label>
+                                <select name="target_uid" id="coupon_target" class="form-select form-select-sm"
+                                        required>
+                                    <!-- JS 填充 -->
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="small text-muted fw-bold">券名 (承诺内容)</label>
+                                <input type="text" name="title" class="form-control form-control-sm"
+                                       placeholder="如: 按摩30分钟 / 洗碗券" required>
+                                <!-- 快捷标签 -->
+                                <!-- [修复] 预设标签 -->
+                                <div class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap;">
+                                    <span class="badge bg-light text-secondary border preset-tag"
+                                          onclick="fillCoupon('按摩 30 分钟')">💆‍♂️ 按摩</span>
+                                    <span class="badge bg-light text-secondary border preset-tag"
+                                          onclick="fillCoupon('洗碗券')">🥣 洗碗</span>
+                                    <span class="badge bg-light text-secondary border preset-tag"
+                                          onclick="fillCoupon('无理由原谅券')">🙏 原谅</span>
+                                    <span class="badge bg-light text-secondary border preset-tag"
+                                          onclick="fillCoupon('专属叫醒服务')">⏰ 叫醒</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small text-muted fw-bold">发行数量</label>
+                                <input type="number" name="count" class="form-control form-control-sm" value="1" min="1"
+                                       max="10">
+                            </div>
+
+                            <button class="btn btn-dark w-100 btn-sm fw-bold">
+                                <i class="fas fa-paper-plane me-1"></i> 立即发行
+                            </button>
+                        </form>
+
+                        <!-- 发行记录 -->
+                        <div class="small text-muted mb-2 ms-1">发行记录</div>
+                        <div id="coupon-list-sent" style="max-height: 250px; overflow-y: auto; padding: 5px;">
+                            <!-- JS 填充 -->
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -5416,6 +5613,116 @@
         btn.classList.remove('text-muted');
         btn.classList.add('text-primary'); // 变回亮色
     });
+
+    // ================= 🎟️ 兑换券逻辑 =================
+    // 快捷填单
+        function fillCoupon(text) {
+        const input = document.querySelector('#couponModal input[name="title"]');
+        if(input) input.value = text;
+        }
+
+    function openCouponModal(fid, received, sent, members) {
+        document.getElementById('coupon_fam_id').value = fid;
+
+        // 1. 填充"发给谁"下拉框
+        const select = document.getElementById('coupon_target');
+        select.innerHTML = '';
+        members.forEach(uid => {
+            if (uid !== currentUserId && userMap[uid]) {
+                select.add(new Option(userMap[uid].name, uid));
+            }
+        });
+        if (select.options.length === 0) select.add(new Option("暂无其他成员", ""));
+
+        // 2. 渲染"我的卡包"
+        const listReceived = document.getElementById('coupon-list-received');
+        listReceived.innerHTML = '';
+        if (received.length === 0) {
+            listReceived.innerHTML = '<div class="text-center text-muted py-5">空空如也<br>快去暗示对象发券！</div>';
+        } else {
+            received.forEach(c => listReceived.innerHTML += renderCouponHtml(c, 'received', fid));
+        }
+
+        // 3. 渲染"发行记录"
+        const listSent = document.getElementById('coupon-list-sent');
+        listSent.innerHTML = '';
+        if (sent.length === 0) {
+            listSent.innerHTML = '<div class="text-center text-muted py-3 small">暂无发行记录</div>';
+        } else {
+            sent.forEach(c => listSent.innerHTML += renderCouponHtml(c, 'sent', fid));
+        }
+
+        new bootstrap.Modal(document.getElementById('couponModal')).show();
+    }
+
+    // 渲染单张券的 HTML
+    function renderCouponHtml(c, type, fid) {
+        const isUsed = c.status === 'used';
+        const isVoid = c.status === 'void';
+
+        // 样式逻辑
+        let bgClass = 'background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: white;';
+        if (isUsed) bgClass = 'background: #dfe6e9; color: #636e72;';
+        if (isVoid) bgClass = 'background: #f1f2f6; color: #b2bec3; border: 1px dashed #ccc;';
+
+        // 按钮逻辑
+        let actionBtn = '';
+        if (type === 'received') {
+            if (c.status === 'active') {
+                actionBtn = `
+                <form action="/use_coupon" method="POST" onsubmit="return confirm('确定使用？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="coupon_id" value="${c.id}">
+                    <input type="hidden" name="family_id" value="${fid}">
+                    <button class="btn btn-sm btn-light text-danger fw-bold shadow-sm" style="border-radius: 20px; font-size: 12px; padding: 5px 12px;">立即使用</button>
+                </form>`;
+            } else if (isVoid) {
+                actionBtn = '<span class="badge bg-secondary">已作废</span>';
+            }
+        } else if (type === 'sent') {
+            if (c.status === 'active') {
+                // [新增] 作废按钮 (后悔药)
+                actionBtn = `
+                <div class="d-flex flex-column align-items-center">
+                    <div class="small opacity-75 mb-1">发给: ${c.target_name}</div>
+                    <form action="/void_coupon" method="POST" onsubmit="return confirm('确定要作废这张券吗？对方将无法使用。')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="coupon_id" value="${c.id}">
+                        <button class="btn btn-sm btn-outline-light border-0 py-0" style="font-size: 10px; background: rgba(0,0,0,0.1);">⛔ 作废</button>
+                    </form>
+                </div>`;
+            } else {
+                actionBtn = `<div class="small opacity-75">${isVoid ? '已作废' : '已核销'}</div>`;
+            }
+        }
+
+        // 印章逻辑
+        let stamp = '';
+        if (isUsed) stamp = `<div style="position: absolute; right: 50px; top: 10px; border: 3px solid #b2bec3; color: #b2bec3; font-weight: 900; padding: 5px 10px; transform: rotate(-25deg); opacity: 0.6; font-size: 14px;">已核销</div>`;
+        if (isVoid) stamp = `<div style="position: absolute; right: 50px; top: 10px; border: 3px solid #b2bec3; color: #b2bec3; font-weight: 900; padding: 5px 10px; transform: rotate(-25deg); opacity: 0.6; font-size: 14px;">已作废</div>`;
+
+        return `
+        <div class="d-flex position-relative mb-3 shadow-sm coupon-card" style="${bgClass} border-radius: 12px; overflow: hidden; min-height: 90px;">
+            ${stamp}
+            <div class="p-3 flex-grow-1 d-flex flex-column justify-content-center">
+                <div class="fw-bold fs-5" style="text-shadow: 0 1px 2px rgba(0,0,0,0.1);">${c.title}</div>
+                <div class="d-flex justify-content-between align-items-end mt-1">
+                    <div class="small opacity-75">${type === 'received' ? '来自: ' + c.creator_name : '创建于: ' + c.created_at.slice(0, 10)}</div>
+                    <!-- [新增] 最终解释权梗 -->
+                    <div style="font-size: 8px; opacity: 0.5; transform: scale(0.8); transform-origin: right bottom;">*最终解释权归发行者所有</div>
+                </div>
+            </div>
+
+            <div style="width: 12px; background-image: radial-gradient(circle at 0 50%, transparent 4px, rgba(255,255,255,0.3) 5px); background-size: 10px 15px; background-repeat: repeat-y; border-right: 1px dashed rgba(255,255,255,0.4);"></div>
+
+            <div class="d-flex align-items-center justify-content-center p-2" style="width: 90px; background: rgba(0,0,0,0.03);">
+                ${actionBtn}
+            </div>
+        </div>
+        `;
+        }
+
+
 </script>
 </body>
 </html>

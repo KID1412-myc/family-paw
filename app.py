@@ -94,7 +94,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.12.0'
+CURRENT_APP_VERSION = '3.13.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -556,6 +556,41 @@ def send_wechat_push(family_id, summary, content):
 
     threading.Thread(target=_do_push).start()
 
+def send_private_wechat_push(target_user_id, summary, content):
+    """
+    [新增] 点对点私密推送
+    只发给指定用户，不打扰全家
+    """
+    if not wx_app_token or not target_user_id: return
+
+    def _do_push():
+        try:
+            # 1. 查这个人的 Wx UID
+            # 这里用 admin 权限查，确保能查到
+            client = admin_supabase if admin_supabase else supabase
+            res = client.table('profiles').select('wx_uid').eq('id', target_user_id).single().execute()
+
+            if res.data and res.data.get('wx_uid'):
+                uids = [res.data['wx_uid']]
+
+                # 2. 发送
+                url = "https://wxpusher.zjiecode.com/api/send/message"
+                payload = {
+                    "appToken": wx_app_token,
+                    "content": content,
+                    "summary": summary,
+                    "contentType": 1,
+                    "uids": uids  # 只发给他一个人
+                }
+                requests.post(url, json=payload, timeout=5)
+                print(f"✅ 私密推送成功: {uids}")
+            else:
+                print("❌ 目标用户未绑定微信 UID")
+
+        except Exception as e:
+            print(f"Private Push Error: {e}")
+
+    threading.Thread(target=_do_push).start()
 
 # ================= [核心] 数据库连接获取 =================
 # ================= [核心修复] 数据库连接获取 (带自动续命功能) =================
@@ -773,9 +808,13 @@ def logout():
 @app.route('/')
 @login_required
 def home():
-    """主页路由 (集成双城天气版)"""
+    """
+    主页路由 (完美整合版)
+    修复了 user_map 报错，补全了足迹功能，恢复了高精度时间逻辑
+    """
     current_user_id = session.get('user')
     current_tab = request.args.get('tab', 'pets')
+    # 仅用于显示日期的字符串，数据库查询使用后面更严谨的 UTC 逻辑
     today_str = get_beijing_time().strftime('%Y-%m-%d')
     db = get_db()
 
@@ -797,226 +836,17 @@ def home():
             members_res = db.table('family_members').select('family_id').eq('user_id', current_user_id).execute()
             if members_res.data:
                 my_family_ids = [m['family_id'] for m in members_res.data]
-
-                # 查询家庭详情
                 if my_family_ids:
                     fams_res = db.table('families').select('*').in_('id', my_family_ids).execute()
                     my_families = fams_res.data or []
-
-                    # 定义基准时间 (北京时间用于倒计时，UTC时间用于缓存判断)
-                    bj_now_date = datetime.now(timezone(timedelta(hours=8))).date()
-                    utc_now = datetime.now(timezone.utc)
-
-                    for f in my_families:
-                        # [全能时间卡片逻辑]
-                        f['top_event'] = None
-                        candidate_events = []
-
-                        # 1. 归家倒计时 (兼容旧数据)
-                        if f.get('reunion_date'):
-                            try:
-                                target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
-                                days = (target - bj_now_date).days
-                                if days >= 0:
-                                    candidate_events.append({
-                                        'title': f.get('reunion_name') or '团圆',
-                                        'data': {'days': days, 'total': 0, 'date_str': f['reunion_date'],
-                                                 'is_repeat': False},
-                                        'type': 'reunion'
-                                    })
-                            except:
-                                pass
-
-                        # 2. 数据库里的家庭大事
-                        try:
-                            db_events = db.table('family_events').select('*').eq('family_id',
-                                                                                 f['id']).execute().data or []
-                            for e in db_events:
-                                calc = calculate_event_details(e)
-                                if calc:
-                                    # 只显示未来的(days>=0)，或者纪念日(total>0)
-                                    if calc['days'] >= 0 or calc['total'] > 0:
-                                        candidate_events.append({
-                                            'id': e['id'],
-                                            'title': e['title'],
-                                            'data': calc,
-                                            'type': 'event',
-                                            'is_lunar': e['event_type'] == 'lunar'
-                                        })
-                        except:
-                            pass
-
-                        # 3. 排序与选取
-                        if candidate_events:
-                            # 排序逻辑：
-                            # 第一优先级: 是否过期 (x['data']['days'] < 0)。False(0) 排前，True(1) 排后
-                            # 第二优先级: 剩余天数的绝对值 (越近越前)
-                            candidate_events.sort(key=lambda x: (
-                                1 if x['data']['days'] < 0 else 0,
-                                abs(x['data']['days'])
-                            ))
-
-                            f['top_event'] = candidate_events[0]
-                            f['all_events'] = candidate_events
-
-                        # === 2. 天气缓存逻辑 (核心升级) ===
-                        # 默认先读数据库里的旧缓存 (秒开的核心)
-                        f['weather_home'] = f.get('weather_data_home')
-                        f['weather_away'] = f.get('weather_data_away')
-
-                        # 判断是否需要更新 (缓存策略: 30分钟)
-                        need_update = False
-                        last_update_str = f.get('last_weather_update')
-
-                        if not last_update_str:
-                            need_update = True  # 没存过，必须更新
-                        else:
-                            try:
-                                # 解析数据库时间 (处理 ISO 格式)
-                                last_time = datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
-                                # 如果过去超过 30 分钟 -> 更新
-                                if (utc_now - last_time) > timedelta(minutes=30):
-                                    need_update = True
-                            except:
-                                need_update = True  # 时间格式错了，重来
-
-                        # === 3. 执行更新 (只有过期了才跑这一步) ===
-                        if need_update:
-                            print(f"🔄 缓存过期，正在更新家庭 [{f['name']}] 的天气...")
-                            new_home = None
-                            new_away = None
-
-                            # 查老家
-                            if f.get('location_home_id'):
-                                new_home = get_weather_full(
-                                    f['location_home_id'],
-                                    f.get('location_home_lat'),
-                                    f.get('location_home_lon')
-                                )
-                                if new_home: f['weather_home'] = new_home  # 实时覆盖内存数据
-
-                            # 查远方
-                            if f.get('location_away_id'):
-                                new_away = get_weather_full(
-                                    f['location_away_id'],
-                                    f.get('location_away_lat'),
-                                    f.get('location_away_lon')
-                                )
-                                if new_away: f['weather_away'] = new_away  # 实时覆盖内存数据
-
-                            # 写回数据库 (只在有新数据时写入)
-                            if new_home or new_away:
-                                try:
-                                    update_payload = {'last_weather_update': utc_now.isoformat()}
-                                    if new_home: update_payload['weather_data_home'] = new_home
-                                    if new_away: update_payload['weather_data_away'] = new_away
-
-                                    # 异步写入数据库
-                                    db.table('families').update(update_payload).eq('id', f['id']).execute()
-                                except Exception as e:
-                                    print(f"Cache Write Error: {e}")
-
-                        # [新增] 获取足迹列表
-                        f['footprints'] = []
-                        try:
-                            fp_res = db.table('family_footprints').select('*').eq('family_id', f['id']).execute()
-                            f['footprints'] = fp_res.data or []
-                        except:
-                            pass
-                        # [新增] 获取许愿菜单 (按状态排序: 想吃 -> 已买 -> 吃过)
-                        f['wishes'] = []
-                        try:
-                            wishes_res = db.table('family_wishes') \
-                                .select('*') \
-                                .eq('family_id', f['id']) \
-                                .order('created_at', desc=True) \
-                                .execute()
-
-                            # 简单的本地排序优化：把"吃到了"沉底
-                            raw_wishes = wishes_res.data or []
-                            # 排序优先级: wanted(0) > bought(1) > eaten(2)
-                            status_order = {'wanted': 0, 'bought': 1, 'eaten': 2}
-                            f['wishes'] = sorted(raw_wishes, key=lambda x: status_order.get(x['status'], 0))
-                        except:
-                            pass
-
-                        # [新增] 获取 Wi-Fi 列表
-                        f['wifis'] = []
-                        try:
-                            f['wifis'] = db.table('family_wifis').select('*').eq('family_id',f['id']).execute().data or []
-                        except:
-                            pass
-
-                        # [新增] 获取 备忘录 列表
-                        f['memos'] = []
-                        try:
-                            raw_memos = db.table('family_memos').select('*').eq('family_id', f['id']).execute().data or []
-                            for m in raw_memos:
-                                m['content'] = decrypt_data(m['content'])
-                            f['memos'] = raw_memos
-                        except:
-                            pass
-
-                        # [新增] 获取收纳物品 (按时间倒序)
-                        f['inventory'] = []
-                        try:
-                            inv_res = db.table('family_inventory').select('*').eq('family_id', f['id']).order('created_at', desc=True).execute()
-                            inv_data = inv_res.data or []
-                            # 拼接图片链接
-                            for item in inv_data:
-                                if item.get('image_path'):
-                                    item['url'] = f"{url}/storage/v1/object/public/family_photos/{item['image_path']}"
-                            f['inventory'] = inv_data
-                        except:
-                            pass
-                        # [新增] 获取采购清单 (未买的排前面)
-                        f['shopping_list'] = []
-                        try:
-                            shop_res = db.table('family_shopping_list').select('*').eq('family_id', f['id']).order('created_at', desc=True).execute()
-                            shop_data = shop_res.data or []
-                            # 排序: 未买(False=0) 在前，已买(True=1) 在后
-                            f['shopping_list'] = sorted(shop_data, key=lambda x: x.get('is_bought', False)) if shop_data else [] # ✅ 安全
-                        except:
-                            pass
-                        f['reminders'] = []
-                        try:
-                            # 1. 计算24小时前的时间
-                            yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-
-                            # 2. 查询数据
-                            rem_res = db.table('family_reminders') \
-                                .select('*') \
-                                .eq('family_id', f['id']) \
-                                .gte('created_at', yesterday) \
-                                .order('created_at', desc=True) \
-                                .limit(3) \
-                                .execute()
-
-                            reminders = rem_res.data or []
-
-                            # 3. [关键修复] 遍历处理时间：UTC -> 北京时间
-                            for r in reminders:
-                                try:
-                                    # 解析 UTC 时间字符串
-                                    dt_utc = datetime.fromisoformat(r['created_at'].replace('Z', '+00:00'))
-                                    # 转为北京时间
-                                    dt_bj = dt_utc.astimezone(timezone(timedelta(hours=8)))
-                                    # 格式化为 "18:30" 这种格式
-                                    r['time_display'] = dt_bj.strftime('%H:%M')
-                                except:
-                                    r['time_display'] = "刚刚"
-
-                            f['reminders'] = reminders
-                        except Exception as e:
-                            print(f"Reminder Error: {e}")
-
     except Exception as e:
-        print(f"Profile/Weather Fetch Error: {e}")
+        print(f"Profile Error: {e}")
 
     if my_profile.get('display_name'): session['display_name'] = my_profile['display_name']
     user_name = session.get('display_name', '家人')
 
-    # ================= 2. 获取可见成员映射 =================
+    # ================= 2. 获取可见成员映射 (顺序修复核心) =================
+    # 必须在遍历家庭处理优惠券之前生成，否则会报错
     user_map = {}
     family_members_dict = {}
     try:
@@ -1032,27 +862,195 @@ def home():
                 family_members_dict[fid].append(uid)
 
             if visible_user_ids:
-                # [修改] 多查一个 status 字段
                 profiles_res = db.table('profiles').select("id, display_name, avatar_url, status").in_('id',
                                                                                                        visible_user_ids).execute()
                 for p in profiles_res.data:
                     avatar_link = None
                     if p.get('avatar_url'):
                         avatar_link = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
-
-                    # [修改] 把 status 也存进去
                     user_map[p['id']] = {
                         'name': p['display_name'],
                         'avatar': avatar_link,
-                        'status': p.get('status', 'online')  # 默认在线
+                        'status': p.get('status', 'online')
                     }
         else:
             p = my_profile
-            user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url')}
+            user_map[p.get('id')] = {'name': p.get('display_name'), 'avatar': p.get('full_avatar_url'),
+                                     'status': 'online'}
     except:
         pass
 
-    # ================= 3. 获取核心数据 =================
+    # ================= 3. 遍历家庭，填充各类工具箱数据 =================
+    bj_now_date = datetime.now(timezone(timedelta(hours=8))).date()
+    utc_now = datetime.now(timezone.utc)
+
+    for f in my_families:
+        # --- A. 倒计时 & 纪念日 ---
+        f['top_event'] = None
+        f['all_events'] = []
+        candidate_events = []
+
+        # 1. 归家倒计时
+        if f.get('reunion_date'):
+            try:
+                target = datetime.strptime(f['reunion_date'], '%Y-%m-%d').date()
+                days = (target - bj_now_date).days
+                if days >= 0:
+                    candidate_events.append({'title': f.get('reunion_name') or '团圆',
+                                             'data': {'days': days, 'total': 0, 'date_str': f['reunion_date'],
+                                                      'is_repeat': False}, 'type': 'reunion'})
+            except:
+                pass
+
+        # 2. 家庭大事记
+        try:
+            db_events = db.table('family_events').select('*').eq('family_id', f['id']).execute().data or []
+            for e in db_events:
+                calc = calculate_event_details(e)
+                if calc and (calc['days'] >= 0 or calc['total'] > 0):
+                    candidate_events.append({'id': e['id'], 'title': e['title'], 'data': calc, 'type': 'event',
+                                             'is_lunar': e['event_type'] == 'lunar'})
+        except:
+            pass
+
+        if candidate_events:
+            candidate_events.sort(key=lambda x: (1 if x['data']['days'] < 0 else 0, abs(x['data']['days'])))
+            f['top_event'] = candidate_events[0]
+            f['all_events'] = candidate_events
+
+        # --- B. 天气缓存 ---
+        f['weather_home'] = f.get('weather_data_home')
+        f['weather_away'] = f.get('weather_data_away')
+        need_update = False
+        if not f.get('last_weather_update'):
+            need_update = True
+        else:
+            try:
+                last_t = datetime.fromisoformat(f.get('last_weather_update').replace('Z', '+00:00'))
+                if (utc_now - last_t) > timedelta(minutes=30): need_update = True
+            except:
+                need_update = True
+
+        if need_update:
+            nh = get_weather_full(f.get('location_home_id'), f.get('location_home_lat'), f.get('location_home_lon'))
+            na = get_weather_full(f.get('location_away_id'), f.get('location_away_lat'), f.get('location_away_lon'))
+            if nh: f['weather_home'] = nh
+            if na: f['weather_away'] = na
+            if nh or na:
+                try:
+                    payload = {'last_weather_update': utc_now.isoformat()}
+                    if nh: payload['weather_data_home'] = nh
+                    if na: payload['weather_data_away'] = na
+                    db.table('families').update(payload).eq('id', f['id']).execute()
+                except:
+                    pass
+
+        # --- [关键补回] C. 足迹列表 (Footprints) ---
+        f['footprints'] = []
+        try:
+            fp_res = db.table('family_footprints').select('*').eq('family_id', f['id']).execute()
+            f['footprints'] = fp_res.data or []
+        except:
+            pass
+
+        # --- D. 许愿菜单 ---
+        f['wishes'] = []
+        try:
+            w_res = db.table('family_wishes').select('*').eq('family_id', f['id']).order('created_at',
+                                                                                         desc=True).execute()
+            raw_w = w_res.data or []
+            status_order = {'wanted': 0, 'bought': 1, 'eaten': 2}
+            f['wishes'] = sorted(raw_w, key=lambda x: status_order.get(x['status'], 0))
+        except:
+            pass
+
+        # --- E. 家庭提醒 (留言板) ---
+        f['reminders'] = []
+        try:
+            yesterday = (utc_now - timedelta(hours=24)).isoformat()
+
+            # 1. 先查出最近的提醒 (这里 RLS 可能会返回"我发给别人的"，所以需要后续过滤)
+            r_res = db.table('family_reminders') \
+                .select('*') \
+                .eq('family_id', f['id']) \
+                .gte('created_at', yesterday) \
+                .order('created_at', desc=True) \
+                .limit(10) \
+                .execute()  # limit 稍微拿多一点，防止过滤后不够3条
+
+            raw_rems = r_res.data or []
+            valid_rems = []
+
+            # 2. [核心修复] Python 层过滤：只看 "发给我的" 或 "公开的"
+            for r in raw_rems:
+                target = r.get('target_user_id')
+
+                # 过滤规则：
+                # 如果有目标人，且目标人不是我 -> 跳过 (这是我发给别人的，或者是别人发给别人的)
+                if target and target != current_user_id:
+                    continue
+
+                # 时间格式化
+                try:
+                    dt_utc = datetime.fromisoformat(r['created_at'].replace('Z', '+00:00'))
+                    r['time_display'] = dt_utc.astimezone(timezone(timedelta(hours=8))).strftime('%H:%M')
+                except:
+                    r['time_display'] = ""
+
+                valid_rems.append(r)
+
+                # 只取前3条显示，多了没必要
+                if len(valid_rems) >= 3: break
+
+            f['reminders'] = valid_rems
+        except Exception as e:
+            print(f"Reminders Error: {e}")
+
+        # --- F. 收纳 / 采购 / 兑换券 / Wi-Fi / 备忘录 ---
+        f['inventory'] = []
+        f['shopping_list'] = []
+        f['coupons_received'] = []
+        f['coupons_sent'] = []
+        f['wifis'] = []
+        f['memos'] = []
+
+        try:
+            # 收纳
+            inv = db.table('family_inventory').select('*').eq('family_id', f['id']).order('created_at',
+                                                                                          desc=True).execute()
+            f['inventory'] = inv.data or []
+            for i in f['inventory']:
+                if i.get('image_path'): i['url'] = f"{url}/storage/v1/object/public/family_photos/{i['image_path']}"
+
+            # 采购
+            shop = db.table('family_shopping_list').select('*').eq('family_id', f['id']).order('created_at',
+                                                                                               desc=True).execute()
+            shop_d = shop.data or []
+            f['shopping_list'] = sorted(shop_d, key=lambda x: x.get('is_bought', False))
+
+            # Wi-Fi
+            wf = db.table('family_wifis').select('*').eq('family_id', f['id']).execute()
+            f['wifis'] = wf.data or []
+
+            # 备忘录 (解密)
+            mm = db.table('family_memos').select('*').eq('family_id', f['id']).execute()
+            memos = mm.data or []
+            for m in memos:
+                m['content'] = decrypt_data(m['content'])
+            f['memos'] = memos
+
+            # 兑换券 (此时 user_map 已存在，安全)
+            coupons = db.table('family_coupons').select('*').eq('family_id', f['id']).order('created_at',
+                                                                                            desc=True).execute()
+            for c in (coupons.data or []):
+                c['creator_name'] = user_map.get(c['creator_id'], {}).get('name', '神秘人')
+                c['target_name'] = user_map.get(c['target_user_id'], {}).get('name', '某人')
+                if c['target_user_id'] == current_user_id: f['coupons_received'].append(c)
+                if c['creator_id'] == current_user_id: f['coupons_sent'].append(c)
+        except:
+            pass
+
+    # ================= 4. 获取宠物、日志、动态 =================
     pets = []
     logs = []
     moments_data = []
@@ -1066,22 +1064,19 @@ def home():
             # 宠物主人
             all_pet_ids = [p['id'] for p in pets]
             if all_pet_ids:
-                all_owners_res = db.table('pet_owners').select('pet_id, user_id').in_('pet_id', all_pet_ids).execute()
-                for item in all_owners_res.data:
-                    pid = item['pet_id']
-                    uid = item['user_id']
+                all_owners = db.table('pet_owners').select('pet_id, user_id').in_('pet_id', all_pet_ids).execute()
+                for o in (all_owners.data or []):
+                    pid = o['pet_id']
                     if pid not in pet_owners_map: pet_owners_map[pid] = []
-                    pet_owners_map[pid].append(uid)
+                    pet_owners_map[pid].append(o['user_id'])
 
-            # 日志
+            # 日志 (恢复原版高精度时间逻辑，解决时区BUG)
             if all_pet_ids:
-                # [核心修复] 计算"北京时间今天0点"对应的 UTC 时间
                 # 1. 获取当前北京时间
                 now_bj = datetime.now(timezone(timedelta(hours=8)))
                 # 2. 拿到今天 00:00:00 的时间点
                 today_start_bj = now_bj.replace(hour=0, minute=0, second=0, microsecond=0)
                 # 3. 转回 UTC 时间 (这才是数据库能看懂的"今天开始")
-                # 比如北京 16日 00:00 -> UTC 15日 16:00
                 filter_time_utc = today_start_bj.astimezone(timezone.utc).isoformat()
 
                 logs = db.table('logs').select("*") \
@@ -1091,25 +1086,25 @@ def home():
                            .execute().data or []
 
             # 动态
-            visible_uids = list(user_map.keys())
-            if visible_uids:
-                moments_data = db.table('moments').select("*").in_('user_id', visible_uids).order('created_at',
-                                                                                                  desc=True).limit(
-                    20).execute().data or []
+            moms_res = db.table('moments').select("*").in_('user_id', list(user_map.keys())).order('created_at',
+                                                                                                   desc=True).limit(
+                20).execute()
+            moments_data = moms_res.data or []
     except Exception as e:
         print(f"Data Fetch Error: {e}")
 
-    # ================= 4. 数据组装 =================
+    # ================= 5. 数据二次组装 (前端渲染用) =================
+
+    # A. 宠物
     for pet in pets:
         pet['today_feed'] = False;
         pet['today_walk'] = False
         pet['feed_info'] = "";
         pet['walk_info'] = ""
         pet['latest_photo'] = None;
-        pet['photo_uploader'] = ""
-        # pet['latest_log_id'] = None;
-        # pet['latest_user_id'] = None
+        pet['photo_uploader'] = "";
         pet['photo_count'] = 0
+
         pet['owner_ids'] = pet_owners_map.get(pet['id'], [])
         pet['is_owner'] = (current_user_id in pet['owner_ids']) or session.get('is_impersonator')
 
@@ -1119,29 +1114,23 @@ def home():
         for log in logs:
             if log['pet_id'] == pet['id']:
                 who = user_map.get(log['user_id'], {}).get('name', '家人')
-                time_str = format_time_friendly(log['created_at'])
-
+                time_s = format_time_friendly(log['created_at'])
                 if log['action'] == 'feed':
                     pet['today_feed'] = True
-                    if not pet['feed_info']: pet['feed_info'] = f"{who} ({time_str})"
-
+                    if not pet['feed_info']: pet['feed_info'] = f"{who} ({time_s})"
                 elif log['action'] == 'walk':
                     pet['today_walk'] = True
-                    if not pet['walk_info']: pet['walk_info'] = f"{who} ({time_str})"
-
-
+                    if not pet['walk_info']: pet['walk_info'] = f"{who} ({time_s})"
                 elif log['action'] == 'photo':
-                    # [新增] 只要是照片，计数器就+1
                     pet['photo_count'] += 1
-                    # [保留] 如果是第一张(最新的)，设为封面
                     if not pet['latest_photo'] and log.get('image_path'):
                         pet['latest_photo'] = f"{url}/storage/v1/object/public/family_photos/{log['image_path']}"
                         pet['photo_uploader'] = who
 
-    # ================= 5. 数据组装 (动态 + 点赞) =================
+    # B. 动态 (加点赞人)
     moments = []
     for m in moments_data:
-        # A. 基础信息
+        # 基本信息
         u_info = user_map.get(m['user_id'], {})
         m['user_name'] = u_info.get('name', '家人')
         m['user_avatar'] = u_info.get('avatar')
@@ -1149,31 +1138,19 @@ def home():
         if m.get('image_path'):
             m['image_url'] = f"{url}/storage/v1/object/public/family_photos/{m['image_path']}"
 
-        # B. [升级版] 获取点赞人详细列表
-        # 1. 查询点赞数据
-        likes_res = db.table('moment_likes').select('user_id').eq('moment_id', m['id']).execute()
-        likes_data = likes_res.data or []
-
-        m['likers'] = []  # 存具体的点赞人对象 (头像+名字)
-        m['is_liked'] = False  # 初始化为未点赞
-
-        # 2. 遍历数据
-        for l in likes_data:
-            uid = l['user_id']
-
-            # 判断是不是我赞的 (如果是，心变红)
-            if uid == current_user_id:
-                m['is_liked'] = True
-
-            # 从 user_map 里拿头像和名字
-            if uid in user_map:
-                # 这一步是为了让前端能显示头像
-                m['likers'].append(user_map[uid])
-
-        # 3. 统计数量
-        m['like_count'] = len(m['likers'])
-
-        # [注意] 后面不需要再写那个 any(...) 的判断了，循环里已经做完了
+        # 点赞信息
+        try:
+            likes_res = db.table('moment_likes').select('user_id').eq('moment_id', m['id']).execute()
+            likes_data = likes_res.data or []
+            m['likers'] = []
+            m['is_liked'] = False
+            for l in likes_data:
+                uid = l['user_id']
+                if uid == current_user_id: m['is_liked'] = True
+                if uid in user_map: m['likers'].append(user_map[uid])
+            m['like_count'] = len(m['likers'])
+        except:
+            pass
 
         moments.append(m)
 
@@ -1199,7 +1176,6 @@ def home():
                            user_map=user_map, family_members_dict=family_members_dict,
                            current_tab=current_tab, today=today_str,
                            latest_update=latest_update)
-
 
 # ================= 宠物详情页模块 =================
 @app.route('/pet/<int:pet_id>')
@@ -3326,6 +3302,163 @@ def delete_shopping():
     except:
         pass
     return redirect(url_for('home'))
+
+
+@app.route('/send_coupon', methods=['POST'])
+@login_required
+def send_coupon():
+    db = get_db()
+    family_id = request.form.get('family_id')
+    target_uid = request.form.get('target_uid')
+    title = request.form.get('title')
+    count = int(request.form.get('count', 1))
+
+    if not title or not target_uid: return redirect(url_for('home'))
+
+    try:
+        # 1. 发券
+        coupons = []
+        for _ in range(count):
+            coupons.append({
+                'family_id': family_id,
+                'title': title,
+                'creator_id': session['user'],
+                'target_user_id': target_uid,
+                'status': 'active'
+            })
+        db.table('family_coupons').insert(coupons).execute()
+
+        # 2. [修改] App 内系统通知 (私密)
+        # 写入 reminders 表，但指定 target_user_id
+        me = session.get('display_name', '家人')
+        db.table('family_reminders').insert({
+            'family_id': family_id,
+            'content': f"🎟️ {me} 给你发了 {count} 张【{title}】！",
+            'sender_name': '系统',
+            'created_by': session['user'],
+            'target_user_id': target_uid  # <--- 关键：只显示给他看
+        }).execute()
+
+        # 3. [修改] 微信私密推送
+        send_private_wechat_push(
+            target_user_id=target_uid,
+            summary=f"🎁 收到 {count} 张兑换券",
+            content=f"{me} 给你发了福利：\n券名：{title}\n数量：{count} 张\n\n快去 App 卡包查看吧！"
+        )
+
+        flash(f"已发放 {count} 张券", "success")
+    except Exception as e:
+        print(f"Coupon Error: {e}")
+        flash("发放失败", "danger")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/void_coupon', methods=['POST'])
+@login_required
+def void_coupon():
+    """作废兑换券 (带通知)"""
+    db = get_db()
+    coupon_id = request.form.get('coupon_id')
+
+    try:
+        # 1. 先查详情 (为了拿 title 和 target_user_id)
+        check = db.table('family_coupons').select('title, target_user_id, family_id').eq('id',
+                                                                                         coupon_id).single().execute()
+
+        if check.data:
+            data = check.data
+            # 2. 执行作废
+            # 只能作废 active 的
+            res = db.table('family_coupons').update({'status': 'void'}).eq('id', coupon_id).eq('status',
+                                                                                               'active').execute()
+
+            # 如果更新成功 (res.data不为空)，则发送通知
+            if res.data:
+                target_uid = data['target_user_id']
+                family_id = data['family_id']
+                title = data['title']
+                me = session.get('display_name', '家人')
+
+                # A. App 提醒 (给持有者)
+                db.table('family_reminders').insert({
+                    'family_id': family_id,
+                    'content': f"🚫 {me} 作废了给你的【{title}】",
+                    'sender_name': '系统',
+                    'created_by': session['user'],
+                    'target_user_id': target_uid
+                }).execute()
+
+                # B. 微信推送 (给持有者)
+                send_private_wechat_push(
+                    target_user_id=target_uid,
+                    summary=f"🚫 兑换券已作废",
+                    content=f"很遗憾，{me} 收回了之前的承诺。\n券名：{title}\n状态：已失效"
+                )
+
+                flash("该券已作废，并通知了对方。", "info")
+            else:
+                flash("操作无效（该券可能已被使用或已作废）", "warning")
+
+    except Exception as e:
+        print(f"Void Error: {e}")
+
+    return redirect(url_for('home'))
+
+
+@app.route('/use_coupon', methods=['POST'])
+@login_required
+def use_coupon():
+    """核销兑换券 (修复并发Bug + 私密通知)"""
+    db = get_db()
+    coupon_id = request.form.get('coupon_id')
+    family_id = request.form.get('family_id')
+
+    try:
+        # 1. [核心修复] 先查状态！防止"作废了还能用"
+        # 必须同时确认 ID 和 status='active'
+        check = db.table('family_coupons').select('status, title, creator_id').eq('id', coupon_id).single().execute()
+
+        if not check.data:
+            flash("找不到这张券", "danger")
+            return redirect(url_for('home'))
+
+        coupon_data = check.data
+        if coupon_data['status'] != 'active':
+            flash(f"操作失败：这张券当前状态是【{coupon_data['status']}】，无法使用。", "warning")
+            return redirect(url_for('home'))
+
+        # 2. 状态正常，执行核销
+        now = datetime.now(timezone.utc).isoformat()
+        db.table('family_coupons').update({'status': 'used', 'used_at': now}).eq('id', coupon_id).execute()
+
+        # 3. 通知发行人 (私密)
+        creator_id = coupon_data['creator_id']
+        title = coupon_data['title']
+        user_name = session.get('display_name', '家人')
+
+        # A. 写入 App 内提醒 (指定 target_user_id 为发行人)
+        db.table('family_reminders').insert({
+            'family_id': family_id,
+            'content': f"🎫 {user_name} 使用了【{title}】，请兑现！",
+            'sender_name': '系统',
+            'created_by': session['user'],
+            'target_user_id': creator_id  # 只有发行人能看到
+        }).execute()
+
+        # B. 微信推送 (给发行人)
+        send_private_wechat_push(
+            target_user_id=creator_id,
+            summary=f"🆘 {user_name} 使用了券",
+            content=f"叮！您的兑换券被使用了！\n使用者：{user_name}\n项目：{title}\n\n请尽快兑现承诺哦！"
+        )
+
+        flash("使用成功！已通知对方兑现。", "success")
+    except Exception as e:
+        flash(f"使用失败: {e}", "danger")
+
+    return redirect(url_for('home'))
+
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)
