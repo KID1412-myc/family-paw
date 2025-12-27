@@ -2598,6 +2598,21 @@
                     {% endif %}
                 </form>
             </div>
+        <!-- [新增] 系统使用说明书 -->
+            <div class="card-box p-3 mb-3 bg-white" onclick="new bootstrap.Modal(document.getElementById('manualModal')).show()" style="cursor: pointer;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                            <i class="fas fa-book-reader fa-lg"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark">使用说明书</div>
+                            <div class="small text-muted">看看这个家都能干什么？</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-muted opacity-50"></i>
+                </div>
+            </div>
             <!-- 家庭状态逻辑 -->
             <div class="mt-4 text-start">
                 <h6 class="fw-bold mb-3"><i class="fas fa-users me-2 text-primary"></i>我的家庭列表</h6>
@@ -3603,6 +3618,124 @@
         </div>
     </div>
 </div>
+<!-- 使用说明书弹窗 -->
+    <div class="modal fade" id="manualModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">📖 全家牵挂 · 指南</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="accordion" id="manualAccordion">
+
+                        <!-- 1. 首页牵挂 -->
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m1">
+                                    🏠 首页与牵挂
+                                </button>
+                            </h2>
+                            <div id="m1" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body small text-secondary bg-light">
+                                    <ul class="mb-0 ps-3">
+                                        <li class="mb-1"><strong>家庭客厅</strong>：顶部头像栏，点击头像可以“拍一拍”家人，点击自己头像可以切换“忙碌/睡觉”状态。</li>
+                                        <li class="mb-1"><strong>全能日历</strong>：显示最近的生日/纪念日或回家倒计时。点击卡片可管理所有纪念日。</li>
+                                        <li class="mb-1"><strong>双城天气</strong>：左边是老家，右边是远方。直接点击卡片可发送贴心的天气提醒，点击卡片右上方齿轮可设置城市。</li>
+                                        <li><strong>许愿菜单</strong>：想吃什么在这里点菜，爸妈接单后会变色。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 萌宠互动 -->
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m2">
+                                    🐶 萌宠互动
+                                </button>
+                            </h2>
+                            <div id="m2" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body small text-secondary bg-light">
+                                    <ul class="mb-0 ps-3">
+                                        <li class="mb-1"><strong>喂食/遛狗</strong>：点击大按钮打卡，全家都能看到上次是谁喂的。</li>
+                                        <li class="mb-1"><strong>传照片</strong>：点击相机图标上传，支持今日多图统计。</li>
+                                        <li><strong>详情档案</strong>：宠物主人点击宠物卡片右上角齿轮编辑宠物名字、添加其他主人。点击宠物卡片/封面图片进入详情页，宠物主人可编辑疫苗、驱虫和体重记录，其余家人可查看这些信息以及成长相册。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 工具箱 (9大功能) -->
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m3" aria-expanded="true">
+                                    🧰 家庭百宝箱 (重点)
+                                </button>
+                            </h2>
+                            <div id="m3" class="accordion-collapse collapse show" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body small text-secondary bg-light">
+                                    <p class="mb-2">点击家庭客厅顶部右侧的灰色 <strong>[...]</strong> 按钮打开：</p>
+                                    <ul class="mb-0 ps-3">
+                                        <li class="mb-1"><strong>家庭角色</strong>：生成五维雷达图，看看谁是家里的“金牌铲屎官”。</li>
+                                        <li class="mb-1"><strong>亲密引力</strong>：可视化的互动关系网，连线越粗关系越铁。</li>
+                                        <li class="mb-1"><strong>足迹地图</strong>：点亮去过的城市，连起我们的距离。</li>
+                                        <li class="mb-1"><strong>决定转盘</strong>：不知道谁洗碗？让转盘决定！</li>
+                                        <li class="mb-1"><strong>兑换券</strong>：发行“按摩券”、“原谅券”，增加生活情趣。</li>
+                                        <li class="mb-1"><strong>收纳/采购/备忘</strong>：记录物品位置、要买的东西和重要账号。</li>
+                                        <li><strong>Wi-Fi卡</strong>：亲戚来了一键扫码连网。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. 动态与设置 -->
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m4">
+                                    ⚙️ 动态与设置
+                                </button>
+                            </h2>
+                            <div id="m4" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body small text-secondary bg-light">
+                                    <ul class="mb-0 ps-3">
+                                        <li class="mb-1"><strong>发动态</strong>：支持选择“公开”或“仅当前家庭可见”，保护隐私。</li>
+                                        <li class="mb-1"><strong>点赞</strong>：点击爱心可为他人点赞，会有彩带特效，并显示头像列表。</li>
+                                        <li class="mb-1"><strong>关怀模式</strong>：在“我的”页面开启，字体变大，界面简化，适合长辈。</li>
+                                        <li><strong>微信通知</strong>：按照教程绑定 UID 后，重要消息会推送到WxPusher上。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. 隐藏彩蛋 -->
+                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed fw-bold text-warning" type="button" data-bs-toggle="collapse" data-bs-target="#m5">
+                                    🥚 隐藏彩蛋
+                                </button>
+                            </h2>
+                            <div id="m5" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                                <div class="accordion-body small text-secondary bg-light">
+                                    <ul class="mb-0 ps-3">
+                                        <li class="mb-1"><strong>赛博木鱼</strong>：在“我的”页面，疯狂点击你的 ID 号...</li>
+                                        <li><strong>摸鱼贪吃蛇</strong>：拉到最底端，疯狂点击版本号...</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="text-center mt-4 text-muted small">
+                        Made with ❤️ for Family
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -5721,8 +5854,6 @@
         </div>
         `;
         }
-
-
 </script>
 </body>
 </html>
