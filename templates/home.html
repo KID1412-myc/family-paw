@@ -1417,29 +1417,119 @@
                 transform: translateY(0);
             }
         }
+
         /* 隐藏 ECharts 的 loading 背景 */
-        #graph-chart { background: #fdfdfd; border-radius: 16px; }
+        #graph-chart {
+            background: #fdfdfd;
+            border-radius: 16px;
+        }
+
         /* === 工具箱卡片样式 === */
         .wifi-card {
-            background: #2d3436; color: white;
-            border-radius: 16px; padding: 15px; margin-bottom: 10px;
-            display: flex; align-items: center; justify-content: space-between;
+            background: #2d3436;
+            color: white;
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+
         .wifi-qr-btn {
-            background: white; color: black; border-radius: 50%;
-            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            background: white;
+            color: black;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
         }
 
         .memo-card {
-            background: #fff; border: 1px solid #eee;
-            border-radius: 12px; padding: 12px; margin-bottom: 10px;
-            display: flex; justify-content: space-between; align-items: center;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+
         .memo-content-blur {
-            filter: blur(4px); cursor: pointer; user-select: none; transition: 0.2s;
+            filter: blur(4px);
+            cursor: pointer;
+            user-select: none;
+            transition: 0.2s;
         }
-        .memo-content-blur:active, .memo-content-show { filter: none; }
+
+        .memo-content-blur:active, .memo-content-show {
+            filter: none;
+        }
+
+        /* 收纳卡片 */
+        .inv-card {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            display: flex;
+        }
+
+        .inv-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+
+        .inv-info {
+            padding: 10px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 采购清单项 */
+        .shop-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px dashed #eee;
+            transition: 0.2s;
+        }
+
+        .shop-item.bought {
+            opacity: 0.5;
+        }
+
+        .shop-item.bought span {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .shop-check {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+        }
+
+        .shop-item.bought .shop-check {
+            background: #2ecc71;
+            border-color: #2ecc71;
+        }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1644,6 +1734,23 @@
                                         <i class="fas fa-sticky-note"></i>
                                     </div>
                                     <span>备忘录</span>
+                                </div>
+                                <!-- 6. 东西在哪 -->
+                                <div class="tool-item"
+                                     onclick='openInvModal("{{ fam.id }}", {{ fam.inventory | tojson | safe }}); toggleTools("{{ fam.id }}")'>
+                                    <div class="mini-icon" style="background: #e17055;">
+                                        <i class="fas fa-box-open"></i>
+                                    </div>
+                                    <span>东西在哪</span>
+                                </div>
+
+                                <!-- 7. 采购清单 (修复版) -->
+                                <div class="tool-item"
+                                     onclick='openShopModal("{{ fam.id }}", {{ fam.shopping_list | tojson | safe }}); toggleTools("{{ fam.id }}")'>
+                                    <div class="mini-icon" style="background: #00b894;">
+                                        <i class="fas fa-shopping-basket"></i>
+                                    </div>
+                                    <span>采购清单</span>
                                 </div>
                             </div>
                         </div>
@@ -3117,88 +3224,188 @@
     </div>
 </div>
 <!-- 亲密引力场弹窗 -->
-    <div class="modal fade" id="graphModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">🕸️ 亲密引力场</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <!-- 图表容器 -->
-                    <div id="graph-chart" style="width: 100%; height: 500px;"></div>
-                    <div class="text-center text-muted small py-2">
-                        💡 拖拽头像试试 / 连线越粗越亲密
-                    </div>
+<div class="modal fade" id="graphModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🕸️ 亲密引力场</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- 图表容器 -->
+                <div id="graph-chart" style="width: 100%; height: 500px;"></div>
+                <div class="text-center text-muted small py-2">
+                    💡 拖拽头像试试 / 连线越粗越亲密
                 </div>
             </div>
         </div>
     </div>
+</div>
 <!-- Wi-Fi 弹窗 -->
-    <div class="modal fade" id="wifiModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📶 Wi-Fi 共享卡</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- 列表区 -->
-                    <div id="wifi-list" class="mb-3"></div>
-
-                    <!-- 添加区 (折叠) -->
-                    <div class="collapse" id="addWifiBox">
-                        <form action="/add_wifi" method="POST" class="p-3 bg-light rounded-3 mt-2">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <input type="hidden" name="family_id" id="wifi_fam_id">
-                            <div class="row g-2 mb-2">
-                                <div class="col-4"><input type="text" name="location" class="form-control form-control-sm" placeholder="位置(客厅)" required></div>
-                                <div class="col-8"><input type="text" name="ssid" class="form-control form-control-sm" placeholder="Wi-Fi名称" required></div>
-                            </div>
-                            <input type="text" name="password" class="form-control form-control-sm mb-2" placeholder="密码" required>
-                            <button class="btn btn-sm btn-dark w-100">保存</button>
-                        </form>
-                    </div>
-                    <button class="btn btn-link w-100 text-decoration-none small" data-bs-toggle="collapse" data-bs-target="#addWifiBox">+ 添加新 Wi-Fi</button>
-                </div>
+<div class="modal fade" id="wifiModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📶 Wi-Fi 共享卡</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-        </div>
-    </div>
+            <div class="modal-body">
+                <!-- 列表区 -->
+                <div id="wifi-list" class="mb-3"></div>
 
-    <!-- 二维码大图弹窗 -->
-    <div class="modal fade" id="qrModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content rounded-4">
-                <div class="modal-body text-center p-4">
-                    <h6 class="fw-bold mb-3" id="qr-ssid"></h6>
-                    <div id="qrcode-container" class="d-flex justify-content-center"></div>
-                    <div class="mt-3 small text-muted">扫一扫 直接连接</div>
-                </div>
-            </div>
-        </div>
-    </div>
-<!-- 备忘录弹窗 -->
-    <div class="modal fade" id="memoModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📒 家庭备忘录</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="memo-list" class="mb-3"></div>
-
-                    <form action="/add_memo" method="POST" class="d-flex gap-2">
+                <!-- 添加区 (折叠) -->
+                <div class="collapse" id="addWifiBox">
+                    <form action="/add_wifi" method="POST" class="p-3 bg-light rounded-3 mt-2">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="family_id" id="memo_fam_id">
-                        <input type="text" name="title" class="form-control" placeholder="标题 (如:燃气号)" required style="width:40%">
-                        <input type="text" name="content" class="form-control" placeholder="内容" required>
-                        <button class="btn btn-warning text-white"><i class="fas fa-plus"></i></button>
+                        <input type="hidden" name="family_id" id="wifi_fam_id">
+                        <div class="row g-2 mb-2">
+                            <div class="col-4"><input type="text" name="location" class="form-control form-control-sm"
+                                                      placeholder="位置(客厅)" required></div>
+                            <div class="col-8"><input type="text" name="ssid" class="form-control form-control-sm"
+                                                      placeholder="Wi-Fi名称" required></div>
+                        </div>
+                        <input type="text" name="password" class="form-control form-control-sm mb-2" placeholder="密码"
+                               required>
+                        <button class="btn btn-sm btn-dark w-100">保存</button>
                     </form>
                 </div>
+                <button class="btn btn-link w-100 text-decoration-none small" data-bs-toggle="collapse"
+                        data-bs-target="#addWifiBox">+ 添加新 Wi-Fi
+                </button>
             </div>
         </div>
     </div>
+</div>
+
+<!-- 二维码大图弹窗 -->
+<div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content rounded-4">
+            <div class="modal-body text-center p-4">
+                <h6 class="fw-bold mb-3" id="qr-ssid"></h6>
+                <div id="qrcode-container" class="d-flex justify-content-center"></div>
+                <div class="mt-3 small text-muted">扫一扫 直接连接</div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 备忘录弹窗 -->
+<div class="modal fade" id="memoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📒 家庭备忘录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="memo-list" class="mb-3"></div>
+
+                <form action="/add_memo" method="POST" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="family_id" id="memo_fam_id">
+                    <input type="text" name="title" class="form-control" placeholder="标题 (如:燃气号)" required
+                           style="width:40%">
+                    <input type="text" name="content" class="form-control" placeholder="内容" required>
+                    <button class="btn btn-warning text-white"><i class="fas fa-plus"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 收纳弹窗 (搜索 + 压缩上传) -->
+<div class="modal fade" id="invModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📦 东西在哪？</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- [新增] 搜索框 -->
+                <div class="mb-3">
+                    <input type="text" id="inv-search" class="form-control rounded-pill"
+                           placeholder="🔍 搜索物品名..." oninput="filterInventory()">
+                </div>
+
+                <!-- 添加表单 (修改为压缩上传) -->
+                <div class="collapse" id="addInvBox">
+                    <form action="/add_inventory" method="POST" enctype="multipart/form-data"
+                          id="invForm" class="p-3 bg-light rounded-3 mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="family_id" id="inv_fam_id">
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-6"><input type="text" name="item_name" class="form-control form-control-sm"
+                                                      placeholder="物品名" required></div>
+                            <div class="col-6"><input type="text" name="location" class="form-control form-control-sm"
+                                                      placeholder="位置" required></div>
+                        </div>
+                        <!-- [修改] 自定义上传按钮样式 -->
+                        <div class="mb-2">
+                            <label for="inv-photo-input" class="btn btn-outline-secondary w-100 border-dashed"
+                                   style="border-style: dashed;">
+                                <i class="fas fa-camera me-1"></i> 点击上传收纳位置照片
+                            </label>
+                            <!-- 隐藏原生 input，通过 ID 关联 -->
+                            <input type="file" id="inv-photo-input" name="photo" class="d-none" accept="image/*"
+                                   onchange="handleCompressAndSubmit(this, 'invForm')">
+                        </div>
+
+
+                        <button class="btn btn-sm btn-dark w-100">保存 (不传图直接点我)</button>
+                    </form>
+                </div>
+                <!-- [修改] 给按钮加了 id，方便 JS 修改文字 -->
+                <button id="inv-toggle-btn"
+                        class="btn btn-link w-100 text-decoration-none small mb-2 fw-bold"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#addInvBox"
+                        aria-expanded="false">
+                    <i class="fas fa-plus"></i> 添加新物品
+                </button>
+
+                <!-- 列表 -->
+                <div id="inv-list" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 采购弹窗 (修复版) -->
+<div class="modal fade" id="shopModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🛒 采购清单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- 1. 添加表单 (带推送开关) -->
+                <form action="/add_shopping" method="POST" class="mb-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="family_id" id="shop_fam_id">
+
+                    <div class="input-group mb-2">
+                        <input type="text" name="content" class="form-control" placeholder="缺啥了？(如: 酱油)" required>
+                        <button class="btn btn-success"><i class="fas fa-plus"></i></button>
+                    </div>
+
+                    <!-- 推送开关 -->
+                    <div class="form-check form-switch small ms-1">
+                        <input class="form-check-input" type="checkbox" name="notify" id="shopNotify">
+                        <label class="form-check-label text-muted" for="shopNotify">通知家人买这个</label>
+                    </div>
+                </form>
+
+                <!-- 2. [核心修复] 列表容器 (之前可能漏了这个 div) -->
+                <div id="shop-list" style="max-height: 400px; overflow-y: auto;">
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -4910,6 +5117,7 @@
                 list.innerHTML = html;
             });
     }
+
     // ================= 🕸️ 亲密引力场逻辑 (美化版) =================
     let graphChart = null;
 
@@ -4932,15 +5140,15 @@
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
                 body: JSON.stringify({family_id: fid})
             })
-            .then(res => res.json())
-            .then(data => {
-                graphChart.hideLoading();
-                if (!data.nodes || data.nodes.length === 0) {
-                    graphChart.clear();
-                    return;
-                }
-                renderGraph(data.nodes, data.links);
-            });
+                .then(res => res.json())
+                .then(data => {
+                    graphChart.hideLoading();
+                    if (!data.nodes || data.nodes.length === 0) {
+                        graphChart.clear();
+                        return;
+                    }
+                    renderGraph(data.nodes, data.links);
+                });
         }, 500);
     }
 
@@ -4952,7 +5160,7 @@
                 subtext: '基于点赞与拍一拍数据分析，连线越粗距离越近，越亲密',
                 top: '20',
                 left: 'center',
-                textStyle: { color: '#333', fontSize: 16 }
+                textStyle: {color: '#333', fontSize: 16}
             },
             tooltip: {
                 formatter: function (params) {
@@ -4966,9 +5174,9 @@
                 type: 'graph',
                 layout: 'force',
                 roam: true,
-                scaleLimit:{
-                    min:0.5,
-                    max:3.0
+                scaleLimit: {
+                    min: 0.5,
+                    max: 3.0
                 },
                 draggable: true,
 
@@ -5015,13 +5223,14 @@
 
         graphChart.setOption(option);
     }
+
     // ================= Wi-Fi 逻辑 =================
     function openWifiModal(fid, wifis) {
         document.getElementById('wifi_fam_id').value = fid;
         const list = document.getElementById('wifi-list');
         list.innerHTML = '';
 
-        if(!wifis || wifis.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无 Wi-Fi</div>';
+        if (!wifis || wifis.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无 Wi-Fi</div>';
 
         wifis.forEach(w => {
             const el = document.createElement('div');
@@ -5072,7 +5281,7 @@
         const list = document.getElementById('memo-list');
         list.innerHTML = '';
 
-        if(!memos || memos.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无备忘</div>';
+        if (!memos || memos.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无备忘</div>';
 
         memos.forEach(m => {
             const el = document.createElement('div');
@@ -5101,8 +5310,112 @@
     }
 
     function copyText(text) {
-        navigator.clipboard.writeText(text).then(()=>alert('已复制: '+text));
+        navigator.clipboard.writeText(text).then(() => alert('已复制: ' + text));
     }
+
+    // ================= 收纳逻辑 =================
+    // [新增] 收纳搜索功能 (纯前端过滤)
+    function filterInventory() {
+        const keyword = document.getElementById('inv-search').value.toLowerCase();
+        const items = document.querySelectorAll('.inv-card');
+
+        items.forEach(el => {
+            const text = el.innerText.toLowerCase();
+            if (text.includes(keyword)) {
+                el.style.display = 'flex';
+            } else {
+                el.style.display = 'none';
+            }
+        });
+    }
+
+    // [修正] 修改 openInvModal，每次打开清空搜索框
+    const originalOpenInv = window.openInvModal; // 假设之前的函数名
+    // 或者你直接替换原来的 openInvModal 函数:
+    function openInvModal(fid, items) {
+        document.getElementById('inv_fam_id').value = fid;
+        const collapseElement = document.getElementById('addInvBox');
+        // 这一步利用 Bootstrap API 强制关闭
+        if (collapseElement.classList.contains('show')) {
+            new bootstrap.Collapse(collapseElement).hide();
+        }
+        // 清空搜索
+        const searchInput = document.getElementById('inv-search');
+        if (searchInput) searchInput.value = '';
+
+        const list = document.getElementById('inv-list');
+        list.innerHTML = '';
+
+        if (!items || items.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">暂无收纳记录</div>';
+
+        items.forEach(i => {
+            const imgHtml = i.url ? `<img src="${i.url}" class="inv-img" onclick="window.open('${i.url}')">` : '<div class="inv-img d-flex align-items-center justify-content-center text-muted"><i class="fas fa-box"></i></div>';
+
+            const el = document.createElement('div');
+            el.className = 'inv-card'; // 记得 CSS 里要有这个类
+            el.innerHTML = `
+                ${imgHtml}
+                <div class="inv-info">
+                    <div class="fw-bold">${i.item_name}</div>
+                    <div class="small text-muted"><i class="fas fa-map-pin text-danger me-1"></i>${i.location}</div>
+                </div>
+                <form action="/delete_inventory" method="POST" class="d-flex align-items-center pe-3" onsubmit="return confirm('确定删除？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" value="${i.id}">
+                    <button class="btn btn-sm text-danger p-0"><i class="fas fa-trash"></i></button>
+                </form>
+            `;
+            list.appendChild(el);
+        });
+
+        new bootstrap.Modal(document.getElementById('invModal')).show();
+    }
+
+    // ================= 采购逻辑 =================
+    function openShopModal(fid, items) {
+        document.getElementById('shop_fam_id').value = fid;
+        const list = document.getElementById('shop-list');
+        list.innerHTML = '';
+
+        if (!items || items.length === 0) list.innerHTML = '<div class="text-center text-muted small py-3">家里啥也不缺~</div>';
+
+        items.forEach(s => {
+            const isBought = s.is_bought;
+            const el = document.createElement('div');
+            el.className = `shop-item ${isBought ? 'bought' : ''}`;
+            el.innerHTML = `
+                <form action="/toggle_shopping" method="POST" onclick="this.submit()" style="cursor:pointer; display:flex; align-items:center; flex:1;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" value="${s.id}">
+                    <input type="hidden" name="status" value="${s.is_bought}">
+                    <div class="shop-check">${isBought ? '✔' : ''}</div>
+                    <span class="fw-bold">${s.content}</span>
+                </form>
+                <form action="/delete_shopping" method="POST" onsubmit="return confirm('确定删除？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" value="${s.id}">
+                    <button class="btn btn-sm text-muted p-0 ms-2">×</button>
+                </form>
+            `;
+            list.appendChild(el);
+        });
+        new bootstrap.Modal(document.getElementById('shopModal')).show();
+    }
+
+    // [新增] 收纳折叠按钮的文字自动切换
+    document.getElementById('addInvBox').addEventListener('show.bs.collapse', function () {
+        const btn = document.getElementById('inv-toggle-btn');
+        btn.innerHTML = '<i class="fas fa-times"></i> 取消添加';
+        btn.classList.add('text-muted'); // 变成灰色，弱化显示
+        btn.classList.remove('text-primary');
+    });
+
+    document.getElementById('addInvBox').addEventListener('hide.bs.collapse', function () {
+        const btn = document.getElementById('inv-toggle-btn');
+        btn.innerHTML = '<i class="fas fa-plus"></i> 添加新物品';
+        btn.classList.remove('text-muted');
+        btn.classList.add('text-primary'); // 变回亮色
+    });
 </script>
 </body>
 </html>

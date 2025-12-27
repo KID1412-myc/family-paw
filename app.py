@@ -94,7 +94,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.11.1'
+CURRENT_APP_VERSION = '3.12.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -956,6 +956,28 @@ def home():
                             f['memos'] = raw_memos
                         except:
                             pass
+
+                        # [新增] 获取收纳物品 (按时间倒序)
+                        f['inventory'] = []
+                        try:
+                            inv_res = db.table('family_inventory').select('*').eq('family_id', f['id']).order('created_at', desc=True).execute()
+                            inv_data = inv_res.data or []
+                            # 拼接图片链接
+                            for item in inv_data:
+                                if item.get('image_path'):
+                                    item['url'] = f"{url}/storage/v1/object/public/family_photos/{item['image_path']}"
+                            f['inventory'] = inv_data
+                        except:
+                            pass
+                        # [新增] 获取采购清单 (未买的排前面)
+                        f['shopping_list'] = []
+                        try:
+                            shop_res = db.table('family_shopping_list').select('*').eq('family_id', f['id']).order('created_at', desc=True).execute()
+                            shop_data = shop_res.data or []
+                            # 排序: 未买(False=0) 在前，已买(True=1) 在后
+                            f['shopping_list'] = sorted(shop_data, key=lambda x: x.get('is_bought', False)) if shop_data else [] # ✅ 安全
+                        except:
+                            pass
                         f['reminders'] = []
                         try:
                             # 1. 计算24小时前的时间
@@ -1691,34 +1713,37 @@ def leave_family():
 @app.route('/update_profile', methods=['POST'])
 @login_required
 def update_profile():
-    """更新个人资料 (含关怀模式)"""
     db = get_db()
     display_name = request.form.get('display_name')
-    wx_uid = request.form.get('wx_uid')  # [新增] 获取前端填写的 UID
-    file = request.files.get('avatar')
-    # [新增] 获取开关状态 (checkbox 选中发 'on'，没选中发 None)
+    f = request.files.get('avatar')
     is_elder = request.form.get('is_elder_mode') == 'on'
+    wx_uid = request.form.get('wx_uid')
 
     update_data = {'is_elder_mode': is_elder}
+    if display_name: update_data['display_name'] = display_name
+    if wx_uid is not None: update_data['wx_uid'] = wx_uid.strip()
 
-    if display_name:
-        update_data['display_name'] = display_name
-    # [新增] 更新 UID (允许为空，即取消关注)
-    if wx_uid is not None:
-        update_data['wx_uid'] = wx_uid.strip()
-
-    if file and file.filename:
+    if f and f.filename:
         try:
-            filename = secure_filename(file.filename)
+            # [新增] 先查旧头像，准备删除
+            old_prof = db.table('profiles').select('avatar_url').eq('id', session['user']).single().execute()
+            if old_prof.data and old_prof.data.get('avatar_url'):
+                try:
+                    db.storage.from_("family_photos").remove(old_prof.data['avatar_url'])
+                except:
+                    pass  # 删失败也不影响新头像
+
+            # 上传新头像
+            filename = secure_filename(f.filename)
             file_path = f"avatar_{session['user']}_{int(datetime.now().timestamp())}_{filename}"
-            db.storage.from_("family_photos").upload(file_path, file.read(), {"content-type": file.content_type})
+            db.storage.from_("family_photos").upload(file_path, f.read(), {"content-type": f.content_type})
             update_data['avatar_url'] = file_path
         except Exception as e:
             flash(f"头像上传失败: {e}", "danger")
 
     try:
         db.table('profiles').update(update_data).eq('id', session['user']).execute()
-        flash("个人资料已更新", "success")
+        flash("设置已更新", "success")
     except Exception as e:
         flash(f"更新失败: {e}", "danger")
 
@@ -1837,26 +1862,38 @@ def admin_dashboard():
     # 6. 文件存储分析 (查找上传者)
     storage_files = []
     total_size = 0
-    storage_breakdown = {'pet': 0, 'moment': 0, 'avatar': 0, 'other': 0}
+    storage_breakdown = {'pet': 0, 'moment': 0, 'avatar': 0, 'inventory': 0, 'other': 0}
     if admin_supabase:
         try:
             file_owner = {}
-            # 扫描 Logs (宠物照片)
+            # 1. 宠物图
             logs = client.table('logs').select('image_path, user_id').neq('image_path', 'null').execute().data
-            for l in logs: file_owner[l['image_path']] = user_name_map.get(l['user_id'], '未知')
+            for l in logs:
+                name = user_name_map.get(l['user_id'], '未知')
+                file_owner[l['image_path']] = f"{name} (宠物)"
 
-            # 扫描 Moments (动态照片)
+            # 2. 动态图
             moms = client.table('moments').select('image_path, user_id').neq('image_path', 'null').execute().data
-            for m in moms: file_owner[m['image_path']] = user_name_map.get(m['user_id'], '未知')
+            for m in moms:
+                name = user_name_map.get(m['user_id'], '未知')
+                file_owner[m['image_path']] = f"{name} (动态)"
 
-            # 扫描 Profiles (头像)
+            # 3. 头像
             for u in users:
-                if u.get('avatar_url'): file_owner[u['avatar_url']] = u['display_name'] + " (头像)"
+                if u.get('avatar_url'):
+                    name = u['display_name']
+                    file_owner[u['avatar_url']] = f"{name} (头像)"
+
+            # 4. 收纳图
+            invs = client.table('family_inventory').select('image_path, created_by').neq('image_path',
+                                                                                         'null').execute().data
+            for i in invs:
+                name = user_name_map.get(i['created_by'], '未知')
+                file_owner[i['image_path']] = f"{name} (收纳)"
 
             # 遍历文件列表
             # [修改] 显式指定路径为根目录 '/'，并忽略空文件夹占位符
 
-            # [调试代码] 打印一下看看发生了什么
             print("正在尝试列出文件...")
             files = client.storage.from_("family_photos").list(path="")
             print(f"DEBUG: 找到了 {len(files)} 个文件")
@@ -1879,6 +1916,8 @@ def admin_dashboard():
                     storage_breakdown['moment'] += size
                 elif name.startswith('avatar_'):
                     storage_breakdown['avatar'] += size
+                elif name.startswith('inv_'):
+                    storage_breakdown['inventory'] += size
                 else:
                     storage_breakdown['other'] += size
 
@@ -3175,6 +3214,117 @@ def delete_memo():
         get_db().table('family_memos').delete().eq('id', request.form.get('id')).execute()
         flash("已删除", "success")
     except: pass
+    return redirect(url_for('home'))
+
+
+# ================= 收纳与采购路由 =================
+
+@app.route('/add_inventory', methods=['POST'])
+@login_required
+def add_inventory():
+    """添加收纳物品"""
+    db = get_db()
+    f = request.files.get('photo')
+
+    data = {
+        'family_id': request.form.get('family_id'),
+        'item_name': request.form.get('item_name'),
+        'location': request.form.get('location'),
+        'created_by': session['user']
+    }
+
+    if f and f.filename:
+        try:
+            filename = secure_filename(f.filename)
+            file_path = f"inv_{int(datetime.now().timestamp())}_{filename}"
+            db.storage.from_("family_photos").upload(file_path, f.read(), {"content-type": f.content_type})
+            data['image_path'] = file_path
+        except:
+            pass
+
+    try:
+        db.table('family_inventory').insert(data).execute()
+        flash("物品已归档", "success")
+    except Exception as e:
+        flash(f"添加失败: {e}", "danger")
+    return redirect(url_for('home'))
+
+
+@app.route('/delete_inventory', methods=['POST'])
+@login_required
+def delete_inventory():
+    """删除收纳 (同时删图)"""
+    db = get_db()
+    inv_id = request.form.get('id')
+    try:
+        # 1. 先查图片路径
+        res = db.table('family_inventory').select('image_path').eq('id', inv_id).single().execute()
+        if res.data and res.data.get('image_path'):
+            # 2. 删图片
+            db.storage.from_("family_photos").remove(res.data['image_path'])
+
+        # 3. 删记录
+        db.table('family_inventory').delete().eq('id', inv_id).execute()
+        flash("已删除", "success")
+    except Exception as e:
+        print(f"Del Inv Error: {e}")
+    return redirect(url_for('home'))
+
+
+@app.route('/add_shopping', methods=['POST'])
+@login_required
+def add_shopping():
+    """添加采购项 (支持推送)"""
+    db = get_db()
+    family_id = request.form.get('family_id')
+    content = request.form.get('content')
+    notify = request.form.get('notify') == 'on'  # 获取复选框状态
+
+    try:
+        db.table('family_shopping_list').insert({
+            'family_id': family_id,
+            'content': content,
+            'created_by': session['user']
+        }).execute()
+        flash("已添加", "success")
+
+        # [新增] 微信推送
+        if notify:
+            who = session.get('display_name', '家人')
+            send_wechat_push(
+                family_id=family_id,
+                summary=f"🛒 采购提醒：{content}",
+                content=f"{who} 在采购清单里加了：【{content}】\n路过超市记得买哦！"
+            )
+
+    except:
+        pass
+    return redirect(url_for('home'))
+
+
+@app.route('/toggle_shopping', methods=['POST'])
+@login_required
+def toggle_shopping():
+    """勾选/取消购买"""
+    db = get_db()
+    item_id = request.form.get('id')
+    current_status = request.form.get('status') == 'True'
+    try:
+        db.table('family_shopping_list').update({'is_bought': not current_status}).eq('id', item_id).execute()
+    except:
+        pass
+    return redirect(url_for('home'))
+
+
+@app.route('/delete_shopping', methods=['POST'])
+@login_required
+def delete_shopping():
+    """删除采购项"""
+    try:
+        get_db().table('family_shopping_list').delete().eq('id', request.form.get('id')).execute()
+        flash("已删除", "success")
+    except:
+        pass
     return redirect(url_for('home'))
 if __name__ == '__main__':
     # 开发环境启动

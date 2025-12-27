@@ -744,12 +744,22 @@
                 },
                 label: {show: false},
                 // 高级配色
-                color: ['#5470c6', '#91cc75', '#fac858', '#ee6666'],
+                color: [
+                    '#5470c6', // 蓝色 - 宠物
+                    '#91cc75', // 绿色 - 动态
+                    '#fac858', // 黄色 - 头像
+                    '#ee6666', // 红色 - 收纳
+                    '#9a60b4', // 紫色 - 其他
+                    '#fc8452', // 橙色 - 预留1
+                    '#73c0de', // 浅蓝 - 预留2
+                    '#ea7ccc'  // 粉色 - 预留3
+                ],
                 data: [
-                    {value: storageData.pet, name: '宠物'},
-                    {value: storageData.moment, name: '动态'},
-                    {value: storageData.avatar, name: '头像'},
-                    {value: storageData.other, name: '其他'}
+                    {value: storageData.pet, name: '🐱 宠物'},
+                    {value: storageData.moment, name: '📸 动态'},
+                    {value: storageData.avatar, name: '👤 头像'},
+                    {value: storageData.inventory, name: '📦 收纳'}, // [新增]
+                    {value: storageData.other, name: '📂 其他'}
                 ]
             }]
         };
