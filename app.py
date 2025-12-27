@@ -94,7 +94,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '3.13.0'
+CURRENT_APP_VERSION = '3.13.1'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -3040,7 +3040,9 @@ def get_family_history():
 @login_required
 def get_family_graph():
     """
-    亲密引力场数据接口 (修复 UUID 格式报错版)
+    亲密引力场 (逻辑修正版)
+    1. 拍一拍：只统计 "👋" 开头的真实互动，排除系统通知。
+    2. 兑换券：Active(+3), Used(+5), Void(-2 扣分)。
     """
     client = admin_supabase if admin_supabase else get_db()
     family_id = request.json.get('family_id')
@@ -3061,7 +3063,6 @@ def get_family_graph():
             avatar = "/static/icon.png"
             if p.get('avatar_url'):
                 avatar = f"{url}/storage/v1/object/public/family_photos/{p['avatar_url']}"
-
             user_map[p['id']] = p['display_name']
 
             nodes.append({
@@ -3074,9 +3075,11 @@ def get_family_graph():
             })
 
         # === 2. 计算亲密度 (Links) ===
-        interaction_counts = {}
+        # 使用 defaultdict 方便计算，默认值 0
+        from collections import defaultdict
+        interaction_counts = defaultdict(int)
 
-        # --- A. 统计点赞 (Likes) ---
+        # --- A. 统计点赞 (Likes) [+1] ---
         moms = client.table('moments').select('id, user_id') \
             .or_(f"target_family_id.is.null,target_family_id.eq.{family_id}") \
             .execute()
@@ -3093,40 +3096,67 @@ def get_family_graph():
                 for l in (likes.data or []):
                     liker = l['user_id']
                     author = mom_author_map.get(l['moment_id'])
-
                     if author and liker != author and liker in user_map and author in user_map:
                         key = f"{liker}|{author}"
-                        interaction_counts[key] = interaction_counts.get(key, 0) + 1
+                        interaction_counts[key] += 1
 
-        # --- B. 统计拍一拍 (Reminders) ---
-        # [核心修复] 去掉 .neq('target_user_id', 'null')，防止 UUID 报错
-        # 直接查出所有提醒，在 Python 里筛选
+        # --- B. 统计拍一拍 (Reminders) [+2] ---
+        # [修改] 必须查 content，用来过滤
         rems = client.table('family_reminders') \
-            .select('created_by, target_user_id') \
+            .select('created_by, target_user_id, content') \
             .eq('family_id', family_id) \
             .execute()
 
         for r in (rems.data or []):
             sender = r.get('created_by')
-            target = r.get('target_user_id')  # 可能是 None
+            target = r.get('target_user_id')
+            content = r.get('content', '')
 
-            # 在这里判断 target 是否存在
+            # [核心修复] 只统计包含 "👋" (拍一拍) 的记录
+            # 过滤掉系统自动发的 "🎟️ 发券"、"🚫 作废" 等通知
+            if sender and target and sender != target and sender in user_map and target in user_map:
+                if '👋' in content:
+                    key = f"{sender}|{target}"
+                    interaction_counts[key] += 2
+
+        # --- C. 统计兑换券 (Coupons) [分级计分] ---
+        # [修改] 必须查 status
+        coupons = client.table('family_coupons') \
+            .select('creator_id, target_user_id, status') \
+            .eq('family_id', family_id) \
+            .execute()
+
+        for c in (coupons.data or []):
+            sender = c.get('creator_id')
+            target = c.get('target_user_id')
+            status = c.get('status')
+
             if sender and target and sender != target and sender in user_map and target in user_map:
                 key = f"{sender}|{target}"
-                interaction_counts[key] = interaction_counts.get(key, 0) + 2
+
+                # [核心修复] 根据状态加减分
+                if status == 'active':
+                    interaction_counts[key] += 3  # 发了券还没用
+                elif status == 'used':
+                    interaction_counts[key] += 5  # 完美兑现 (分最高)
+                elif status == 'void':
+                    interaction_counts[key] -= 2  # 作废了 (扣分!)
 
         # === 3. 生成连线数据 ===
         links = []
         for key, count in interaction_counts.items():
+            # 如果扣分扣到 <= 0，就不显示连线了 (或者显示很细的线)
+            if count <= 0: continue
+
             u1, u2 = key.split('|')
             links.append({
                 'source': u1,
                 'target': u2,
                 'value': count,
                 'lineStyle': {
-                    'width': 1 + min(count, 10) * 0.8,
+                    'width': 1 + min(count, 20) * 0.5,
                     'curveness': 0.2,
-                    'opacity': 0.6 + min(count, 20) * 0.02
+                    'opacity': 0.6 + min(count, 30) * 0.01
                 }
             })
 
