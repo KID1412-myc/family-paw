@@ -50,22 +50,32 @@ def backup():
     if not os.path.exists(BACKUP_DIR):
         os.makedirs(BACKUP_DIR)
 
-    # 2. 生成文件名 (family_paw_2025-12-30.sql)
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    # 2. 生成文件名
+    today = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # 精确到秒，防止这就重名
     filename = f"{BACKUP_DIR}/family_paw_{today}.sql"
 
     print(f"🚀 开始备份: {today} ...")
 
+    # [新增] 开始计时
+    start_time = time.time()
+
     # 3. 执行 pg_dump
-    # 这里的 DB_CONN 就是你刚才在 .env 里填的那串
     cmd = f"pg_dump '{DB_CONN}' -f '{filename}'"
 
     try:
-        # 执行命令，如果出错会抛出异常
         subprocess.run(cmd, shell=True, check=True)
-        print(f"✅ 备份成功！文件已保存至: {filename}")
 
-        # 4. 备份成功后，执行清理
+        # [新增] 结束计时
+        end_time = time.time()
+        duration = round(end_time - start_time, 2)
+
+        # 获取文件大小
+        file_size = os.path.getsize(filename) / 1024  # KB
+
+        print(f"✅ 备份成功！耗时: {duration} 秒 | 大小: {file_size:.2f} KB")
+        print(f"📁 保存至: {filename}")
+
+        # 4. 清理旧备份
         clean_old_backups()
 
     except subprocess.CalledProcessError as e:
