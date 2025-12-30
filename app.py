@@ -1247,10 +1247,20 @@ def pet_detail(pet_id):
     except Exception as e:
         print(f"Pet Detail Error: {e}")
         return redirect(url_for('home'))
+    my_profile = {}
+    try:
+        prof_res = db.table('profiles').select('*').eq('id', session['user']).maybe_single().execute()
+        if prof_res.data:
+            my_profile = prof_res.data
+    except:
+        pass
 
     return render_template('pet_detail.html',
                             pet=pet,
-                            current_user_id=session['user'])  # <--- [新增] 传入当前用户ID
+                            current_user_id=session['user'],
+                           my_profile=my_profile,  # <--- 关键修复
+                           app_version=CURRENT_APP_VERSION
+                           )  
 
 
 @app.route('/update_pet_detail', methods=['POST'])
@@ -1694,8 +1704,9 @@ def update_profile():
     f = request.files.get('avatar')
     is_elder = request.form.get('is_elder_mode') == 'on'
     wx_uid = request.form.get('wx_uid')
+    is_dark = request.form.get('is_dark_mode') == 'on'
 
-    update_data = {'is_elder_mode': is_elder}
+    update_data = {'is_elder_mode': is_elder,'is_dark_mode': is_dark}
     if display_name: update_data['display_name'] = display_name
     if wx_uid is not None: update_data['wx_uid'] = wx_uid.strip()
 

@@ -292,9 +292,49 @@
             cursor: pointer;
             opacity: 0.7;
         }
+
+        /* ================= 👴 宠物页关怀模式 ================= */
+        body.elder-mode .pet-name {
+            font-size: 48px !important; /* 名字巨大 */
+        }
+        body.elder-mode .pet-meta {
+            font-size: 20px !important; /* 年龄大 */
+        }
+
+        /* 数据卡片变大块 */
+        body.elder-mode .status-container {
+            grid-template-columns: 1fr !important; /* 一行一个，防止字太小 */
+            gap: 20px;
+        }
+        body.elder-mode .status-card {
+            border: 2px solid #000;
+            padding: 20px;
+        }
+        body.elder-mode .sc-val {
+            font-size: 32px !important; /* 数据巨大 */
+            color: #d63031 !important;
+        }
+        body.elder-mode .sc-label {
+            font-size: 18px !important;
+            color: #000 !important;
+        }
+
+        /* 相册变大 */
+        body.elder-mode .gallery {
+            grid-template-columns: 1fr !important; /* 一行一张图 */
+        }
+        body.elder-mode .polaroid {
+            transform: none !important; /* 不歪了，正着放 */
+            border: 2px solid #000;
+        }
+        body.elder-mode .polaroid-date {
+            font-size: 16px !important;
+            color: #000 !important;
+        }
+
     </style>
 </head>
-<body>
+<body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %} ">
 
 <!-- 1. 沉浸式头部 -->
 <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>

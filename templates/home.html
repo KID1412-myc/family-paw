@@ -1630,6 +1630,7 @@
             font-size: 14px;
             letter-spacing: 2px;
         }
+
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1640,7 +1641,7 @@
     <!-- 二维码生成库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %}">
+<body class="{% if my_profile.is_elder_mode %}elder-mode{% endif %} ">
 
 <!-- 全屏加载动画 -->
 <!-- [全能加载层] 开机 + 数据处理都用它 -->
@@ -2465,7 +2466,7 @@
 
                     {% if moment.content %}
                         <div class="moment-content">{{ moment.content }}</div>{% endif %}
-                    {% if moment.image_url %}<img src="{{ moment.image_url }}" class="moment-img shadow-sm"
+                    {% if moment.image_url %}<img src="{{ moment.image_url }}" class="moment-img shadow-sm" loading="lazy"
                                                   onclick="window.open(this.src)">{% endif %}
 
                     <!-- 3. 底部操作栏 -->
@@ -2717,25 +2718,35 @@
             </div>
             <div class="mt-2 text-center small text-muted fst-italic" id="almanac-tips"></div>
         </div>
-        <!-- [新增] 关怀模式开关 -->
-        <div class="card-box p-3 mb-3">
-            <form action="/update_profile" method="POST" id="elderModeForm">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <!-- 这里的 display_name 是为了防止覆盖名字，传原值 -->
-                <input type="hidden" name="display_name" value="{{ my_profile.display_name }}">
+        <!-- [UI升级] 个性化设置卡片 -->
+            <div class="card-box p-3 mb-3">
+                <h6 class="fw-bold mb-3 text-dark"><i class="fas fa-magic text-primary me-2"></i>显示设置</h6>
 
-                <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0">
-                    <label class="form-check-label fw-bold d-flex align-items-center gap-2" for="elderSwitch">
-                        <i class="fas fa-eye text-primary fa-lg"></i>
-                        <span>长辈关怀模式 (大字版)</span>
-                    </label>
-                    <input class="form-check-input ms-0" type="checkbox" name="is_elder_mode" id="elderSwitch"
-                           style="width: 50px; height: 25px;"
-                           {% if my_profile.is_elder_mode %}checked{% endif %}
-                           onchange="document.getElementById('elderModeForm').submit()">
-                </div>
-            </form>
-        </div>
+                <form action="/update_profile" method="POST" id="settingsForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="display_name" value="{{ my_profile.display_name }}">
+
+                    <!-- 关怀模式 -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <label class="form-check-label d-flex align-items-center gap-2" for="elderSwitch">
+                            <div class="rounded-circle bg-warning bg-opacity-10 text-warning d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
+                                <i class="fas fa-glasses"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark" style="font-size:14px;">长辈关怀模式</div>
+                                <div class="small text-muted" style="font-size:11px;">超大字体，界面更简洁</div>
+                            </div>
+                        </label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_elder_mode" id="elderSwitch"
+                                   style="width: 45px; height: 24px;"
+                                   {% if my_profile.is_elder_mode %}checked{% endif %}
+                                   onchange="document.getElementById('settingsForm').submit()">
+                        </div>
+                    </div>
+
+                </form>
+            </div>
         <!-- 安全设置卡片 -->
         <div class="card-box p-3">
             <h6 class="mb-3 fw-bold text-dark"><i class="fas fa-lock me-2 text-secondary"></i>安全设置</h6>
