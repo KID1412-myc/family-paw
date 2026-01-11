@@ -108,6 +108,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev_key_must_change_to_something_
 
 # Session 有效期 30 天
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+# [新增] CSRF Token 有效期设为 None (跟随 Session，不单独过期)
+app.config['WTF_CSRF_TIME_LIMIT'] = None
 # 限制上传文件最大为 16MB
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
@@ -1529,40 +1531,45 @@ def send_family_reminder():
 
         # [修改] 频率限制逻辑：只查“我自己”在这个家庭发的最新一条
         last_rem = db.table('family_reminders') \
-            .select('created_at') \
+            .select('created_at, content') \
             .eq('family_id', family_id) \
             .eq('created_by', current_user_id) \
             .order('created_at', desc=True) \
-            .limit(1) \
+            .limit(5) \
             .execute()
 
         if last_rem.data:
+            for rem in last_rem.data:
+                # [核心修复] 如果这条记录是"拍一拍"或者是"兑换券"通知，跳过，不计入冷却
+                if "拍了拍" in rem['content'] or "给你发了" in rem['content'] or "作废" in rem['content']:
+                    continue
             # [核心修复] 手动解析时间，防止毫秒位数不对导致报错
-            try:
-                raw_time = last_rem.data[0]['created_at']
-                # 1. 简单粗暴：只截取前19位 (YYYY-MM-DDTHH:MM:SS)
-                # 这样就丢掉了 ".63411+00:00" 这种可能导致报错的尾巴
-                clean_time = raw_time[:19]
-                # 2. 解析为时间对象
-                dt_obj = datetime.strptime(clean_time, '%Y-%m-%dT%H:%M:%S')
+                try:
+                    raw_time = last_rem.data[0]['created_at']
+                    # 1. 简单粗暴：只截取前19位 (YYYY-MM-DDTHH:MM:SS)
+                    # 这样就丢掉了 ".63411+00:00" 这种可能导致报错的尾巴
+                    clean_time = raw_time[:19]
+                    # 2. 解析为时间对象
+                    dt_obj = datetime.strptime(clean_time, '%Y-%m-%dT%H:%M:%S')
 
-                # 3. 补上 UTC 时区 (因为数据库存的是 UTC)
-                dt_utc = dt_obj.replace(tzinfo=timezone.utc)
+                    # 3. 补上 UTC 时区 (因为数据库存的是 UTC)
+                    dt_utc = dt_obj.replace(tzinfo=timezone.utc)
 
-                # 4. 转为北京时间
-                last_date = dt_utc.astimezone(timezone(timedelta(hours=8))).date()
+                    # 4. 转为北京时间
+                    last_date = dt_utc.astimezone(timezone(timedelta(hours=8))).date()
 
-                # 5. 获取今天日期
-                today_date = datetime.now(timezone(timedelta(hours=8))).date()
+                    # 5. 获取今天日期
+                    today_date = datetime.now(timezone(timedelta(hours=8))).date()
 
                 # 6. 比对
-                if last_date == today_date:
-                    flash("你今天在这个家已经发过提醒啦 (每人每天限1条)", "info")
-                    return redirect(url_for('home'))
+                    if last_date == today_date:
+                        flash("你今天在这个家已经发过提醒啦 (每人每天限1条)", "info")
+                        return redirect(url_for('home'))
+                    break
 
-            except Exception as e:
-                print(f"Time Parse Error: {e}")
-                pass
+                except Exception as e:
+                    print(f"Time Parse Error: {e}")
+                    pass
 
         # ... (插入逻辑) ...
         sender_name = session.get('display_name', '家人')
