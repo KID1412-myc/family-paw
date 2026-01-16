@@ -15,8 +15,10 @@ from zhdate import ZhDate
 from werkzeug.middleware.proxy_fix import ProxyFix
 # 引入 Flask 相关组件
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+# 需要导入 Response 和 stream_with_context (Flask原生支持流式)
+from flask import Response, stream_with_context
 # 引入 CSRF 保护
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 # Supabase 客户端
 from supabase import create_client, Client
 # 环境变量加载
@@ -73,7 +75,7 @@ def lab_entry():
     <body>
         <div style="font-size: 40px; margin-bottom: 20px;">🔒</div>
         <form action="/verify_lab_entry" method="POST">
-            <input type="hidden" name="csrf_token" value="{token}">
+            
             <input type="tel" name="code" placeholder="CODE" autofocus>
             <br>
             <button>UNLOCK</button>
@@ -94,7 +96,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '4.0.0'
+CURRENT_APP_VERSION = '4.1.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -704,6 +706,7 @@ def inject_version():
 
 # ================= 认证路由 =================
 @app.route('/register', methods=['GET', 'POST'])
+@csrf.exempt
 def register():
     if request.method == 'POST':
         account = request.form.get('account')
@@ -755,6 +758,7 @@ def register():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf.exempt
 def login():
     if request.method == 'POST':
         account = request.form.get('account')
@@ -1790,6 +1794,7 @@ def admin_dashboard():
         # 更新日志数据
         updates_list = client.table('app_updates').select('*').order('created_at', desc=True).execute().data or []
         reg_codes = client.table('registration_codes').select('*').order('created_at', desc=True).execute().data or []
+        food_list = client.table('pet_food_guide').select('*').order('id').execute().data or []
     except Exception as e:
         print(f"Admin Data Error: {e}")
         users = [];
@@ -1798,8 +1803,8 @@ def admin_dashboard():
         members = [];
         pet_owners_data = [];
         updates_list = [];
-        reg_codes = []
-
+        reg_codes = [];
+        food_list = []
     # 2. 建立基础映射字典 (ID -> Name)
     fam_map = {f['id']: f['name'] for f in families}
     user_name_map = {u['id']: u['display_name'] for u in users}
@@ -1972,6 +1977,13 @@ def admin_dashboard():
         "file_count": len(storage_files),
         "storage_breakdown": {k: round(v / 1048576, 2) for k, v in storage_breakdown.items()}
     }
+    ai_config = {}
+    try:
+        cfg = client.table('app_config').select('*').execute().data
+        for item in cfg:
+            ai_config[item['key']] = item['value']
+    except:
+        pass
 
     return render_template('admin.html',
                            users=users,  # 用户列表
@@ -1982,7 +1994,9 @@ def admin_dashboard():
                            auth_users=auth_users,  # 底层 Auth 用户
                            updates=updates_list,  # 更新日志列表
                            reg_codes=reg_codes,  # [新增] 注册暗号列表
-                           user_name=session.get('display_name'))
+                           user_name=session.get('display_name'),
+                           food_list=food_list,
+                           ai_config=ai_config)
 
 # 3. 新增 API: 获取服务器实时状态
 @app.route('/api/server_stats')
@@ -3507,6 +3521,134 @@ def use_coupon():
 
     return redirect(url_for('home'))
 
+
+# ================= 🤖 AI & 配置模块 =================
+
+def get_sys_config(key_name):
+    """获取系统配置"""
+    try:
+        # 使用 admin 权限查，防止 RLS 意外拦截
+        client = admin_supabase if admin_supabase else get_db()
+        res = client.table('app_config').select('value').eq('key', key_name).single().execute()
+        if res.data:
+            return res.data['value']
+    except:
+        pass
+    return ""
+
+
+@app.route('/admin/update_config', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_config():
+    """管理员更新 AI 配置"""
+    if not admin_supabase: return redirect(url_for('admin_dashboard'))
+
+    configs = {
+        'ai_url': request.form.get('ai_url'),
+        'ai_key': request.form.get('ai_key'),
+        'ai_model': request.form.get('ai_model'),
+        'ai_stream': 'true' if request.form.get('ai_stream') == 'on' else 'false'
+    }
+
+    try:
+        for k, v in configs.items():
+            # Upsert: 有则更新，无则插入
+            admin_supabase.table('app_config').upsert({'key': k, 'value': v}).execute()
+        flash("AI 配置已保存", "success")
+    except Exception as e:
+        flash(f"保存失败: {e}", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/api/ask_vet', methods=['POST'])
+@login_required
+def ask_vet():
+    """AI 兽医接口 (支持流式/非流式切换)"""
+    history = request.json.get('history', [])
+
+    api_url = get_sys_config('ai_url')
+    api_key = get_sys_config('ai_key')
+    model = get_sys_config('ai_model')
+    is_stream = get_sys_config('ai_stream') == 'true'  # 读取开关
+
+    if not api_key: return jsonify({'error': '未配置 Key'})
+
+    system_prompt = {"role": "system", "content": "你是一位经验丰富的家庭宠物医生。你的回答必须：1.简洁明了(150字以内)。2.语气温柔但专业。3.对于禁食、中毒等危急情况，必须第一时间建议去医院。4.不要说废话。"}
+    messages = [system_prompt] + history
+
+    target_url = api_url.rstrip('/') + "/chat/completions"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    payload = {"model": model, "messages": messages, "temperature": 0.7, "stream": is_stream}
+
+    try:
+        # === A. 流式模式 (Typewriter) ===
+        if is_stream:
+            resp = requests.post(target_url, json=payload, headers=headers, stream=True)
+
+            def generate():
+                for line in resp.iter_lines():
+                    if line:
+                        decoded = line.decode('utf-8')
+                        if decoded.startswith("data: "):
+                            if "[DONE]" in decoded: break
+                            try:
+                                json_str = decoded[6:]  # 去掉 'data: '
+                                chunk = json.loads(json_str)
+                                content = chunk['choices'][0]['delta'].get('content', '')
+                                if content: yield content
+                            except:
+                                pass
+
+            return Response(stream_with_context(generate()), content_type='text/plain')
+
+        # === B. 非流式模式 (一次性返回) ===
+        else:
+            resp = requests.post(target_url, json=payload, headers=headers, timeout=30)
+            data = resp.json()
+            if 'choices' in data:
+                return jsonify({'reply': data['choices'][0]['message']['content']})
+            return jsonify({'error': 'API Error'})
+
+
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify({'error': '网络连接超时，请重试'})
+@app.route('/api/food_guide')
+@login_required
+def get_food_guide():
+    """获取所有食物禁忌数据"""
+    # 允许所有人查，不需要 admin
+    try:
+        res = get_db().table('pet_food_guide').select('*').order('id').execute()
+        return jsonify(res.data or [])
+    except: return jsonify([])
+
+@app.route('/admin/add_food', methods=['POST'])
+@admin_required
+def admin_add_food():
+    """后台添加食物"""
+    if not admin_supabase: return redirect(url_for('admin_dashboard'))
+    try:
+        admin_supabase.table('pet_food_guide').insert({
+            'name': request.form.get('name'),
+            'status': request.form.get('status'),
+            'reason': request.form.get('reason')
+        }).execute()
+        flash("添加成功", "success")
+    except Exception as e: flash(f"失败: {e}", "danger")
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_food/<int:fid>', methods=['POST'])
+@admin_required
+def admin_delete_food(fid):
+    """后台删除食物"""
+    try:
+        admin_supabase.table('pet_food_guide').delete().eq('id', fid).execute()
+        flash("删除成功", "success")
+    except: pass
+    return redirect(url_for('admin_dashboard'))
 if __name__ == '__main__':
     # 开发环境启动
     app.run(debug=True, host='0.0.0.0', port=5000)

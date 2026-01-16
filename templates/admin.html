@@ -212,6 +212,16 @@
                 <i class="fas fa-ticket-alt me-1"></i> 暗号
             </button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config" type="button">
+                <i class="fas fa-robot me-1"></i> AI配置
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="food-tab" data-bs-toggle="tab" data-bs-target="#food" type="button">
+                <i class="fas fa-bone me-1"></i> 食物红黑榜
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content">
@@ -652,6 +662,99 @@
                     {% else %}
                         <tr>
                             <td colspan="5" class="text-center py-4 text-muted">暂无有效暗号</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="config">
+            <div class="card p-4 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-3">🤖 AI 兽医设置 (DeepSeek/OpenAI)</h6>
+                <form action="/admin/update_config" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">API 地址 (Base URL)</label>
+                        <input type="text" name="ai_url" class="form-control" value="{{ ai_config.get('ai_url', '') }}"
+                               placeholder="https://api.deepseek.com">
+                        <div class="form-text small">填写到域名即可，无需 /chat/completions</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">API Key (密钥)</label>
+                        <input type="password" name="ai_key" class="form-control"
+                               value="{{ ai_config.get('ai_key', '') }}" placeholder="sk-...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">模型名称 (Model Name)</label>
+                        <input type="text" name="ai_model" class="form-control"
+                               value="{{ ai_config.get('ai_model', '') }}" placeholder="deepseek-chat">
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="ai_stream" id="streamSwitch"
+                               {% if ai_config.get('ai_stream') == 'true' %}checked{% endif %}>
+                        <label class="form-check-label" for="streamSwitch">开启流式回复</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">保存配置</button>
+                </form>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="food">
+            <div class="card p-4 mb-3 border-0 bg-light shadow-sm">
+                <h6 class="fw-bold mb-3">🍎 添加食物禁忌</h6>
+                <form action="/admin/add_food" method="POST" class="row g-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="col-md-3">
+                        <input type="text" name="name" class="form-control" placeholder="食物名 (如: 葡萄)" required>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="danger">☠️ 禁食 (Danger)</option>
+                            <option value="warn">⚠️ 慎食 (Warn)</option>
+                            <option value="safe">✅ 能吃 (Safe)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="reason" class="form-control" placeholder="原因/后果 (如: 导致肾衰竭)"
+                               required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">添加</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                    <tr>
+                        <th>食物</th>
+                        <th>安全等级</th>
+                        <th>原因</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for f in food_list %}
+                        <tr>
+                            <td class="fw-bold">{{ f.name }}</td>
+                            <td>
+                                {% if f.status == 'danger' %} <span class="badge bg-danger">禁止</span>
+                                {% elif f.status == 'warn' %} <span class="badge bg-warning text-dark">慎重</span>
+                                {% else %} <span class="badge bg-success">安全</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ f.reason }}</td>
+                            <td>
+                                <form action="/admin/delete_food/{{ f.id }}" method="POST"
+                                      onsubmit="return confirm('删？')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-link text-danger p-0">删除</button>
+                                </form>
+                            </td>
                         </tr>
                     {% endfor %}
                     </tbody>

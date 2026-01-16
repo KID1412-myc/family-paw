@@ -1630,7 +1630,75 @@
             font-size: 14px;
             letter-spacing: 2px;
         }
+        /* === 健康卫士卡片 === */
+        .health-guard-card {
+            background: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%);
+            border-radius: 16px;
+            padding: 0;
+            margin-bottom: 20px;
+            display: flex;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #b2bec3;
+        }
+        .hg-col {
+            flex: 1; padding: 15px; text-align: center;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .hg-col:first-child { border-right: 1px dashed #b2bec3; }
+        .hg-col:active { background: rgba(0,0,0,0.05); }
+        .hg-icon { font-size: 28px; margin-bottom: 5px; display: block; }
+        .hg-title { font-weight: 800; color: #2d3436; font-size: 14px; }
+        .hg-desc { font-size: 10px; color: #636e72; }
 
+        /* 红黑榜结果 */
+        .food-result-card {
+            border-radius: 12px; padding: 15px; margin-top: 15px;
+            text-align: center; display: none; /* 默认隐藏 */
+        }
+        .res-safe { background: #dff9fb; border: 2px solid #6ab04c; color: #6ab04c; }
+        .res-danger { background: #ff7979; border: 2px solid #eb4d4b; color: white; }
+        .res-warn { background: #f6e58d; border: 2px solid #f0932b; color: #e056fd; }
+
+        /* 聊天气泡 */
+        .chat-box {
+            height: 350px; overflow-y: auto; background: #f5f6fa;
+            border-radius: 10px; padding: 10px; margin-bottom: 10px;
+        }
+        .msg-row { display: flex; margin-bottom: 10px; }
+        .msg-row.me { justify-content: flex-end; }
+        .msg-bubble {
+            max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; position: relative;
+        }
+        .msg-ai { background: white; color: #333; border-bottom-left-radius: 2px; }
+        .msg-me { background: #667eea; color: white; border-bottom-right-radius: 2px; }
+        /* 全屏弹窗模式 */
+        .modal-fullscreen-custom {
+            max-width: 100%; margin: 0; height: 100%;
+        }
+        .modal-fullscreen-custom .modal-content {
+            height: 100%; border-radius: 0; border: none;
+        }
+
+        /* 红黑榜列表 */
+        .food-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 15px; border-bottom: 1px solid #f0f0f0;
+            transition: background 0.1s;
+        }
+        .food-item:active { background: #f9f9f9; }
+        .food-status-icon { font-size: 24px; width: 40px; text-align: center; }
+        .food-info h6 { margin: 0; font-weight: bold; font-size: 16px; }
+        .food-info p { margin: 0; font-size: 12px; color: #888; }
+
+        /* 状态颜色 */
+        .f-danger { color: #ff4757; }
+        .f-warn { color: #ffa502; }
+        .f-safe { color: #2ecc71; }
+
+        /* AI 聊天打字机光标 */
+        .typing::after { content: '▋'; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -1969,6 +2037,19 @@
 
         {% if my_families %}
             {% for fam in my_families %}
+                <!-- ================= 健康卫士入口 ================= -->
+                <div class="health-guard-card fam-item fam-{{ fam.id }}">
+                    <div class="hg-col" onclick="openFoodModal()">
+                        <span class="hg-icon">🍎</span>
+                        <div class="hg-title">能吃吗？</div>
+                        <div class="hg-desc">食物禁忌查询</div>
+                    </div>
+                    <div class="hg-col" onclick="openVetModal()">
+                        <span class="hg-icon">🩺</span>
+                        <div class="hg-title">问医生</div>
+                        <div class="hg-desc">AI 智能问诊</div>
+                    </div>
+                </div>
                 <!-- ================= 全能时间卡片 (修复点击 + 优化UI) ================= -->
                 <div class="calendar-card fam-item fam-{{ fam.id }}">
 
@@ -3743,6 +3824,54 @@
                         Made with ❤️ for Family
                     </div>
 
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- 🍎 禁食查询弹窗 (全屏版) -->
+    <div class="modal fade" id="foodModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen-custom">
+            <div class="modal-content bg-white">
+                <!-- 顶部搜索栏 -->
+                <div class="modal-header border-0 shadow-sm sticky-top bg-white" style="padding: 15px;">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
+                        <input type="text" id="food-search" class="form-control bg-light border-0" placeholder="搜搜能不能吃 (如: 葡萄)" oninput="filterFoodList()">
+                    </div>
+                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- 列表区域 -->
+                <div class="modal-body p-0" id="food-list-container" style="overflow-y: auto;">
+                    <!-- JS 填充数据 -->
+                    <div class="text-center py-5 text-muted"><div class="spinner-border text-primary"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🩺 AI 兽医弹窗 -->
+    <div class="modal fade" id="vetModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 bg-light">
+                    <h5 class="modal-title fw-bold">🐶 宠物医生 (AI)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="alert alert-warning small m-0 rounded-0 border-0 border-bottom text-center py-1">
+                        ⚠️ 建议仅供参考，急症请立即线下就医
+                    </div>
+
+                    <div id="chat-box" class="chat-box" style="height: 400px;">
+                        <div class="msg-row"><div class="msg-bubble msg-ai">你好！我是家庭宠物医生。毛孩子哪里不舒服？</div></div>
+                    </div>
+
+                    <!-- 底部输入区 -->
+                    <div class="p-3 border-top d-flex gap-2 bg-white">
+                        <input type="text" id="chat-input" class="form-control" placeholder="描述症状... (回车发送)" onkeydown="if(event.keyCode==13) sendMsg()">
+                        <button class="btn btn-primary" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5865,6 +5994,154 @@
         </div>
         `;
         }
+       // ================= 🍎 动态红黑榜逻辑 =================
+    let foodDataCache = [];
+
+    function openFoodModal() {
+        new bootstrap.Modal(document.getElementById('foodModal')).show();
+        // 拉取数据
+        fetch('/api/food_guide')
+            .then(res => res.json())
+            .then(data => {
+                foodDataCache = data;
+                renderFoodList(data);
+            });
+    }
+
+    function renderFoodList(data) {
+        const box = document.getElementById('food-list-container');
+        if(!data.length) { box.innerHTML = '<div class="text-center py-5 text-muted">暂无数据</div>'; return; }
+
+        let html = '';
+        data.forEach(item => {
+            let icon = '❓', colorClass = '';
+            if(item.status === 'danger') { icon='☠️'; colorClass='f-danger'; }
+            else if(item.status === 'warn') { icon='⚠️'; colorClass='f-warn'; }
+            else if(item.status === 'safe') { icon='✅'; colorClass='f-safe'; }
+
+            html += `
+            <div class="food-item">
+                <div class="d-flex align-items-center">
+                    <div class="food-status-icon ${colorClass}">${icon}</div>
+                    <div class="food-info ms-2">
+                        <h6 class="${colorClass}">${item.name}</h6>
+                        <p>${item.reason}</p>
+                    </div>
+                </div>
+            </div>`;
+        });
+        box.innerHTML = html;
+    }
+
+    function filterFoodList() {
+        const key = document.getElementById('food-search').value.toLowerCase();
+        const filtered = foodDataCache.filter(item => item.name.includes(key) || item.reason.includes(key));
+        renderFoodList(filtered);
+    }
+
+    // ================= 🩺 AI 聊天逻辑 (独立修复版) =================
+
+    // 打开弹窗函数
+    function openVetModal() {
+        const modalEl = document.getElementById('vetModal');
+        if (modalEl) {
+            new bootstrap.Modal(modalEl).show();
+            // 自动聚焦输入框
+            setTimeout(() => document.getElementById('chat-input').focus(), 500);
+        } else {
+            console.error("错误：找不到 id='vetModal' 的弹窗元素！");
+            alert("弹窗加载失败，请刷新页面重试");
+        }
+    }
+
+    // 聊天相关变量
+    let chatHistory = [];
+    let isTalking = false;
+
+    // 发送消息函数
+    function sendMsg(val) {
+        if(isTalking) return;
+
+        const input = document.getElementById('chat-input');
+        const msg = val || input.value;
+        if(!msg.trim()) return;
+
+        // 1. 用户消息上屏
+        addBubble(msg, 'me');
+        input.value = '';
+        chatHistory.push({"role": "user", "content": msg});
+
+        // 2. 准备接收流
+        isTalking = true;
+        const aiBubbleId = addBubble('', 'ai', true); // 创建空泡泡，带光标
+        const aiBubble = document.getElementById(aiBubbleId);
+
+        // 3. 请求后端
+        fetch('/api/ask_vet', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+            body: JSON.stringify({ history: chatHistory })
+        })
+        .then(async response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+
+            // 移除打字光标样式
+            if(aiBubble) aiBubble.classList.remove('typing');
+
+            // 非流式错误处理
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                 const data = await response.json();
+                 if(aiBubble) aiBubble.innerHTML = data.reply || data.error;
+                 chatHistory.push({"role": "assistant", "content": aiBubble.innerHTML});
+                 isTalking = false;
+                 return;
+            }
+
+            // 流式读取
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                fullText += chunk;
+                if(aiBubble) {
+                    aiBubble.innerHTML = fullText.replace(/\n/g, '<br>');
+                    // 自动滚动到底部
+                    const box = document.getElementById('chat-box');
+                    if(box) box.scrollTop = box.scrollHeight;
+                }
+            }
+            chatHistory.push({"role": "assistant", "content": fullText});
+            isTalking = false;
+        })
+        .catch(err => {
+            console.error(err);
+            if(aiBubble) aiBubble.innerHTML = "网络连不上医生了，请稍后再试。";
+            isTalking = false;
+        });
+    }
+
+    // 添加气泡辅助函数
+    function addBubble(text, role, isTyping=false) {
+        const box = document.getElementById('chat-box');
+        if(!box) return;
+
+        const row = document.createElement('div');
+        row.className = `msg-row ${role}`;
+
+        const bubble = document.createElement('div');
+        // msg-ai / msg-me 样式在之前的 CSS 里定义了
+        bubble.className = `msg-bubble msg-${role} ${isTyping ? 'typing' : ''}`;
+        bubble.id = 'msg-' + Date.now();
+        bubble.innerHTML = text;
+
+        row.appendChild(bubble);
+        box.appendChild(row);
+        box.scrollTop = box.scrollHeight;
+        return bubble.id;
+    }
 </script>
 </body>
 </html>

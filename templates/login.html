@@ -168,7 +168,7 @@
         {% endwith %}
 
         <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
             <div class="mb-3">
                 <input type="text" name="account" class="form-control" placeholder="请输入账号"
                        required autocomplete="username">
@@ -186,7 +186,7 @@
             </a>
         </div>
 
-        <!-- 底部伪装信息 -->
+
         <div class="footer-info">
             <div class="lab-badge">INTERNAL SYSTEM</div>
             <div>仅限授权用户访问 · 非公开平台</div>
