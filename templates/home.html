@@ -1630,6 +1630,7 @@
             font-size: 14px;
             letter-spacing: 2px;
         }
+
         /* === 健康卫士卡片 === */
         .health-guard-card {
             background: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%);
@@ -1638,67 +1639,214 @@
             margin-bottom: 20px;
             display: flex;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             border: 1px solid #b2bec3;
         }
+
         .hg-col {
-            flex: 1; padding: 15px; text-align: center;
-            cursor: pointer; transition: background 0.2s;
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        .hg-col:first-child { border-right: 1px dashed #b2bec3; }
-        .hg-col:active { background: rgba(0,0,0,0.05); }
-        .hg-icon { font-size: 28px; margin-bottom: 5px; display: block; }
-        .hg-title { font-weight: 800; color: #2d3436; font-size: 14px; }
-        .hg-desc { font-size: 10px; color: #636e72; }
+
+        .hg-col:first-child {
+            border-right: 1px dashed #b2bec3;
+        }
+
+        .hg-col:active {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .hg-icon {
+            font-size: 28px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .hg-title {
+            font-weight: 800;
+            color: #2d3436;
+            font-size: 14px;
+        }
+
+        .hg-desc {
+            font-size: 10px;
+            color: #636e72;
+        }
 
         /* 红黑榜结果 */
         .food-result-card {
-            border-radius: 12px; padding: 15px; margin-top: 15px;
-            text-align: center; display: none; /* 默认隐藏 */
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            text-align: center;
+            display: none; /* 默认隐藏 */
         }
-        .res-safe { background: #dff9fb; border: 2px solid #6ab04c; color: #6ab04c; }
-        .res-danger { background: #ff7979; border: 2px solid #eb4d4b; color: white; }
-        .res-warn { background: #f6e58d; border: 2px solid #f0932b; color: #e056fd; }
+
+        .res-safe {
+            background: #dff9fb;
+            border: 2px solid #6ab04c;
+            color: #6ab04c;
+        }
+
+        .res-danger {
+            background: #ff7979;
+            border: 2px solid #eb4d4b;
+            color: white;
+        }
+
+        .res-warn {
+            background: #f6e58d;
+            border: 2px solid #f0932b;
+            color: #e056fd;
+        }
 
         /* 聊天气泡 */
         .chat-box {
-            height: 350px; overflow-y: auto; background: #f5f6fa;
-            border-radius: 10px; padding: 10px; margin-bottom: 10px;
+            height: 350px;
+            overflow-y: auto;
+            background: #f5f6fa;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
         }
-        .msg-row { display: flex; margin-bottom: 10px; }
-        .msg-row.me { justify-content: flex-end; }
+
+        /* 聊天气泡修正版 */
+        .msg-row {
+            display: flex;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        /* AI (左边) */
+        .msg-row.ai {
+            justify-content: flex-start;
+        }
+
+        .msg-row.ai .msg-bubble {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 我 (右边) */
+        .msg-row.me {
+            justify-content: flex-end;
+        }
+
+        .msg-row.me .msg-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 2px;
+            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.4);
+        }
+
+        /* 找到 .msg-bubble 修改/确认以下属性 */
         .msg-bubble {
-            max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; position: relative;
+            max-width: 80%;
+            padding: 12px 16px; /* [修改] 内边距加大一点 */
+            border-radius: 16px;
+            font-size: 15px; /* [修改] 字号稍微大一点点 */
+            line-height: 1.6; /* [修改] 行高加大，阅读更舒服 */
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* 加点阴影更有质感 */
         }
-        .msg-ai { background: white; color: #333; border-bottom-left-radius: 2px; }
-        .msg-me { background: #667eea; color: white; border-bottom-right-radius: 2px; }
+
+        /* 重点内容加粗的颜色 */
+        .msg-bubble strong {
+            color: #d63031; /* 警示红，让重点更突出 */
+            font-weight: 800;
+        }
+
         /* 全屏弹窗模式 */
         .modal-fullscreen-custom {
-            max-width: 100%; margin: 0; height: 100%;
+            max-width: 100%;
+            margin: 0;
+            height: 100%;
         }
+
         .modal-fullscreen-custom .modal-content {
-            height: 100%; border-radius: 0; border: none;
+            height: 100%;
+            border-radius: 0;
+            border: none;
         }
 
         /* 红黑榜列表 */
         .food-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 15px; border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
             transition: background 0.1s;
         }
-        .food-item:active { background: #f9f9f9; }
-        .food-status-icon { font-size: 24px; width: 40px; text-align: center; }
-        .food-info h6 { margin: 0; font-weight: bold; font-size: 16px; }
-        .food-info p { margin: 0; font-size: 12px; color: #888; }
+
+        .food-item:active {
+            background: #f9f9f9;
+        }
+
+        .food-status-icon {
+            font-size: 24px;
+            width: 40px;
+            text-align: center;
+        }
+
+        .food-info h6 {
+            margin: 0;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .food-info p {
+            margin: 0;
+            font-size: 12px;
+            color: #888;
+        }
 
         /* 状态颜色 */
-        .f-danger { color: #ff4757; }
-        .f-warn { color: #ffa502; }
-        .f-safe { color: #2ecc71; }
+        .f-danger {
+            color: #ff4757;
+        }
+
+        .f-warn {
+            color: #ffa502;
+        }
+
+        .f-safe {
+            color: #2ecc71;
+        }
 
         /* AI 聊天打字机光标 */
-        .typing::after { content: '▋'; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
+        .typing::after {
+            content: '▋';
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* 搜索框美化 */
+        #food-search {
+            border: 2px solid #667eea; /* 明显的边框色 */
+            background-color: #f8f9fa;
+            color: #333;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.1);
+            transition: all 0.2s;
+        }
+
+        #food-search:focus {
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25);
+            transform: scale(1.02);
+        }
     </style>
     <!-- [新增] 放在 <head> 里 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -2547,8 +2695,9 @@
 
                     {% if moment.content %}
                         <div class="moment-content">{{ moment.content }}</div>{% endif %}
-                    {% if moment.image_url %}<img src="{{ moment.image_url }}" class="moment-img shadow-sm" loading="lazy"
-                                                  onclick="window.open(this.src)">{% endif %}
+                    {% if moment.image_url %}
+                        <img src="{{ moment.image_url }}" class="moment-img shadow-sm" loading="lazy"
+                             onclick="window.open(this.src)">{% endif %}
 
                     <!-- 3. 底部操作栏 -->
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2">
@@ -2680,11 +2829,13 @@
                     {% endif %}
                 </form>
             </div>
-        <!-- [新增] 系统使用说明书 -->
-            <div class="card-box p-3 mb-3 bg-white" onclick="new bootstrap.Modal(document.getElementById('manualModal')).show()" style="cursor: pointer;">
+            <!-- [新增] 系统使用说明书 -->
+            <div class="card-box p-3 mb-3 bg-white"
+                 onclick="new bootstrap.Modal(document.getElementById('manualModal')).show()" style="cursor: pointer;">
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-3"
+                             style="width: 40px; height: 40px;">
                             <i class="fas fa-book-reader fa-lg"></i>
                         </div>
                         <div>
@@ -2800,34 +2951,35 @@
             <div class="mt-2 text-center small text-muted fst-italic" id="almanac-tips"></div>
         </div>
         <!-- [UI升级] 个性化设置卡片 -->
-            <div class="card-box p-3 mb-3">
-                <h6 class="fw-bold mb-3 text-dark"><i class="fas fa-magic text-primary me-2"></i>显示设置</h6>
+        <div class="card-box p-3 mb-3">
+            <h6 class="fw-bold mb-3 text-dark"><i class="fas fa-magic text-primary me-2"></i>显示设置</h6>
 
-                <form action="/update_profile" method="POST" id="settingsForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <input type="hidden" name="display_name" value="{{ my_profile.display_name }}">
+            <form action="/update_profile" method="POST" id="settingsForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="display_name" value="{{ my_profile.display_name }}">
 
-                    <!-- 关怀模式 -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <label class="form-check-label d-flex align-items-center gap-2" for="elderSwitch">
-                            <div class="rounded-circle bg-warning bg-opacity-10 text-warning d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
-                                <i class="fas fa-glasses"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark" style="font-size:14px;">长辈关怀模式</div>
-                                <div class="small text-muted" style="font-size:11px;">超大字体，界面更简洁</div>
-                            </div>
-                        </label>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="is_elder_mode" id="elderSwitch"
-                                   style="width: 45px; height: 24px;"
-                                   {% if my_profile.is_elder_mode %}checked{% endif %}
-                                   onchange="document.getElementById('settingsForm').submit()">
+                <!-- 关怀模式 -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <label class="form-check-label d-flex align-items-center gap-2" for="elderSwitch">
+                        <div class="rounded-circle bg-warning bg-opacity-10 text-warning d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;">
+                            <i class="fas fa-glasses"></i>
                         </div>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size:14px;">长辈关怀模式</div>
+                            <div class="small text-muted" style="font-size:11px;">超大字体，界面更简洁</div>
+                        </div>
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_elder_mode" id="elderSwitch"
+                               style="width: 45px; height: 24px;"
+                               {% if my_profile.is_elder_mode %}checked{% endif %}
+                               onchange="document.getElementById('settingsForm').submit()">
                     </div>
+                </div>
 
-                </form>
-            </div>
+            </form>
+        </div>
         <!-- 安全设置卡片 -->
         <div class="card-box p-3">
             <h6 class="mb-3 fw-bold text-dark"><i class="fas fa-lock me-2 text-secondary"></i>安全设置</h6>
@@ -3711,171 +3863,228 @@
     </div>
 </div>
 <!-- 使用说明书弹窗 -->
-    <div class="modal fade" id="manualModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📖 全家牵挂 · 指南</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
+<div class="modal fade" id="manualModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">📖 全家牵挂 · 指南</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
 
-                    <div class="accordion" id="manualAccordion">
+                <div class="accordion" id="manualAccordion">
 
-                        <!-- 1. 首页牵挂 -->
-                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m1">
-                                    🏠 首页与牵挂
-                                </button>
-                            </h2>
-                            <div id="m1" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
-                                <div class="accordion-body small text-secondary bg-light">
-                                    <ul class="mb-0 ps-3">
-                                        <li class="mb-1"><strong>家庭客厅</strong>：顶部头像栏，点击头像可以“拍一拍”家人，点击自己头像可以切换“忙碌/睡觉”状态。</li>
-                                        <li class="mb-1"><strong>全能日历</strong>：显示最近的生日/纪念日或回家倒计时。点击卡片可管理所有纪念日。</li>
-                                        <li class="mb-1"><strong>双城天气</strong>：左边是老家，右边是远方。直接点击卡片可发送贴心的天气提醒，点击卡片右上方齿轮可设置城市。</li>
-                                        <li><strong>许愿菜单</strong>：想吃什么在这里点菜，爸妈接单后会变色。</li>
-                                    </ul>
-                                </div>
+                    <!-- 1. 首页牵挂 -->
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#m1">
+                                🏠 首页与牵挂
+                            </button>
+                        </h2>
+                        <div id="m1" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                            <div class="accordion-body small text-secondary bg-light">
+                                <ul class="mb-0 ps-3">
+                                    <li class="mb-1"><strong>家庭客厅</strong>：顶部头像栏，点击头像可以“拍一拍”家人，点击自己头像可以切换“忙碌/睡觉”状态。
+                                    </li>
+                                    <li class="mb-1"><strong>全能日历</strong>：显示最近的生日/纪念日或回家倒计时。点击卡片可管理所有纪念日。
+                                    </li>
+                                    <li class="mb-1"><strong>双城天气</strong>：左边是老家，右边是远方。直接点击卡片可发送贴心的天气提醒，点击卡片右上方齿轮可设置城市。
+                                    </li>
+                                    <li><strong>许愿菜单</strong>：想吃什么在这里点菜，爸妈接单后会变色。</li>
+                                </ul>
                             </div>
                         </div>
-
-                        <!-- 2. 萌宠互动 -->
-                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m2">
-                                    🐶 萌宠互动
-                                </button>
-                            </h2>
-                            <div id="m2" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
-                                <div class="accordion-body small text-secondary bg-light">
-                                    <ul class="mb-0 ps-3">
-                                        <li class="mb-1"><strong>喂食/遛狗</strong>：点击大按钮打卡，全家都能看到上次是谁喂的。</li>
-                                        <li class="mb-1"><strong>传照片</strong>：点击相机图标上传，支持今日多图统计。</li>
-                                        <li><strong>详情档案</strong>：宠物主人点击宠物卡片右上角齿轮编辑宠物名字、添加其他主人。点击宠物卡片/封面图片进入详情页，宠物主人可编辑疫苗、驱虫和体重记录，其余家人可查看这些信息以及成长相册。</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 3. 工具箱 (9大功能) -->
-                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m3" aria-expanded="true">
-                                    🧰 家庭百宝箱 (重点)
-                                </button>
-                            </h2>
-                            <div id="m3" class="accordion-collapse collapse show" data-bs-parent="#manualAccordion">
-                                <div class="accordion-body small text-secondary bg-light">
-                                    <p class="mb-2">点击家庭客厅顶部右侧的灰色 <strong>[...]</strong> 按钮打开：</p>
-                                    <ul class="mb-0 ps-3">
-                                        <li class="mb-1"><strong>家庭角色</strong>：生成五维雷达图，看看谁是家里的“金牌铲屎官”。</li>
-                                        <li class="mb-1"><strong>亲密引力</strong>：可视化的互动关系网，连线越粗关系越铁。</li>
-                                        <li class="mb-1"><strong>足迹地图</strong>：点亮去过的城市，连起我们的距离。</li>
-                                        <li class="mb-1"><strong>决定转盘</strong>：不知道谁洗碗？让转盘决定！</li>
-                                        <li class="mb-1"><strong>兑换券</strong>：发行“按摩券”、“原谅券”，增加生活情趣。</li>
-                                        <li class="mb-1"><strong>收纳/采购/备忘</strong>：记录物品位置、要买的东西和重要账号。</li>
-                                        <li><strong>Wi-Fi卡</strong>：亲戚来了一键扫码连网。</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 4. 动态与设置 -->
-                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#m4">
-                                    ⚙️ 动态与设置
-                                </button>
-                            </h2>
-                            <div id="m4" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
-                                <div class="accordion-body small text-secondary bg-light">
-                                    <ul class="mb-0 ps-3">
-                                        <li class="mb-1"><strong>发动态</strong>：支持选择“公开”或“仅当前家庭可见”，保护隐私。</li>
-                                        <li class="mb-1"><strong>点赞</strong>：点击爱心可为他人点赞，会有彩带特效，并显示头像列表。</li>
-                                        <li class="mb-1"><strong>关怀模式</strong>：在“我的”页面开启，字体变大，界面简化，适合长辈。</li>
-                                        <li><strong>微信通知</strong>：按照教程绑定 UID 后，重要消息会推送到WxPusher上。</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 5. 隐藏彩蛋 -->
-                        <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold text-warning" type="button" data-bs-toggle="collapse" data-bs-target="#m5">
-                                    🥚 隐藏彩蛋
-                                </button>
-                            </h2>
-                            <div id="m5" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
-                                <div class="accordion-body small text-secondary bg-light">
-                                    <ul class="mb-0 ps-3">
-                                        <li class="mb-1"><strong>赛博木鱼</strong>：在“我的”页面，疯狂点击你的 ID 号...</li>
-                                        <li><strong>摸鱼贪吃蛇</strong>：拉到最底端，疯狂点击版本号...</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
 
-                    <div class="text-center mt-4 text-muted small">
-                        Made with ❤️ for Family
+                    <!-- 2. 萌宠互动 -->
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#m2">
+                                🐶 萌宠互动
+                            </button>
+                        </h2>
+                        <div id="m2" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                            <div class="accordion-body small text-secondary bg-light">
+                                <ul class="mb-0 ps-3">
+                                    <li class="mb-1"><strong>喂食/遛狗</strong>：点击大按钮打卡，全家都能看到上次是谁喂的。
+                                    </li>
+                                    <li class="mb-1"><strong>传照片</strong>：点击相机图标上传，支持今日多图统计。</li>
+                                    <li><strong>详情档案</strong>：宠物主人点击宠物卡片右上角齿轮编辑宠物名字、添加其他主人。点击宠物卡片/封面图片进入详情页，宠物主人可编辑疫苗、驱虫和体重记录，其余家人可查看这些信息以及成长相册。
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 工具箱 (9大功能) -->
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#m3" aria-expanded="true">
+                                🧰 家庭百宝箱 (重点)
+                            </button>
+                        </h2>
+                        <div id="m3" class="accordion-collapse collapse show" data-bs-parent="#manualAccordion">
+                            <div class="accordion-body small text-secondary bg-light">
+                                <p class="mb-2">点击家庭客厅顶部右侧的灰色 <strong>[...]</strong> 按钮打开：</p>
+                                <ul class="mb-0 ps-3">
+                                    <li class="mb-1"><strong>家庭角色</strong>：生成五维雷达图，看看谁是家里的“金牌铲屎官”。
+                                    </li>
+                                    <li class="mb-1"><strong>亲密引力</strong>：可视化的互动关系网，连线越粗关系越铁。</li>
+                                    <li class="mb-1"><strong>足迹地图</strong>：点亮去过的城市，连起我们的距离。</li>
+                                    <li class="mb-1"><strong>决定转盘</strong>：不知道谁洗碗？让转盘决定！</li>
+                                    <li class="mb-1"><strong>兑换券</strong>：发行“按摩券”、“原谅券”，增加生活情趣。</li>
+                                    <li class="mb-1"><strong>收纳/采购/备忘</strong>：记录物品位置、要买的东西和重要账号。
+                                    </li>
+                                    <li><strong>Wi-Fi卡</strong>：亲戚来了一键扫码连网。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. 动态与设置 -->
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#m4">
+                                ⚙️ 动态与设置
+                            </button>
+                        </h2>
+                        <div id="m4" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                            <div class="accordion-body small text-secondary bg-light">
+                                <ul class="mb-0 ps-3">
+                                    <li class="mb-1"><strong>发动态</strong>：支持选择“公开”或“仅当前家庭可见”，保护隐私。
+                                    </li>
+                                    <li class="mb-1"><strong>点赞</strong>：点击爱心可为他人点赞，会有彩带特效，并显示头像列表。
+                                    </li>
+                                    <li class="mb-1"><strong>关怀模式</strong>：在“我的”页面开启，字体变大，界面简化，适合长辈。
+                                    </li>
+                                    <li><strong>微信通知</strong>：按照教程绑定 UID 后，重要消息会推送到WxPusher上。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. 隐藏彩蛋 -->
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded-3 overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold text-warning" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#m5">
+                                🥚 隐藏彩蛋
+                            </button>
+                        </h2>
+                        <div id="m5" class="accordion-collapse collapse" data-bs-parent="#manualAccordion">
+                            <div class="accordion-body small text-secondary bg-light">
+                                <ul class="mb-0 ps-3">
+                                    <li class="mb-1"><strong>赛博木鱼</strong>：在“我的”页面，疯狂点击你的 ID 号...</li>
+                                    <li><strong>摸鱼贪吃蛇</strong>：拉到最底端，疯狂点击版本号...</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
+
+                <div class="text-center mt-4 text-muted small">
+                    Made with ❤️ for Family
+                </div>
+
             </div>
         </div>
     </div>
-<!-- 🍎 禁食查询弹窗 (全屏版) -->
+</div>
+<!-- 🍎 禁食查询弹窗 (UI修复版) -->
     <div class="modal fade" id="foodModal" tabindex="-1">
-        <div class="modal-dialog modal-fullscreen-custom">
+        <div class="modal-dialog modal-fullscreen-custom"> <!-- 全屏模式 -->
             <div class="modal-content bg-white">
-                <!-- 顶部搜索栏 -->
-                <div class="modal-header border-0 shadow-sm sticky-top bg-white" style="padding: 15px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
-                        <input type="text" id="food-search" class="form-control bg-light border-0" placeholder="搜搜能不能吃 (如: 葡萄)" oninput="filterFoodList()">
+
+                <!-- 顶部固定区：搜索 + 关闭 + 筛选 -->
+                <div class="p-3 bg-white sticky-top border-bottom shadow-sm" style="z-index: 10;">
+
+                    <!-- 第一行：搜索框 + 关闭按钮 (Flex布局) -->
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="input-group flex-grow-1">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="food-search" class="form-control bg-light border-0"
+                                   style="font-weight: bold;"
+                                   placeholder="搜搜能不能吃... (如: 葡萄)" oninput="filterFoodList()">
+                        </div>
+                        <!-- [修复] 显眼的关闭按钮 -->
+                        <button type="button" class="btn-close ms-3 p-2" data-bs-dismiss="modal" style="background-color: #f0f0f0; border-radius: 50%;"></button>
                     </div>
-                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
+
+                    <!-- [UI 终极修复] 按钮组 -->
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <!-- 全部 (黑底白字) -->
+                            <button class="btn btn-sm btn-dark rounded-pill px-4" onclick="filterFoodStatus('all', this)">全部</button>
+
+                            <!-- 禁止 (红框红字) -->
+                            <button class="btn btn-sm btn-outline-danger rounded-pill px-4 fw-bold"
+                                    style="color: #212529 !important; border-color: #dc3545;"
+                                    onclick="filterFoodStatus('danger', this)">
+                                ☠️ 禁止
+                            </button>
+
+                            <!-- 慎食 (黄框黑字) -->
+                            <button class="btn btn-sm btn-outline-warning rounded-pill px-4 fw-bold"
+                                    style="color: #212529 !important; border-color: #ffc107;"
+                                    onclick="filterFoodStatus('warn', this)">
+                                ⚠️ 慎食
+                            </button>
+
+                            <!-- 安全 (绿框绿字) -->
+                            <button class="btn btn-sm btn-outline-success rounded-pill px-4 fw-bold"
+                                    style="color: #212529 !important; border-color: #198754;"
+                                    onclick="filterFoodStatus('safe', this)">
+                                ✅ 安全
+                            </button>
+                        </div>
                 </div>
 
                 <!-- 列表区域 -->
-                <div class="modal-body p-0" id="food-list-container" style="overflow-y: auto;">
-                    <!-- JS 填充数据 -->
-                    <div class="text-center py-5 text-muted"><div class="spinner-border text-primary"></div></div>
+                <div class="modal-body p-0" id="food-list-container" style="overflow-y: auto; padding-bottom: 50px;">
+                    <!-- JS 填充 -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 🩺 AI 兽医弹窗 -->
-    <div class="modal fade" id="vetModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 bg-light">
-                    <h5 class="modal-title fw-bold">🐶 宠物医生 (AI)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- 🩺 AI 兽医弹窗 -->
+<div class="modal fade" id="vetModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 bg-light">
+                <h5 class="modal-title fw-bold">🐶 宠物医生 (AI)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="alert alert-warning small m-0 rounded-0 border-0 border-bottom text-center py-1">
+                    ⚠️ 建议仅供参考，急症请立即线下就医
                 </div>
-                <div class="modal-body p-0">
-                    <div class="alert alert-warning small m-0 rounded-0 border-0 border-bottom text-center py-1">
-                        ⚠️ 建议仅供参考，急症请立即线下就医
-                    </div>
 
-                    <div id="chat-box" class="chat-box" style="height: 400px;">
-                        <div class="msg-row"><div class="msg-bubble msg-ai">你好！我是家庭宠物医生。毛孩子哪里不舒服？</div></div>
+                <div id="chat-box" class="chat-box" style="height: 400px;">
+                    <div class="msg-row">
+                        <div class="msg-bubble msg-ai">你好！我是家庭宠物医生。毛孩子哪里不舒服？</div>
                     </div>
+                </div>
 
-                    <!-- 底部输入区 -->
-                    <div class="p-3 border-top d-flex gap-2 bg-white">
-                        <input type="text" id="chat-input" class="form-control" placeholder="描述症状... (回车发送)" onkeydown="if(event.keyCode==13) sendMsg()">
-                        <button class="btn btn-primary" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
-                    </div>
+                <!-- 底部输入区 -->
+                <div class="p-3 border-top d-flex gap-2 bg-white">
+                    <!-- [新增] 图片上传按钮 -->
+                        <label class="btn btn-light text-secondary border-0 rounded-circle" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-image"></i>
+                            <input type="file" id="vet-img-input" class="d-none" accept="image/*" onchange="handleVetImage(this)">
+                        </label>
+                    <input type="text" id="chat-input" class="form-control" placeholder="描述症状... (回车发送)"
+                           onkeydown="if(event.keyCode==13) sendMsg()">
+                    <button class="btn btn-primary" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
     </div>
+</div>
 <!-- 🧘‍♂️ 赛博木鱼 (隐藏层) -->
 <div id="zen-mode">
     <div class="zen-close" onclick="toggleZenMode()">×</div>
@@ -5889,10 +6098,10 @@
 
     // ================= 🎟️ 兑换券逻辑 =================
     // 快捷填单
-        function fillCoupon(text) {
+    function fillCoupon(text) {
         const input = document.querySelector('#couponModal input[name="title"]');
-        if(input) input.value = text;
-        }
+        if (input) input.value = text;
+    }
 
     function openCouponModal(fid, received, sent, members) {
         document.getElementById('coupon_fam_id').value = fid;
@@ -5993,33 +6202,69 @@
             </div>
         </div>
         `;
-        }
-       // ================= 🍎 动态红黑榜逻辑 =================
-    let foodDataCache = [];
-
-    function openFoodModal() {
-        new bootstrap.Modal(document.getElementById('foodModal')).show();
-        // 拉取数据
-        fetch('/api/food_guide')
-            .then(res => res.json())
-            .then(data => {
-                foodDataCache = data;
-                renderFoodList(data);
-            });
     }
+        // ================= 🍎 动态红黑榜逻辑 =================
+        let foodDataCache = [];
+        let currentStatus = 'all'; // 当前选中的分类
 
-    function renderFoodList(data) {
-        const box = document.getElementById('food-list-container');
-        if(!data.length) { box.innerHTML = '<div class="text-center py-5 text-muted">暂无数据</div>'; return; }
+        function openFoodModal() {
+            new bootstrap.Modal(document.getElementById('foodModal')).show();
+            fetch('/api/food_guide')
+                .then(res => res.json())
+                .then(data => {
+                    foodDataCache = data;
+                    renderFoodList(data);
+                });
+        }
 
-        let html = '';
-        data.forEach(item => {
-            let icon = '❓', colorClass = '';
-            if(item.status === 'danger') { icon='☠️'; colorClass='f-danger'; }
-            else if(item.status === 'warn') { icon='⚠️'; colorClass='f-warn'; }
-            else if(item.status === 'safe') { icon='✅'; colorClass='f-safe'; }
+        // [新增] 切换分类
+        function filterFoodStatus(status, btn) {
+            currentStatus = status;
 
-            html += `
+            // 按钮样式切换
+            const btns = btn.parentNode.querySelectorAll('button');
+            btns.forEach(b => {
+                // 恢复未选中样式
+                b.classList.remove('active', 'btn-danger', 'btn-warning', 'btn-success', 'btn-dark');
+                // 根据原来的类名恢复 outline
+                if (b.innerText.includes('禁止')) b.classList.add('btn-outline-danger');
+                else if (b.innerText.includes('慎食')) b.classList.add('btn-outline-warning');
+                else if (b.innerText.includes('安全')) b.classList.add('btn-outline-success');
+                else b.classList.add('btn-outline-dark');
+            });
+
+            // 设置选中样式
+            btn.classList.remove('btn-outline-danger', 'btn-outline-warning', 'btn-outline-success', 'btn-outline-dark');
+            if (status === 'danger') btn.classList.add('btn-danger', 'text-white');
+            else if (status === 'warn') btn.classList.add('btn-warning', 'text-dark');
+            else if (status === 'safe') btn.classList.add('btn-success', 'text-white');
+            else btn.classList.add('btn-dark', 'text-white');
+
+            filterFoodList();
+        }
+
+        function renderFoodList(data) {
+            const box = document.getElementById('food-list-container');
+            if (!data.length) {
+                box.innerHTML = '<div class="text-center py-5 text-muted">暂无数据</div>';
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                let icon = '❓', colorClass = '';
+                if (item.status === 'danger') {
+                    icon = '☠️';
+                    colorClass = 'f-danger';
+                } else if (item.status === 'warn') {
+                    icon = '⚠️';
+                    colorClass = 'f-warn';
+                } else if (item.status === 'safe') {
+                    icon = '✅';
+                    colorClass = 'f-safe';
+                }
+
+                html += `
             <div class="food-item">
                 <div class="d-flex align-items-center">
                     <div class="food-status-icon ${colorClass}">${icon}</div>
@@ -6029,119 +6274,193 @@
                     </div>
                 </div>
             </div>`;
-        });
-        box.innerHTML = html;
-    }
-
-    function filterFoodList() {
-        const key = document.getElementById('food-search').value.toLowerCase();
-        const filtered = foodDataCache.filter(item => item.name.includes(key) || item.reason.includes(key));
-        renderFoodList(filtered);
-    }
-
-    // ================= 🩺 AI 聊天逻辑 (独立修复版) =================
-
-    // 打开弹窗函数
-    function openVetModal() {
-        const modalEl = document.getElementById('vetModal');
-        if (modalEl) {
-            new bootstrap.Modal(modalEl).show();
-            // 自动聚焦输入框
-            setTimeout(() => document.getElementById('chat-input').focus(), 500);
-        } else {
-            console.error("错误：找不到 id='vetModal' 的弹窗元素！");
-            alert("弹窗加载失败，请刷新页面重试");
+            });
+            box.innerHTML = html;
         }
+
+        function filterFoodList() {
+            const key = document.getElementById('food-search').value.toLowerCase();
+
+            const filtered = foodDataCache.filter(item => {
+                // 1. 搜索匹配
+                const matchSearch = item.name.includes(key) || item.reason.includes(key);
+                // 2. 状态匹配
+                const matchStatus = currentStatus === 'all' || item.status === currentStatus;
+
+                return matchSearch && matchStatus;
+            });
+
+            renderFoodList(filtered);
+        }
+
+        // ================= 🩺 AI 聊天逻辑 (防串线终极版) =================
+        let chatHistory = [];
+        let isTalking = false;
+
+        // 打开弹窗
+        function openVetModal() {
+            const modal = new bootstrap.Modal(document.getElementById('vetModal'));
+            modal.show();
+
+            // [修复] 检查是否已经有开场白，如果没有再添加
+            const box = document.getElementById('chat-box');
+            if (box.children.length === 0) {
+                addBubble("你好！我是家庭宠物医生。毛孩子哪里不舒服？", 'ai');
+            }
+
+            setTimeout(() => document.getElementById('chat-input').focus(), 500);
+        }
+        let currentVetImage = null; // 暂存图片 Base64
+
+    // 1. 处理图片选择
+    function handleVetImage(input) {
+        const file = input.files[0];
+        if(!file) return;
+
+        // 压缩图片 (防止超 token 或 上传慢)
+        new Compressor(file, {
+            quality: 0.6,
+            maxWidth: 1024,
+            success(result) {
+                const reader = new FileReader();
+                reader.readAsDataURL(result);
+                reader.onloadend = function() {
+                    currentVetImage = reader.result;
+                    // 在聊天框显示预览图
+                    addBubble(`<img src="${currentVetImage}" style="max-width:200px; border-radius:8px; border:2px solid #eee;">`, 'me');
+                    // 自动触发发送 (不带文字，纯图模式)
+                    sendMsg(null, true);
+                }
+            },
+            error(err) {
+                alert("图片处理失败，请重试");
+            }
+        });
     }
-
-    // 聊天相关变量
-    let chatHistory = [];
-    let isTalking = false;
-
-    // 发送消息函数
-    function sendMsg(val) {
+        // 发送消息
+        async function sendMsg(val, isImageMode=false) {
         if(isTalking) return;
 
         const input = document.getElementById('chat-input');
         const msg = val || input.value;
-        if(!msg.trim()) return;
 
-        // 1. 用户消息上屏
-        addBubble(msg, 'me');
-        input.value = '';
-        chatHistory.push({"role": "user", "content": msg});
+        // 如果是纯文字模式且没字，不发
+        if(!isImageMode && !msg.trim()) return;
 
-        // 2. 准备接收流
+        // 文字上屏 (如果是发图模式，刚才已经上过屏了，这里跳过)
+        if (!isImageMode) {
+            addBubble(msg, 'me');
+            input.value = '';
+            chatHistory.push({"role": "user", "content": msg});
+        }
+
+        // 准备 AI 泡泡
         isTalking = true;
-        const aiBubbleId = addBubble('', 'ai', true); // 创建空泡泡，带光标
-        const aiBubble = document.getElementById(aiBubbleId);
+        const aiBubbleId = addBubble('', 'ai', true);
+        const aiBubbleElement = document.getElementById(aiBubbleId);
 
-        // 3. 请求后端
-        fetch('/api/ask_vet', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
-            body: JSON.stringify({ history: chatHistory })
-        })
-        .then(async response => {
+        // 构造请求数据
+        const payload = { history: chatHistory };
+        if (isImageMode && currentVetImage) {
+            payload.image = currentVetImage;
+            currentVetImage = null; // 发送后清空缓存
+        }
+
+        try {
+            const response = await fetch('/api/ask_vet', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+                body: JSON.stringify(payload)
+            });
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullText = "";
 
-            // 移除打字光标样式
-            if(aiBubble) aiBubble.classList.remove('typing');
+            aiBubbleElement.classList.remove('typing');
 
-            // 非流式错误处理
+            // 判断 Content-Type 决定处理方式
             const contentType = response.headers.get("content-type");
+
+            // A. 非流式 (JSON)
             if (contentType && contentType.includes("application/json")) {
                  const data = await response.json();
-                 if(aiBubble) aiBubble.innerHTML = data.reply || data.error;
-                 chatHistory.push({"role": "assistant", "content": aiBubble.innerHTML});
+                 if(data.reply) {
+                     aiBubbleElement.innerHTML = formatMarkdown(data.reply);
+                     chatHistory.push({"role": "assistant", "content": data.reply});
+                 } else {
+                     aiBubbleElement.innerHTML = `<span class="text-danger">⚠️ ${data.error || '服务开小差了'}</span>`;
+                 }
                  isTalking = false;
                  return;
             }
 
-            // 流式读取
+            // B. 流式 (Text)
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value);
+                const chunk = decoder.decode(value, {stream: true});
                 fullText += chunk;
-                if(aiBubble) {
-                    aiBubble.innerHTML = fullText.replace(/\n/g, '<br>');
-                    // 自动滚动到底部
-                    const box = document.getElementById('chat-box');
-                    if(box) box.scrollTop = box.scrollHeight;
-                }
+                aiBubbleElement.innerHTML = formatMarkdown(fullText);
+                scrollToBottom();
             }
             chatHistory.push({"role": "assistant", "content": fullText});
-            isTalking = false;
-        })
-        .catch(err => {
+
+        } catch (err) {
             console.error(err);
-            if(aiBubble) aiBubble.innerHTML = "网络连不上医生了，请稍后再试。";
+            if(aiBubbleElement) aiBubbleElement.innerHTML = "❌ 网络连接断开";
+        } finally {
             isTalking = false;
-        });
+            if(aiBubbleElement) aiBubbleElement.classList.remove('typing');
+        }
     }
 
-    // 添加气泡辅助函数
-    function addBubble(text, role, isTyping=false) {
-        const box = document.getElementById('chat-box');
-        if(!box) return;
+        // 添加气泡函数 (生成唯一ID)
+        function addBubble(text, role, isTyping = false) {
+            const box = document.getElementById('chat-box');
+            if (!box) return;
 
-        const row = document.createElement('div');
-        row.className = `msg-row ${role}`;
+            const row = document.createElement('div');
+            row.className = `msg-row ${role}`; // 这里决定了是左还是右
 
-        const bubble = document.createElement('div');
-        // msg-ai / msg-me 样式在之前的 CSS 里定义了
-        bubble.className = `msg-bubble msg-${role} ${isTyping ? 'typing' : ''}`;
-        bubble.id = 'msg-' + Date.now();
-        bubble.innerHTML = text;
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble msg-${role} ${isTyping ? 'typing' : ''}`;
 
-        row.appendChild(bubble);
-        box.appendChild(row);
-        box.scrollTop = box.scrollHeight;
-        return bubble.id;
-    }
+            // 生成唯一 ID，防止搞混
+            const uniqueId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            bubble.id = uniqueId;
+
+            // 如果有字，先渲染出来
+            if (text) bubble.innerHTML = formatMarkdown(text);
+
+            row.appendChild(bubble);
+            box.appendChild(row);
+            scrollToBottom();
+
+            return uniqueId; // 返回 ID 给主函数用
+        }
+
+        // 简单的 Markdown 美化工具
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let html = text;
+            // 加粗 **text**
+            html = html.replace(/\*\*(.*?)\*\*/g, '<span style="color:#d63031;font-weight:800;">$1</span>');
+            // 列表 1. 变成换行
+            html = html.replace(/(\d+\.)/g, '<br><strong>$1</strong>');
+            // 换行符
+            html = html.replace(/\n/g, '<br>');
+
+            // 清理开头的 br
+            if (html.startsWith('<br>')) html = html.substring(4);
+
+            return html;
+        }
+
+        function scrollToBottom() {
+            const box = document.getElementById('chat-box');
+            if (box) box.scrollTop = box.scrollHeight;
+        }
 </script>
 </body>
 </html>

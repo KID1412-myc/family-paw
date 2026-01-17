@@ -669,39 +669,136 @@
             </div>
         </div>
         <div class="tab-pane fade" id="config">
-            <div class="card p-4 border-0 bg-light shadow-sm">
-                <h6 class="fw-bold mb-3">🤖 AI 兽医设置 (DeepSeek/OpenAI)</h6>
-                <form action="/admin/update_config" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">API 地址 (Base URL)</label>
-                        <input type="text" name="ai_url" class="form-control" value="{{ ai_config.get('ai_url', '') }}"
-                               placeholder="https://api.deepseek.com">
-                        <div class="form-text small">填写到域名即可，无需 /chat/completions</div>
+                <!-- 1. 模型列表 -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white fw-bold border-0">🎛️ 模型调度中心</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th>名称</th>
+                                    <th>默认聊天</th>
+                                    <th>默认识图</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in ai_models %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">{{ m.name }}</div>
+                                        <small class="text-muted font-monospace">{{ m.model_code }}</small>
+                                    </td>
+                                    <td>
+                                        <!-- 聊天开关 -->
+                                        <form action="/admin/toggle_model_active" method="POST">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="model_id" value="{{ m.id }}">
+                                            <input type="hidden" name="type" value="text">
+                                            <button class="btn btn-sm {{ 'btn-success' if m.is_active_text else 'btn-outline-secondary opacity-25' }} rounded-pill" style="width: 40px;">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <!-- 识图开关 (只有支持Vision的才能开) -->
+                                        {% if m.is_vision %}
+                                        <form action="/admin/toggle_model_active" method="POST">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="model_id" value="{{ m.id }}">
+                                            <input type="hidden" name="type" value="vision">
+                                            <button class="btn btn-sm {{ 'btn-primary' if m.is_active_vision else 'btn-outline-secondary opacity-25' }} rounded-pill" style="width: 40px;">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-muted small">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form action="/admin/delete_model/{{ m.id }}" method="POST" onsubmit="return confirm('删？')">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button class="btn btn-sm text-danger"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center text-muted py-3">暂无模型，请添加</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
+                </div>
+                <!-- 3. 全局设置 (流式开关) -->
+                <div class="card p-3 border-0 bg-white shadow-sm mb-4">
+                    <form action="/admin/update_config" method="POST" class="d-flex align-items-center justify-content-between">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">API Key (密钥)</label>
-                        <input type="password" name="ai_key" class="form-control"
-                               value="{{ ai_config.get('ai_key', '') }}" placeholder="sk-...">
-                    </div>
+                        <!-- 隐藏域：为了不覆盖 Key 和 URL，我们需要把它们也带上，或者修改后端逻辑 -->
+                        <!-- 更加稳妥的做法：只提交 ai_stream -->
+                        <!-- 但因为你的后端 admin_update_config 是全量更新的，这里必须带上旧值，否则会把 Key 清空！-->
+                        <!-- 所以，这里用一种更聪明的写法：只显示开关，提交时用 JS 补全其他值，或者修改后端 -->
 
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">模型名称 (Model Name)</label>
-                        <input type="text" name="ai_model" class="form-control"
-                               value="{{ ai_config.get('ai_model', '') }}" placeholder="deepseek-chat">
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" name="ai_stream" id="streamSwitch"
-                               {% if ai_config.get('ai_stream') == 'true' %}checked{% endif %}>
-                        <label class="form-check-label" for="streamSwitch">开启流式回复</label>
-                    </div>
+                        <!-- 修正方案：我们在后端专门写一个 toggle_stream 路由，或者在这里展示状态 -->
 
-                    <button type="submit" class="btn btn-primary w-100 fw-bold">保存配置</button>
-                </form>
+                        <div>
+                            <span class="fw-bold"><i class="fas fa-stream text-primary me-2"></i>流式响应 (打字机效果)</span>
+                            <div class="text-muted small">开启后 AI 回复会一个字一个字蹦出来</div>
+                        </div>
+
+                        <div class="form-check form-switch">
+                            <!-- 注意：这里需要配合一段 JS 来自动提交，或者加个保存按钮 -->
+                            <!-- 为了简单，我们加个保存按钮 -->
+                            <input class="form-check-input" type="checkbox" name="ai_stream" id="streamSwitch"
+                                   style="width: 50px; height: 25px;"
+                                   {% if ai_config.get('ai_stream') == 'true' %}checked{% endif %}>
+                        </div>
+
+                        <!-- 这里的隐藏域是为了防止覆盖掉 url/key/model -->
+                        <input type="hidden" name="ai_url" value="{{ ai_config.get('ai_url', '') }}">
+                        <input type="hidden" name="ai_key" value="{{ ai_config.get('ai_key', '') }}">
+                        <input type="hidden" name="ai_model" value="{{ ai_config.get('ai_model', '') }}">
+
+                        <button class="btn btn-sm btn-outline-primary ms-3">保存设置</button>
+                    </form>
+                </div>
+                <!-- 2. 添加模型表单 -->
+                <div class="card p-4 border-0 bg-light shadow-sm">
+                    <h6 class="fw-bold mb-3">➕ 添加新模型</h6>
+                    <form action="/admin/add_model" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="small text-muted">显示名称</label>
+                                <input type="text" name="name" class="form-control" placeholder="如: DeepSeek V3" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted">模型代码 (API Model)</label>
+                                <input type="text" name="model_code" class="form-control" placeholder="如: deepseek-chat" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="small text-muted">API 域名 (Base URL)</label>
+                                <input type="text" name="api_url" class="form-control" placeholder="如: https://api.deepseek.com" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="small text-muted">API Key</label>
+                                <input type="text" name="api_key" class="form-control" placeholder="sk-..." required>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_vision" id="visionCheck">
+                                    <label class="form-check-label" for="visionCheck">该模型支持图片识别 (Vision)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-dark w-100 fw-bold mt-3">添加模型</button>
+                    </form>
+                </div>
             </div>
-        </div>
         <div class="tab-pane fade" id="food">
             <div class="card p-4 mb-3 border-0 bg-light shadow-sm">
                 <h6 class="fw-bold mb-3">🍎 添加食物禁忌</h6>

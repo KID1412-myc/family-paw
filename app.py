@@ -96,7 +96,7 @@ def verify_lab_entry():
         return "<body style='background:#000;color:red;text-align:center;padding-top:50px;'><h1>ACCESS DENIED</h1><a href='/lab_entry' style='color:#fff'>RETRY</a></body>"
 
 
-CURRENT_APP_VERSION = '4.1.0'
+CURRENT_APP_VERSION = '4.2.0'
 qweather_key = os.environ.get("QWEATHER_KEY")
 qweather_host = os.environ.get("QWEATHER_HOST", "https://devapi.qweather.com")
 ENABLE_GOD_MODE = False
@@ -1795,6 +1795,8 @@ def admin_dashboard():
         updates_list = client.table('app_updates').select('*').order('created_at', desc=True).execute().data or []
         reg_codes = client.table('registration_codes').select('*').order('created_at', desc=True).execute().data or []
         food_list = client.table('pet_food_guide').select('*').order('id').execute().data or []
+        # [新增] 获取 AI 模型列表
+        ai_models = client.table('ai_models').select('*').order('id').execute().data or []
     except Exception as e:
         print(f"Admin Data Error: {e}")
         users = [];
@@ -1996,6 +1998,7 @@ def admin_dashboard():
                            reg_codes=reg_codes,  # [新增] 注册暗号列表
                            user_name=session.get('display_name'),
                            food_list=food_list,
+                           ai_models=ai_models,
                            ai_config=ai_config)
 
 # 3. 新增 API: 获取服务器实时状态
@@ -3523,7 +3526,60 @@ def use_coupon():
 
 
 # ================= 🤖 AI & 配置模块 =================
+# ================= 🤖 AI 多模型管理模块 =================
 
+@app.route('/admin/add_model', methods=['POST'])
+@admin_required
+def admin_add_model():
+    """添加一个新的 AI 模型"""
+    if not admin_supabase: return redirect(url_for('admin_dashboard'))
+
+    try:
+        admin_supabase.table('ai_models').insert({
+            'name': request.form.get('name'),
+            'api_url': request.form.get('api_url'),
+            'api_key': request.form.get('api_key'),
+            'model_code': request.form.get('model_code'),
+            'is_vision': request.form.get('is_vision') == 'on'
+        }).execute()
+        flash("模型添加成功", "success")
+    except Exception as e:
+        flash(f"添加失败: {e}", "danger")
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/toggle_model_active', methods=['POST'])
+@admin_required
+def admin_toggle_model_active():
+    """切换默认模型 (互斥)"""
+    if not admin_supabase: return redirect(url_for('admin_dashboard'))
+
+    mid = request.form.get('model_id')
+    mtype = request.form.get('type')  # 'text' 或 'vision'
+
+    try:
+        col_name = 'is_active_text' if mtype == 'text' else 'is_active_vision'
+
+        # 1. 先把所有模型该字段设为 False
+        admin_supabase.table('ai_models').update({col_name: False}).neq('id', -1).execute()
+        # 2. 把选中的设为 True
+        admin_supabase.table('ai_models').update({col_name: True}).eq('id', mid).execute()
+
+        flash(f"已切换默认 {mtype} 模型", "success")
+    except Exception as e:
+        flash(f"切换失败: {e}", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_model/<int:mid>', methods=['POST'])
+@admin_required
+def admin_delete_model(mid):
+    try:
+        admin_supabase.table('ai_models').delete().eq('id', mid).execute()
+        flash("模型已删除", "info")
+    except:
+        pass
+    return redirect(url_for('admin_dashboard'))
 def get_sys_config(key_name):
     """获取系统配置"""
     try:
@@ -3565,27 +3621,103 @@ def admin_update_config():
 @app.route('/api/ask_vet', methods=['POST'])
 @login_required
 def ask_vet():
-    """AI 兽医接口 (支持流式/非流式切换)"""
-    history = request.json.get('history', [])
+    """
+    AI 兽医接口 (完全体)
+    1. 自动切换 文本/识图 模型
+    2. 针对图片使用专用 Prompt
+    3. 支持流式开关
+    """
+    data = request.json
+    history = data.get('history', [])
+    image_data = data.get('image')  # Base64
 
-    api_url = get_sys_config('ai_url')
-    api_key = get_sys_config('ai_key')
-    model = get_sys_config('ai_model')
-    is_stream = get_sys_config('ai_stream') == 'true'  # 读取开关
+    client = get_db()
 
-    if not api_key: return jsonify({'error': '未配置 Key'})
-
-    system_prompt = {"role": "system", "content": "你是一位经验丰富的家庭宠物医生。你的回答必须：1.简洁明了(150字以内)。2.语气温柔但专业。3.对于禁食、中毒等危急情况，必须第一时间建议去医院。4.不要说废话。"}
-    messages = [system_prompt] + history
-
-    target_url = api_url.rstrip('/') + "/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    payload = {"model": model, "messages": messages, "temperature": 0.7, "stream": is_stream}
-
+    # 1. 读取流式开关 (默认开启)
     try:
-        # === A. 流式模式 (Typewriter) ===
+        config_res = client.table('app_config').select('value').eq('key', 'ai_stream').single().execute()
+        is_stream = config_res.data['value'] == 'true' if config_res.data else True
+    except:
+        is_stream = True
+
+    # 2. 选择模型 & 设定 Prompt
+    current_model = None
+    messages = []
+
+    if image_data:
+        # === 📸 图片模式 (Vision) ===
+        # 查找启用的视觉模型 (如 GPT-4o)
+        model_res = client.table('ai_models').select('*').eq('is_active_vision', True).single().execute()
+        if not model_res.data:
+            return jsonify({'error': '未配置识图模型 (请联系管理员添加支持 Vision 的模型)'})
+        current_model = model_res.data
+
+        # [识图专用 Prompt]
+        system_content = """
+你是一位专业的临床兽医，正在进行远程视觉诊断。
+请仔细观察用户上传的图片（可能是粪便、皮肤病灶、外伤、X光片或宠物状态）。
+
+回答逻辑：
+1. **视觉描述**：先用专业但通俗的语言描述你看到了什么（例如：'粪便呈柏油状黑色，提示上消化道出血' 或 '皮肤有圆形红斑，边缘脱屑，典型钱癣特征'）。
+2. **初步诊断**：给出最可能的 1-3 种病因。
+3. **危急评估**：明确告知是否需要立刻去医院。
+4. **家庭建议**：如果能在家处理，给出具体方案；如果不能，给出就医前的急救措施。
+
+请保持冷静、客观、有同理心。不要说废话。
+"""
+        # 构造 Vision 消息 (OpenAI 格式)
+        user_msg = {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "请帮我看看这张照片，宠物怎么了？"},
+                {"type": "image_url", "image_url": {"url": image_data}}
+            ]
+        }
+        # 识图模式下，为了效果好，通常不带太长的历史记录，只带系统设定和当前图
+        messages = [{"role": "system", "content": system_content}, user_msg]
+
+    else:
+        # === 💬 文字模式 (Text) ===
+        # 查找启用的文字模型 (如 DeepSeek)
+        model_res = client.table('ai_models').select('*').eq('is_active_text', True).single().execute()
+        if not model_res.data:
+            return jsonify({'error': '未配置聊天模型'})
+        current_model = model_res.data
+
+        # [文字问诊 Prompt] (之前的分诊护士风格)
+        system_content = """
+你是一个温和、经验丰富的家庭宠物医生。
+
+    ### 你的回复逻辑：
+    1. **直接判断**：根据用户简短的描述，直接判断风险等级（没事 / 观察 / 马上医院）。
+    2. **少问多说**：除非信息缺失严重导致无法判断（比如不知道是猫是狗且这就影响急救），否则**尽量不要反问**，而是基于“如果是猫...如果是狗...”分别给出简短建议，如果用户没有提及是什么宠物，给出建议后可以在最后问一下具体的宠物种类以及年龄。
+    3. **安抚为主**：每一句话都要有温度。
+    4. **格式**：不要用 Markdown 的加粗(`**`)，直接用纯文本或 Emoji。因为前端渲染可能会乱。
+
+    ### 示例：
+    用户：拉稀了
+    你：别急。如果是**幼宠**或**没打疫苗**，怕是细小，得去医院测一下。如果是**成年宠**且精神好，可能是吃坏了，建议先禁食12小时，喂点益生菌观察看看。如果出现呕吐或便血，也要马上去医院哦。
+"""
+        messages = [{"role": "system", "content": system_content}] + history
+
+    # 3. 发起请求
+    try:
+        url = current_model['api_url'].rstrip('/') + "/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {current_model['api_key']}"
+        }
+        payload = {
+            "model": current_model['model_code'],
+            "messages": messages,
+            "temperature": 0.6,
+            "stream": is_stream,
+            "max_tokens": 1000
+        }
+
+        # A. 流式处理
         if is_stream:
-            resp = requests.post(target_url, json=payload, headers=headers, stream=True)
+            resp = requests.post(url, json=payload, headers=headers, stream=True)
 
             def generate():
                 for line in resp.iter_lines():
@@ -3594,7 +3726,7 @@ def ask_vet():
                         if decoded.startswith("data: "):
                             if "[DONE]" in decoded: break
                             try:
-                                json_str = decoded[6:]  # 去掉 'data: '
+                                json_str = decoded[6:]
                                 chunk = json.loads(json_str)
                                 content = chunk['choices'][0]['delta'].get('content', '')
                                 if content: yield content
@@ -3603,27 +3735,36 @@ def ask_vet():
 
             return Response(stream_with_context(generate()), content_type='text/plain')
 
-        # === B. 非流式模式 (一次性返回) ===
+        # B. 非流式处理
         else:
-            resp = requests.post(target_url, json=payload, headers=headers, timeout=30)
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
             data = resp.json()
             if 'choices' in data:
                 return jsonify({'reply': data['choices'][0]['message']['content']})
-            return jsonify({'error': 'API Error'})
-
+            return jsonify({'error': f"API Error: {data}"})
 
     except Exception as e:
         print(f"AI Error: {e}")
-        return jsonify({'error': '网络连接超时，请重试'})
+        return jsonify({'error': str(e)})
 @app.route('/api/food_guide')
 @login_required
 def get_food_guide():
-    """获取所有食物禁忌数据"""
-    # 允许所有人查，不需要 admin
     try:
-        res = get_db().table('pet_food_guide').select('*').order('id').execute()
-        return jsonify(res.data or [])
-    except: return jsonify([])
+        # 获取所有数据
+        res = get_db().table('pet_food_guide').select('*').execute()
+        data = res.data or []
+
+        # [修改] 按安全等级排序
+        # danger(禁止) 排最前，warn(慎食) 中间，safe(安全) 最后
+        sort_map = {'danger': 0, 'warn': 1, 'safe': 2}
+
+        # Python 排序逻辑：先按等级排，等级一样的按 ID 排
+        data.sort(key=lambda x: (sort_map.get(x['status'], 3), x['id']))
+
+        return jsonify(data)
+    except Exception as e:
+        print(f"Food Error: {e}")
+        return jsonify([])
 
 @app.route('/admin/add_food', methods=['POST'])
 @admin_required
